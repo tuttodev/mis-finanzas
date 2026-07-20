@@ -96,6 +96,8 @@
   html {
     @apply font-sans;
     color-scheme: dark;
+    /* Paint overscroll and safe areas in iOS standalone mode */
+    background-color: var(--background);
   }
   body {
     @apply bg-background text-foreground;
