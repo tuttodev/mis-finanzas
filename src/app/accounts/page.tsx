@@ -1,6 +1,9 @@
 'use client';
 
+import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
+import { Plus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AccountRow } from '@/components/finance/account-row';
 import { EmptyState } from '@/components/empty-state';
@@ -20,7 +23,16 @@ export default function AccountsPage() {
 
   return (
     <div className="mx-auto max-w-2xl p-4">
-      <PageHeader title="Mis Cuentas" subtitle="Tus saldos y movimientos actuales" />
+      <PageHeader
+        title="Mis Cuentas"
+        subtitle="Tus saldos y movimientos actuales"
+        action={
+          <Button nativeButton={false} render={<Link href="/account-form" />}>
+            <Plus className="h-4 w-4" />
+            Nueva
+          </Button>
+        }
+      />
 
       {accountsQuery.isLoading ? (
         <div className="space-y-3 pt-2">
@@ -51,7 +63,7 @@ export default function AccountsPage() {
       ) : (
         <EmptyState
           title="Sin cuentas"
-          description="Aún no hay cuentas disponibles en Supabase."
+          description="Crea tu primera cuenta para empezar a registrar movimientos."
         />
       )}
     </div>

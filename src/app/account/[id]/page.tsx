@@ -3,7 +3,7 @@
 import { use, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -142,10 +142,18 @@ export default function AccountDetailPage({
               <div className="divide-y divide-border">
                 {transactionsQuery.data.map((transaction) => (
                   <div key={transaction.id} className="flex items-center gap-2">
-                    <div className="min-w-0 flex-1">
-                      <TransactionRow transaction={transaction} />
-                    </div>
+                    <Link
+                      href={`/transaction/${transaction.id}/edit`}
+                      aria-label={`Editar ${transaction.description}`}
+                      className="flex min-w-0 flex-1 items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <TransactionRow transaction={transaction} />
+                      </div>
+                      <Pencil className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    </Link>
                     <button
+                      type="button"
                       onClick={() => setDeleteTarget(transaction.id)}
                       aria-label="Eliminar transacción"
                       className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"

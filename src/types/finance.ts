@@ -1,6 +1,16 @@
 export type AccountType = 'Ahorros' | 'Crédito' | 'Efectivo';
 export type TransactionType = 'Ingreso' | 'Gasto';
 
+export type ExpenseCategoryDTO = {
+  id: string;
+  slug: string;
+  name: string;
+  sort_order: number;
+  is_active: boolean;
+  is_system: boolean;
+  created_at?: string | null;
+};
+
 export type AccountDTO = {
   id: string;
   name: string;
@@ -8,10 +18,20 @@ export type AccountDTO = {
   created_at?: string | null;
 };
 
+export type InsertAccountDTO = {
+  name: string;
+  type: 'savings' | 'credit' | 'cash';
+};
+
+export type InsertExpenseCategoryDTO = {
+  name: string;
+};
+
 export type TransactionDTO = {
   id: string;
   account_id: string;
   budget_cycle_id?: string | null;
+  category_id?: string | null;
   date: string;
   description: string;
   amount: number;
@@ -21,10 +41,13 @@ export type TransactionDTO = {
 export type InsertTransactionDTO = {
   account_id: string;
   budget_cycle_id?: string | null;
+  category_id?: string | null;
   date: string;
   description: string;
   amount: number;
 };
+
+export type UpdateTransactionDTO = InsertTransactionDTO;
 
 export type BudgetDTO = {
   id: string;
@@ -73,12 +96,26 @@ export type Account = {
   currentBalance: number;
 };
 
+export type ExpenseCategory = {
+  id: string;
+  slug: string;
+  name: string;
+  isSystem: boolean;
+};
+
 export type Transaction = {
   id: string;
   accountId: string;
+  categoryId: string | null;
+  categoryName: string | null;
   date: string;
   description: string;
   amount: number;
+};
+
+export type EditableTransaction = Transaction & {
+  budgetCycleId: string | null;
+  budgetId: string | null;
 };
 
 export type Budget = {
@@ -123,6 +160,7 @@ export type BudgetMovement = {
   date: string;
   description: string;
   amount: number;
+  categoryName: string | null;
 };
 
 export type BudgetDetail = {
@@ -151,12 +189,18 @@ export type DailySpend = {
   value: number;
 };
 
+export type CategorySpending = {
+  label: string;
+  value: number;
+};
+
 export type DashboardData = {
   totalBalance: number;
   monthIncome: number;
   monthExpense: number;
   cashflow: MonthlyCashflow[];
   dailySpend: DailySpend[];
+  categorySpending: CategorySpending[];
   recentTransactions: TransactionWithAccount[];
 };
 
@@ -167,6 +211,21 @@ export type CreateTransactionInput = {
   type: TransactionType;
   date: string;
   budgetId?: string | null;
+  categoryId?: string | null;
+};
+
+export type UpdateTransactionInput = CreateTransactionInput & {
+  originalBudgetCycleId?: string | null;
+  originalBudgetId?: string | null;
+};
+
+export type CreateAccountInput = {
+  name: string;
+  type: AccountType;
+};
+
+export type CreateExpenseCategoryInput = {
+  name: string;
 };
 
 export type CreateBudgetInput = {

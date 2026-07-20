@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { roundCurrencyAmount } from '@/lib/formatters';
 import type {
   Account,
   AccountDTO,
@@ -12,18 +13,28 @@ import type {
   BudgetProgress,
   BudgetSnapshot,
   BudgetSnapshotDetail,
+  CategorySpending,
+  CreateAccountInput,
   CreateBudgetInput,
+  CreateExpenseCategoryInput,
   CreateTransactionInput,
   DailySpend,
   DashboardData,
+  ExpenseCategory,
+  ExpenseCategoryDTO,
+  EditableTransaction,
+  InsertAccountDTO,
   MonthlyCashflow,
   TransactionWithAccount,
   InsertBudgetCycleDTO,
   InsertBudgetDTO,
+  InsertExpenseCategoryDTO,
   InsertTransactionDTO,
   ResetBudgetCycleDTO,
   Transaction,
   TransactionDTO,
+  UpdateTransactionDTO,
+  UpdateTransactionInput,
   UpdateBudgetDTO,
 } from '@/types/finance';
 
@@ -47,6 +58,26 @@ function mapAccountType(type: string): AccountType {
     default:
       return 'Efectivo';
   }
+}
+
+function mapAccountTypeToDatabase(type: AccountType): InsertAccountDTO['type'] {
+  switch (type) {
+    case 'Ahorros':
+      return 'savings';
+    case 'Crédito':
+      return 'credit';
+    default:
+      return 'cash';
+  }
+}
+
+function mapAccount(dto: AccountDTO, currentBalance = 0): Account {
+  return {
+    id: dto.id,
+    name: dto.name,
+    type: mapAccountType(dto.type),
+    currentBalance,
+  };
 }
 
 function mapBudget(dto: BudgetDTO): Budget {
@@ -93,10 +124,26 @@ function mapSnapshot(dto: BudgetCycleDTO): BudgetSnapshot | null {
   };
 }
 
-function mapTransaction(dto: TransactionDTO): Transaction {
+function mapExpenseCategory(dto: ExpenseCategoryDTO): ExpenseCategory {
+  return {
+    id: dto.id,
+    slug: dto.slug,
+    name: dto.name,
+    isSystem: dto.is_system,
+  };
+}
+
+function mapTransaction(
+  dto: TransactionDTO,
+  categoryNames: Map<string, string> = new Map(),
+): Transaction {
+  const categoryId = dto.category_id ?? null;
+
   return {
     id: dto.id,
     accountId: dto.account_id,
+    categoryId,
+    categoryName: categoryId ? categoryNames.get(categoryId) ?? null : null,
     date: dto.date,
     description: dto.description,
     amount: dto.amount,
@@ -121,6 +168,11 @@ async function fetchAccountsMap() {
   const accounts = ensure(data as AccountDTO[] | null, error);
 
   return new Map(accounts.map((account) => [account.id, account.name]));
+}
+
+async function fetchCategoriesMap() {
+  const categories = await fetchExpenseCategories();
+  return new Map(categories.map((category) => [category.id, category.name]));
 }
 
 async function fetchOpenBudgetCycle(budgetId: string) {
@@ -154,28 +206,53 @@ export async function fetchAccountsOverview(): Promise<Account[]> {
   const balanceDtos = ensure(balancesResult.data as AccountBalanceDTO[] | null, balancesResult.error);
   const balanceMap = new Map(balanceDtos.map((b) => [b.account_id, b.balance]));
 
-  return accountDtos.map((dto) => ({
-    id: dto.id,
-    name: dto.name,
-    type: mapAccountType(dto.type),
-    currentBalance: balanceMap.get(dto.id) ?? 0,
-  }));
+  return accountDtos.map((dto) => mapAccount(dto, balanceMap.get(dto.id) ?? 0));
+}
+
+export async function createAccount(input: CreateAccountInput): Promise<Account> {
+  const name = input.name.trim();
+  if (!name) throw new Error('El nombre es obligatorio');
+  if (name.length > 80) throw new Error('El nombre no puede superar 80 caracteres');
+
+  const payload: InsertAccountDTO = {
+    name,
+    type: mapAccountTypeToDatabase(input.type),
+  };
+
+  const { data, error } = await supabase
+    .from('accounts')
+    .insert(payload)
+    .select('*')
+    .single();
+
+  return mapAccount(ensure(data as AccountDTO | null, error));
 }
 
 export async function fetchAccountTransactions(accountId: string): Promise<Transaction[]> {
-  const { data, error } = await supabase
-    .from('transactions')
-    .select('*')
-    .eq('account_id', accountId)
-    .order('date', { ascending: false })
-    .order('created_at', { ascending: false });
+  const [transactionsResult, categoryNames] = await Promise.all([
+    supabase
+      .from('transactions')
+      .select('*')
+      .eq('account_id', accountId)
+      .order('date', { ascending: false })
+      .order('created_at', { ascending: false }),
+    fetchCategoriesMap(),
+  ]);
 
-  const transactions = ensure(data as TransactionDTO[] | null, error);
-  return transactions.map(mapTransaction);
+  const transactions = ensure(
+    transactionsResult.data as TransactionDTO[] | null,
+    transactionsResult.error,
+  );
+  return transactions.map((transaction) => mapTransaction(transaction, categoryNames));
 }
 
 export async function createTransaction(input: CreateTransactionInput) {
-  const signedAmount = input.type === 'Gasto' ? -input.amount : input.amount;
+  const normalizedAmount = roundCurrencyAmount(input.amount);
+  const signedAmount = input.type === 'Gasto' ? -normalizedAmount : normalizedAmount;
+
+  if (input.type === 'Gasto' && !input.categoryId) {
+    throw new Error('Selecciona una categoría');
+  }
 
   let budgetCycleId: string | null = null;
   if (input.type === 'Gasto' && input.budgetId) {
@@ -186,6 +263,7 @@ export async function createTransaction(input: CreateTransactionInput) {
   const payload: InsertTransactionDTO = {
     account_id: input.account.id,
     budget_cycle_id: budgetCycleId,
+    category_id: input.type === 'Gasto' ? input.categoryId : null,
     date: input.date,
     description: input.description,
     amount: signedAmount,
@@ -193,6 +271,110 @@ export async function createTransaction(input: CreateTransactionInput) {
 
   const { data, error } = await supabase.from('transactions').insert(payload).select('*').single();
   return mapTransaction(ensure(data as TransactionDTO | null, error));
+}
+
+export async function fetchTransaction(transactionId: string): Promise<EditableTransaction> {
+  const [transactionResult, categoryNames] = await Promise.all([
+    supabase.from('transactions').select('*').eq('id', transactionId).single(),
+    fetchCategoriesMap(),
+  ]);
+  const transactionDto = ensure(
+    transactionResult.data as TransactionDTO | null,
+    transactionResult.error,
+  );
+  const budgetCycleId = transactionDto.budget_cycle_id ?? null;
+  let budgetId: string | null = null;
+
+  if (budgetCycleId) {
+    const { data, error } = await supabase
+      .from('budget_cycles')
+      .select('budget_id')
+      .eq('id', budgetCycleId)
+      .single();
+    budgetId = ensure(data as { budget_id: string } | null, error).budget_id;
+  }
+
+  return {
+    ...mapTransaction(transactionDto, categoryNames),
+    budgetCycleId,
+    budgetId,
+  };
+}
+
+export async function updateTransaction(
+  transactionId: string,
+  input: UpdateTransactionInput,
+) {
+  const normalizedAmount = roundCurrencyAmount(input.amount);
+  const signedAmount = input.type === 'Gasto' ? -normalizedAmount : normalizedAmount;
+
+  if (input.type === 'Gasto' && !input.categoryId) {
+    throw new Error('Selecciona una categoría');
+  }
+
+  let budgetCycleId: string | null = null;
+  if (input.type === 'Gasto' && input.budgetId) {
+    const keepsOriginalCycle =
+      input.budgetId === input.originalBudgetId && Boolean(input.originalBudgetCycleId);
+
+    if (keepsOriginalCycle) {
+      budgetCycleId = input.originalBudgetCycleId ?? null;
+    } else {
+      const cycle = await fetchOpenBudgetCycle(input.budgetId);
+      budgetCycleId = cycle?.id ?? null;
+    }
+  }
+
+  const payload: UpdateTransactionDTO = {
+    account_id: input.account.id,
+    budget_cycle_id: budgetCycleId,
+    category_id: input.type === 'Gasto' ? input.categoryId : null,
+    date: input.date,
+    description: input.description,
+    amount: signedAmount,
+  };
+
+  const { data, error } = await supabase
+    .from('transactions')
+    .update(payload)
+    .eq('id', transactionId)
+    .select('*')
+    .single();
+
+  return mapTransaction(ensure(data as TransactionDTO | null, error));
+}
+
+export async function fetchExpenseCategories(): Promise<ExpenseCategory[]> {
+  const { data, error } = await supabase
+    .from('categories')
+    .select('*')
+    .eq('is_active', true)
+    .order('sort_order')
+    .order('name');
+
+  const categories = ensure(data as ExpenseCategoryDTO[] | null, error);
+  return categories.map(mapExpenseCategory);
+}
+
+export async function createExpenseCategory(
+  input: CreateExpenseCategoryInput,
+): Promise<ExpenseCategory> {
+  const name = input.name.trim();
+  if (!name) throw new Error('El nombre es obligatorio');
+  if (name.length > 60) throw new Error('El nombre no puede superar 60 caracteres');
+
+  const payload: InsertExpenseCategoryDTO = { name };
+  const { data, error } = await supabase
+    .from('categories')
+    .insert(payload)
+    .select('*')
+    .single();
+
+  if (error?.code === '23505') {
+    throw new Error('Ya existe una categoría con ese nombre');
+  }
+
+  return mapExpenseCategory(ensure(data as ExpenseCategoryDTO | null, error));
 }
 
 export async function deleteTransaction(transactionId: string) {
@@ -276,7 +458,10 @@ export async function fetchBudgetMovements(cycleId: string): Promise<BudgetMovem
     .order('created_at', { ascending: false });
 
   const transactions = ensure(data as TransactionDTO[] | null, error);
-  const accountsMap = await fetchAccountsMap();
+  const [accountsMap, categoryNames] = await Promise.all([
+    fetchAccountsMap(),
+    fetchCategoriesMap(),
+  ]);
 
   return transactions
     .filter((transaction) => transaction.amount < 0)
@@ -287,6 +472,9 @@ export async function fetchBudgetMovements(cycleId: string): Promise<BudgetMovem
       date: transaction.date,
       description: transaction.description,
       amount: Math.abs(transaction.amount),
+      categoryName: transaction.category_id
+        ? categoryNames.get(transaction.category_id) ?? null
+        : null,
     }));
 }
 
@@ -312,8 +500,9 @@ export async function fetchDashboardData(): Promise<DashboardData> {
   const monthsBack = 5;
   const rangeStart = new Date(now.getFullYear(), now.getMonth() - monthsBack, 1);
 
-  const [accounts, txResult] = await Promise.all([
+  const [accounts, categoryNames, txResult] = await Promise.all([
     fetchAccountsOverview(),
+    fetchCategoriesMap(),
     supabase
       .from('transactions')
       .select('*')
@@ -348,6 +537,9 @@ export async function fetchDashboardData(): Promise<DashboardData> {
     dailySpend.push({ date: key, value: 0 });
   }
 
+  const currentMonthKey = toIsoDate(now).slice(0, 7);
+  const categoryTotals = new Map<string, number>();
+
   for (const tx of transactions) {
     const monthIdx = monthIndex.get(tx.date.slice(0, 7));
     if (monthIdx !== undefined) {
@@ -358,12 +550,26 @@ export async function fetchDashboardData(): Promise<DashboardData> {
     if (tx.amount < 0) {
       const dayIdx = dayIndex.get(tx.date.slice(0, 10));
       if (dayIdx !== undefined) dailySpend[dayIdx].value += Math.abs(tx.amount);
+
+      if (tx.date.startsWith(currentMonthKey)) {
+        const categoryName = tx.category_id
+          ? categoryNames.get(tx.category_id) ?? 'Sin categoría'
+          : 'Sin categoría';
+        categoryTotals.set(
+          categoryName,
+          (categoryTotals.get(categoryName) ?? 0) + Math.abs(tx.amount),
+        );
+      }
     }
   }
 
   const currentMonth = cashflow[cashflow.length - 1];
+  const categorySpending: CategorySpending[] = Array.from(categoryTotals, ([label, value]) => ({
+    label,
+    value,
+  })).sort((a, b) => b.value - a.value);
   const recentTransactions: TransactionWithAccount[] = transactions.slice(0, 8).map((dto) => ({
-    ...mapTransaction(dto),
+    ...mapTransaction(dto, categoryNames),
     accountName: accountNames.get(dto.account_id) ?? 'Cuenta desconocida',
   }));
 
@@ -373,6 +579,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
     monthExpense: currentMonth.expense,
     cashflow,
     dailySpend,
+    categorySpending,
     recentTransactions,
   };
 }
@@ -384,7 +591,7 @@ function dateInputToIso(dateInput: string) {
 export async function createBudget(input: CreateBudgetInput) {
   const payload: InsertBudgetDTO = {
     name: input.name,
-    limit_amount: input.limitAmount,
+    limit_amount: roundCurrencyAmount(input.limitAmount),
   };
 
   const { data, error } = await supabase.from('budgets').insert(payload).select('*').single();
@@ -404,7 +611,7 @@ export async function createBudget(input: CreateBudgetInput) {
 export async function updateBudget(budgetId: string, input: CreateBudgetInput) {
   const payload: UpdateBudgetDTO = {
     name: input.name,
-    limit_amount: input.limitAmount,
+    limit_amount: roundCurrencyAmount(input.limitAmount),
   };
 
   const { error } = await supabase.from('budgets').update(payload).eq('id', budgetId);
@@ -421,8 +628,8 @@ export async function resetBudget(progress: BudgetProgress, restartDate?: string
 
   const resetPayload: ResetBudgetCycleDTO = {
     ended_at: endedAt,
-    snapshot_limit_amount: progress.budget.limitAmount,
-    snapshot_spent_amount: progress.spentAmount,
+    snapshot_limit_amount: roundCurrencyAmount(progress.budget.limitAmount),
+    snapshot_spent_amount: roundCurrencyAmount(progress.spentAmount),
   };
 
   const { error } = await supabase

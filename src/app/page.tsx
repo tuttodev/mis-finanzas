@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/empty-state';
 import { CashflowBars } from '@/components/charts/cashflow-bars';
 import { SpendArea } from '@/components/charts/spend-area';
 import { DonutChart, type DonutSlice } from '@/components/charts/donut-chart';
+import { CategoryBadge } from '@/components/finance/category-badge';
 import { formatCOP, formatShortDate } from '@/lib/formatters';
 import { fetchBudgetProgressList, fetchDashboardData } from '@/services/finance';
 
@@ -65,6 +66,10 @@ export default function DashboardPage() {
       value: item.spentAmount,
       color: CHART_COLORS[index % CHART_COLORS.length],
     }));
+  const categorySlices: DonutSlice[] = data.categorySpending.map((item, index) => ({
+    ...item,
+    color: CHART_COLORS[index % CHART_COLORS.length],
+  }));
 
   return (
     <div className="mx-auto max-w-2xl space-y-4 p-4">
@@ -135,6 +140,19 @@ export default function DashboardPage() {
         )}
       </section>
 
+      {/* Spending by category */}
+      <section className="rounded-2xl border border-border bg-card p-5">
+        <h2 className="text-base font-semibold">Gasto por categoría</h2>
+        <p className="mb-3 text-xs text-muted-foreground">Mes actual</p>
+        {categorySlices.length ? (
+          <DonutChart data={categorySlices} centerLabel="Total gastado" />
+        ) : (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            Aún no hay gastos categorizados este mes.
+          </p>
+        )}
+      </section>
+
       {/* Spending by budget */}
       <section className="rounded-2xl border border-border bg-card p-5">
         <h2 className="text-base font-semibold">Gasto por presupuesto</h2>
@@ -165,11 +183,19 @@ export default function DashboardPage() {
         {data.recentTransactions.length ? (
           <div className="divide-y divide-border">
             {data.recentTransactions.map((tx) => (
-              <div key={tx.id} className="flex items-center justify-between gap-3 py-2.5">
-                <div className="min-w-0">
+              <Link
+                key={tx.id}
+                href={`/transaction/${tx.id}/edit`}
+                aria-label={`Editar ${tx.description}`}
+                className="flex items-center justify-between gap-3 rounded-lg py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{tx.description}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {tx.accountName} · {formatShortDate(tx.date)}
+                  <p className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                    {tx.categoryName && <CategoryBadge name={tx.categoryName} />}
+                    <span>
+                      {tx.accountName} · {formatShortDate(tx.date)}
+                    </span>
                   </p>
                 </div>
                 <span
@@ -180,7 +206,7 @@ export default function DashboardPage() {
                   {tx.amount >= 0 ? '+' : '−'}
                   {formatCOP(Math.abs(tx.amount))}
                 </span>
-              </div>
+              </Link>
             ))}
           </div>
         ) : (

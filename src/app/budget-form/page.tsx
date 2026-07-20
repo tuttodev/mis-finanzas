@@ -5,10 +5,11 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { CurrencyInput } from '@/components/ui/currency-input';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PageHeader } from '@/components/layout/page-header';
-import { formatCOP, parseCurrencyInput, todayIsoDate } from '@/lib/formatters';
+import { formatCOPInput, parseCurrencyInput, todayIsoDate } from '@/lib/formatters';
 import { createBudget, fetchBudgetProgressList, updateBudget } from '@/services/finance';
 
 function BudgetForm() {
@@ -29,7 +30,7 @@ function BudgetForm() {
 
   const [name, setName] = useState(existingBudget?.name ?? '');
   const [limitAmount, setLimitAmount] = useState(
-    existingBudget ? String(existingBudget.limitAmount) : '',
+    existingBudget ? formatCOPInput(existingBudget.limitAmount) : '',
   );
   const [startedAt, setStartedAt] = useState(todayIsoDate());
   const [loadedBudgetId, setLoadedBudgetId] = useState<string | null>(null);
@@ -37,7 +38,7 @@ function BudgetForm() {
   if (existingBudget && loadedBudgetId !== existingBudget.id) {
     setLoadedBudgetId(existingBudget.id);
     setName(existingBudget.name);
-    setLimitAmount(String(existingBudget.limitAmount));
+    setLimitAmount(formatCOPInput(existingBudget.limitAmount));
   }
 
   const parsedAmount = parseCurrencyInput(limitAmount);
@@ -85,21 +86,15 @@ function BudgetForm() {
             />
           </div>
           <div>
-            <Label htmlFor="limit">Límite por ciclo</Label>
-            <Input
+            <Label htmlFor="limit">Límite por ciclo en pesos colombianos</Label>
+            <CurrencyInput
               id="limit"
-              type="text"
-              inputMode="numeric"
               className="mt-1 h-10"
               value={limitAmount}
-              onChange={(e) => setLimitAmount(e.target.value)}
-              placeholder="800000"
+              onValueChange={setLimitAmount}
+              placeholder="0,00"
+              aria-label="Límite por ciclo en pesos colombianos (COP)"
             />
-            {parsedAmount !== null && (
-              <p className="tabular mt-1 text-xs text-muted-foreground">
-                {formatCOP(parsedAmount)}
-              </p>
-            )}
           </div>
 
           {!id && (

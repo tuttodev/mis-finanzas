@@ -1,6 +1,8 @@
 import { formatCOP, formatShortDate } from '@/lib/formatters';
 import type { Transaction } from '@/types/finance';
 
+import { CategoryBadge } from './category-badge';
+
 type TransactionRowProps = {
   transaction: Transaction;
   onClick?: () => void;
@@ -14,8 +16,9 @@ export function TransactionRow({ transaction, onClick }: TransactionRowProps) {
     >
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="truncate text-[15px] font-medium">{transaction.description}</span>
-        <span className="text-[13px] text-muted-foreground">
-          {formatShortDate(transaction.date)}
+        <span className="flex min-w-0 flex-wrap items-center gap-1.5 text-[13px] text-muted-foreground">
+          {transaction.categoryName && <CategoryBadge name={transaction.categoryName} />}
+          <span>{formatShortDate(transaction.date)}</span>
         </span>
       </div>
       <span

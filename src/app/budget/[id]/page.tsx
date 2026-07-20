@@ -171,7 +171,11 @@ export default function BudgetDetailPage({
             {detail.movements.length ? (
               <div className="divide-y divide-border">
                 {detail.movements.map((movement) => (
-                  <BudgetMovementRow key={movement.id} movement={movement} />
+                  <BudgetMovementRow
+                    key={movement.id}
+                    movement={movement}
+                    href={`/transaction/${movement.id}/edit`}
+                  />
                 ))}
               </div>
             ) : (

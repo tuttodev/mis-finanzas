@@ -82,7 +82,11 @@ export default function BudgetCycleDetailPage({
             {movements.length ? (
               <div className="divide-y divide-border">
                 {movements.map((movement) => (
-                  <BudgetMovementRow key={movement.id} movement={movement} />
+                  <BudgetMovementRow
+                    key={movement.id}
+                    movement={movement}
+                    href={`/transaction/${movement.id}/edit`}
+                  />
                 ))}
               </div>
             ) : (

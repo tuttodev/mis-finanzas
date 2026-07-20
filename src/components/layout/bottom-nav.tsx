@@ -2,11 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Landmark, PieChart, Plus } from 'lucide-react';
+import { Home, Landmark, PieChart, Plus, Tags } from 'lucide-react';
 
 const tabs = [
   { href: '/', label: 'Inicio', icon: Home, exact: true },
   { href: '/accounts', label: 'Cuentas', icon: Landmark, exact: false, prefix: '/account' },
+  { href: '/categories', label: 'Categorías', icon: Tags, exact: false, prefix: '/categor' },
   { href: '/budgets', label: 'Presupuestos', icon: PieChart, exact: false, prefix: '/budget' },
 ] as const;
 
@@ -17,7 +18,7 @@ function isActive(pathname: string, tab: (typeof tabs)[number]) {
 
 export function BottomNav() {
   const pathname = usePathname();
-  const showFab = !pathname.startsWith('/transaction');
+  const showFab = !pathname.startsWith('/transaction') && !pathname.endsWith('-form');
 
   return (
     <>
