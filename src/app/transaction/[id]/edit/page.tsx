@@ -39,5 +39,13 @@ export default function EditTransactionPage({
     );
   }
 
+  if (transactionQuery.data.transferId) {
+    return (
+      <div className="mx-auto max-w-2xl p-4">
+        <ErrorState message="Las transferencias no se pueden editar. Elimínala y créala de nuevo." />
+      </div>
+    );
+  }
+
   return <TransactionForm transaction={transactionQuery.data} />;
 }

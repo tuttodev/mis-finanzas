@@ -59,9 +59,12 @@ create table transactions (
   description text not null,
   -- Negative = expense, positive = income
   amount numeric(15, 2) not null,
+  -- Shared by the two legs of a transfer between accounts
+  transfer_id uuid,
   constraint transactions_category_matches_amount check (
-    (amount < 0 and category_id is not null)
-    or (amount >= 0 and category_id is null)
+    (transfer_id is not null and category_id is null and budget_cycle_id is null)
+    or (transfer_id is null and amount < 0 and category_id is not null)
+    or (transfer_id is null and amount >= 0 and category_id is null)
   ),
   created_at timestamptz not null default now()
 );
@@ -69,6 +72,7 @@ create table transactions (
 create index idx_transactions_account on transactions (account_id, date desc);
 create index idx_transactions_cycle on transactions (budget_cycle_id);
 create index idx_transactions_category on transactions (category_id, date desc);
+create index idx_transactions_transfer on transactions (transfer_id) where transfer_id is not null;
 create index idx_budget_cycles_budget on budget_cycles (budget_id, started_at desc);
 
 create view account_balances with (security_invoker = true) as

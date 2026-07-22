@@ -2,6 +2,7 @@ import { formatCOP, formatShortDate } from '@/lib/formatters';
 import type { Transaction } from '@/types/finance';
 
 import { CategoryBadge } from './category-badge';
+import { TransferBadge } from './transfer-badge';
 
 type TransactionRowProps = {
   transaction: Transaction;
@@ -18,6 +19,7 @@ export function TransactionRow({ transaction, onClick }: TransactionRowProps) {
         <span className="truncate text-[15px] font-medium">{transaction.description}</span>
         <span className="flex min-w-0 flex-wrap items-center gap-1.5 text-[13px] text-muted-foreground">
           {transaction.categoryName && <CategoryBadge name={transaction.categoryName} />}
+          {transaction.transferId && <TransferBadge />}
           <span>{formatShortDate(transaction.date)}</span>
         </span>
       </div>

@@ -3,7 +3,7 @@
 import { use, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeftRight, Pencil, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -124,15 +124,27 @@ export default function AccountDetailPage({
             </div>
           )}
 
-          <Button
-            className="mt-4 w-full"
-            size="lg"
-            nativeButton={false}
-            render={<Link href={`/transaction/new?accountId=${account.id}`} />}
-          >
-            <Plus className="h-4 w-4" />
-            Nueva transacción
-          </Button>
+          <div className="mt-4 flex gap-2">
+            <Button
+              className="flex-1"
+              size="lg"
+              nativeButton={false}
+              render={<Link href={`/transaction/new?accountId=${account.id}`} />}
+            >
+              <Plus className="h-4 w-4" />
+              Nueva transacción
+            </Button>
+            <Button
+              className="flex-1"
+              size="lg"
+              variant="outline"
+              nativeButton={false}
+              render={<Link href={`/transfer/new?accountId=${account.id}`} />}
+            >
+              <ArrowLeftRight className="h-4 w-4" />
+              Transferir
+            </Button>
+          </div>
         </div>
 
         <div>
@@ -142,16 +154,22 @@ export default function AccountDetailPage({
               <div className="divide-y divide-border">
                 {transactionsQuery.data.map((transaction) => (
                   <div key={transaction.id} className="flex items-center gap-2">
-                    <Link
-                      href={`/transaction/${transaction.id}/edit`}
-                      aria-label={`Editar ${transaction.description}`}
-                      className="flex min-w-0 flex-1 items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
+                    {transaction.transferId ? (
                       <div className="min-w-0 flex-1">
                         <TransactionRow transaction={transaction} />
                       </div>
-                      <Pencil className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    </Link>
+                    ) : (
+                      <Link
+                        href={`/transaction/${transaction.id}/edit`}
+                        aria-label={`Editar ${transaction.description}`}
+                        className="flex min-w-0 flex-1 items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <TransactionRow transaction={transaction} />
+                        </div>
+                        <Pencil className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      </Link>
+                    )}
                     <button
                       type="button"
                       onClick={() => setDeleteTarget(transaction.id)}
@@ -178,7 +196,11 @@ export default function AccountDetailPage({
       <ConfirmDialog
         open={deleteTarget !== null}
         title="Eliminar transacción"
-        description="Esta acción no se puede deshacer."
+        description={
+          transactionsQuery.data?.find((tx) => tx.id === deleteTarget)?.transferId
+            ? 'Se eliminarán los dos movimientos de la transferencia. Esta acción no se puede deshacer.'
+            : 'Esta acción no se puede deshacer.'
+        }
         confirmLabel="Eliminar"
         onConfirm={() => {
           if (deleteTarget) {

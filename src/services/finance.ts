@@ -18,6 +18,7 @@ import type {
   CreateBudgetInput,
   CreateExpenseCategoryInput,
   CreateTransactionInput,
+  CreateTransferInput,
   DailySpend,
   DashboardData,
   ExpenseCategory,
@@ -147,6 +148,7 @@ function mapTransaction(
     date: dto.date,
     description: dto.description,
     amount: dto.amount,
+    transferId: dto.transfer_id ?? null,
   };
 }
 
@@ -273,6 +275,35 @@ export async function createTransaction(input: CreateTransactionInput) {
   return mapTransaction(ensure(data as TransactionDTO | null, error));
 }
 
+export async function createTransfer(input: CreateTransferInput) {
+  const normalizedAmount = roundCurrencyAmount(input.amount);
+  if (normalizedAmount <= 0) throw new Error('Ingresa un monto válido');
+  if (input.fromAccount.id === input.toAccount.id) {
+    throw new Error('Selecciona cuentas diferentes');
+  }
+
+  const transferId = crypto.randomUUID();
+  const payload: InsertTransactionDTO[] = [
+    {
+      account_id: input.fromAccount.id,
+      date: input.date,
+      description: input.description,
+      amount: -normalizedAmount,
+      transfer_id: transferId,
+    },
+    {
+      account_id: input.toAccount.id,
+      date: input.date,
+      description: input.description,
+      amount: normalizedAmount,
+      transfer_id: transferId,
+    },
+  ];
+
+  const { error } = await supabase.from('transactions').insert(payload);
+  if (error) throw new Error(error.message);
+}
+
 export async function fetchTransaction(transactionId: string): Promise<EditableTransaction> {
   const [transactionResult, categoryNames] = await Promise.all([
     supabase.from('transactions').select('*').eq('id', transactionId).single(),
@@ -378,7 +409,19 @@ export async function createExpenseCategory(
 }
 
 export async function deleteTransaction(transactionId: string) {
-  const { error } = await supabase.from('transactions').delete().eq('id', transactionId);
+  const { data, error: fetchError } = await supabase
+    .from('transactions')
+    .select('transfer_id')
+    .eq('id', transactionId)
+    .single();
+  if (fetchError) throw new Error(fetchError.message);
+
+  const transferId = (data as { transfer_id: string | null }).transfer_id;
+  const deleteQuery = transferId
+    ? supabase.from('transactions').delete().eq('transfer_id', transferId)
+    : supabase.from('transactions').delete().eq('id', transactionId);
+
+  const { error } = await deleteQuery;
   if (error) throw new Error(error.message);
 }
 
@@ -541,6 +584,9 @@ export async function fetchDashboardData(): Promise<DashboardData> {
   const categoryTotals = new Map<string, number>();
 
   for (const tx of transactions) {
+    // Transfers move money between own accounts; they are not income nor expense
+    if (tx.transfer_id) continue;
+
     const monthIdx = monthIndex.get(tx.date.slice(0, 7));
     if (monthIdx !== undefined) {
       if (tx.amount >= 0) cashflow[monthIdx].income += tx.amount;

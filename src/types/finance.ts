@@ -35,6 +35,7 @@ export type TransactionDTO = {
   date: string;
   description: string;
   amount: number;
+  transfer_id?: string | null;
   created_at?: string | null;
 };
 
@@ -45,6 +46,7 @@ export type InsertTransactionDTO = {
   date: string;
   description: string;
   amount: number;
+  transfer_id?: string | null;
 };
 
 export type UpdateTransactionDTO = InsertTransactionDTO;
@@ -111,6 +113,7 @@ export type Transaction = {
   date: string;
   description: string;
   amount: number;
+  transferId: string | null;
 };
 
 export type EditableTransaction = Transaction & {
@@ -217,6 +220,14 @@ export type CreateTransactionInput = {
 export type UpdateTransactionInput = CreateTransactionInput & {
   originalBudgetCycleId?: string | null;
   originalBudgetId?: string | null;
+};
+
+export type CreateTransferInput = {
+  fromAccount: Account;
+  toAccount: Account;
+  amount: number;
+  date: string;
+  description: string;
 };
 
 export type CreateAccountInput = {

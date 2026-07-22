@@ -10,6 +10,7 @@ import { CashflowBars } from '@/components/charts/cashflow-bars';
 import { SpendArea } from '@/components/charts/spend-area';
 import { DonutChart, type DonutSlice } from '@/components/charts/donut-chart';
 import { CategoryBadge } from '@/components/finance/category-badge';
+import { TransferBadge } from '@/components/finance/transfer-badge';
 import { formatCOP, formatShortDate } from '@/lib/formatters';
 import { fetchBudgetProgressList, fetchDashboardData } from '@/services/finance';
 
@@ -185,14 +186,17 @@ export default function DashboardPage() {
             {data.recentTransactions.map((tx) => (
               <Link
                 key={tx.id}
-                href={`/transaction/${tx.id}/edit`}
-                aria-label={`Editar ${tx.description}`}
+                href={tx.transferId ? `/account/${tx.accountId}` : `/transaction/${tx.id}/edit`}
+                aria-label={
+                  tx.transferId ? `Ver cuenta de ${tx.description}` : `Editar ${tx.description}`
+                }
                 className="flex items-center justify-between gap-3 rounded-lg py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{tx.description}</p>
                   <p className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                     {tx.categoryName && <CategoryBadge name={tx.categoryName} />}
+                    {tx.transferId && <TransferBadge />}
                     <span>
                       {tx.accountName} · {formatShortDate(tx.date)}
                     </span>
