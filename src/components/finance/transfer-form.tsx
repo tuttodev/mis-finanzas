@@ -57,7 +57,7 @@ function AccountPicker({ accounts, selectedId, disabledId, onSelect }: AccountPi
               }`}
             />
             <span className="min-w-0">
-              <span className="block truncate text-sm font-semibold">{account.name}</span>
+              <span className="block break-words text-sm font-semibold leading-snug">{account.name}</span>
               <span className="tabular block text-xs text-muted-foreground">
                 {formatCOP(account.currentBalance)}
               </span>

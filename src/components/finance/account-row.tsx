@@ -21,7 +21,7 @@ export function AccountRow({ account }: { account: Account }) {
         <Icon className="h-5 w-5" />
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate text-[15px] font-semibold">{account.name}</span>
+        <span className="break-words text-[15px] font-semibold leading-snug">{account.name}</span>
         <span className="text-[13px] text-muted-foreground">{account.type}</span>
       </div>
       <span
