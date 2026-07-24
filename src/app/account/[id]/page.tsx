@@ -179,8 +179,8 @@ export default function AccountDetailPage({
             {transactionsQuery.data?.length ? (
               <div className="divide-y divide-border">
                 {transactionGroups.map((group) => (
-                  <div key={group.key} className="py-2">
-                    <p className="px-1 pb-1 text-xs font-medium text-muted-foreground">
+                  <div key={group.key} className="pt-3 pb-2 first:pt-2">
+                    <p className="mb-1.5 rounded-lg bg-secondary/60 px-3 py-1.5 text-sm font-bold uppercase tracking-wide text-primary">
                       {group.label}
                     </p>
                     <div className="divide-y divide-border">
