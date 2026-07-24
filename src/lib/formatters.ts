@@ -19,6 +19,12 @@ export const shortDateTimeFormatter = new Intl.DateTimeFormat('es-CO', {
   minute: '2-digit',
 });
 
+export const longDateFormatter = new Intl.DateTimeFormat('es-CO', {
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+});
+
 export function formatCOP(value: number) {
   return copFormatter.format(value);
 }
@@ -104,6 +110,22 @@ export function formatShortDate(value: string) {
 
 export function formatShortDateTime(value: string) {
   return shortDateTimeFormatter.format(parseDateValue(value));
+}
+
+export function formatDateGroupLabel(value: string) {
+  const date = parseDateValue(value);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const target = new Date(date);
+  target.setHours(0, 0, 0, 0);
+
+  if (target.getTime() === today.getTime()) return 'Hoy';
+  if (target.getTime() === yesterday.getTime()) return 'Ayer';
+
+  return longDateFormatter.format(date);
 }
 
 export function todayIsoDate() {

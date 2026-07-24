@@ -13,7 +13,7 @@ import { ErrorState } from '@/components/error-state';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { PageHeader } from '@/components/layout/page-header';
 import { SpendArea, type SpendPoint } from '@/components/charts/spend-area';
-import { formatCOP } from '@/lib/formatters';
+import { formatCOP, formatDateGroupLabel } from '@/lib/formatters';
 import {
   deleteTransaction,
   fetchAccountTransactions,
@@ -35,6 +35,27 @@ function buildBalanceHistory(
   }
 
   return points.reverse().slice(-40);
+}
+
+type TransactionGroup = {
+  key: string;
+  label: string;
+  transactions: Transaction[];
+};
+
+function groupTransactionsByDate(transactions: Transaction[]): TransactionGroup[] {
+  const groups: TransactionGroup[] = [];
+
+  for (const tx of transactions) {
+    const lastGroup = groups[groups.length - 1];
+    if (lastGroup?.key === tx.date) {
+      lastGroup.transactions.push(tx);
+    } else {
+      groups.push({ key: tx.date, label: formatDateGroupLabel(tx.date), transactions: [tx] });
+    }
+  }
+
+  return groups;
 }
 
 export default function AccountDetailPage({
@@ -65,6 +86,11 @@ export default function AccountDetailPage({
         ? buildBalanceHistory(account.currentBalance, transactionsQuery.data)
         : [],
     [account, transactionsQuery.data],
+  );
+
+  const transactionGroups = useMemo(
+    () => groupTransactionsByDate(transactionsQuery.data ?? []),
+    [transactionsQuery.data],
   );
 
   const deleteMutation = useMutation({
@@ -152,32 +178,41 @@ export default function AccountDetailPage({
           <div className="rounded-2xl border border-border bg-card px-4 py-1">
             {transactionsQuery.data?.length ? (
               <div className="divide-y divide-border">
-                {transactionsQuery.data.map((transaction) => (
-                  <div key={transaction.id} className="flex items-center gap-2">
-                    {transaction.transferId ? (
-                      <div className="min-w-0 flex-1">
-                        <TransactionRow transaction={transaction} />
-                      </div>
-                    ) : (
-                      <Link
-                        href={`/transaction/${transaction.id}/edit`}
-                        aria-label={`Editar ${transaction.description}`}
-                        className="flex min-w-0 flex-1 items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <TransactionRow transaction={transaction} />
+                {transactionGroups.map((group) => (
+                  <div key={group.key} className="py-2">
+                    <p className="px-1 pb-1 text-xs font-medium text-muted-foreground">
+                      {group.label}
+                    </p>
+                    <div className="divide-y divide-border">
+                      {group.transactions.map((transaction) => (
+                        <div key={transaction.id} className="flex items-center gap-2">
+                          {transaction.transferId ? (
+                            <div className="min-w-0 flex-1">
+                              <TransactionRow transaction={transaction} hideDate />
+                            </div>
+                          ) : (
+                            <Link
+                              href={`/transaction/${transaction.id}/edit`}
+                              aria-label={`Editar ${transaction.description}`}
+                              className="flex min-w-0 flex-1 items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <TransactionRow transaction={transaction} hideDate />
+                              </div>
+                              <Pencil className="h-4 w-4 shrink-0 text-muted-foreground" />
+                            </Link>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setDeleteTarget(transaction.id)}
+                            aria-label="Eliminar transacción"
+                            className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
                         </div>
-                        <Pencil className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      </Link>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => setDeleteTarget(transaction.id)}
-                      aria-label="Eliminar transacción"
-                      className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>
