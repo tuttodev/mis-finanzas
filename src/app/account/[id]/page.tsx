@@ -3,7 +3,7 @@
 import { use, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeftRight, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeftRight, BadgeCent, Pencil, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -92,6 +92,17 @@ export default function AccountDetailPage({
     () => groupTransactionsByDate(transactionsQuery.data ?? []),
     [transactionsQuery.data],
   );
+  const interestEarned = useMemo(
+    () =>
+      (transactionsQuery.data ?? []).reduce(
+        (total, transaction) =>
+          transaction.categorySlug === 'savings-interest' && transaction.amount > 0
+            ? total + transaction.amount
+            : total,
+        0,
+      ),
+    [transactionsQuery.data],
+  );
 
   const deleteMutation = useMutation({
     mutationFn: (transactionId: string) => deleteTransaction(transactionId),
@@ -143,6 +154,18 @@ export default function AccountDetailPage({
             {formatCOP(account.currentBalance)}
           </p>
 
+          {account.type === 'Ahorros' && (
+            <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-income/10 px-3 py-2.5">
+              <span className="flex items-center gap-2 text-sm font-medium text-income">
+                <BadgeCent className="h-4 w-4" />
+                Intereses ganados
+              </span>
+              <span className="tabular text-sm font-bold text-income">
+                {formatCOP(interestEarned)}
+              </span>
+            </div>
+          )}
+
           {balanceHistory.length > 1 && (
             <div className="mt-4">
               <p className="mb-2 text-xs text-muted-foreground">Evolución del saldo</p>
@@ -150,10 +173,25 @@ export default function AccountDetailPage({
             </div>
           )}
 
-          <div className="mt-4 flex gap-2">
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            {account.type === 'Ahorros' && (
+              <Button
+                className="col-span-2"
+                size="lg"
+                nativeButton={false}
+                render={
+                  <Link
+                    href={`/transaction/new?accountId=${account.id}&preset=savings-interest`}
+                  />
+                }
+              >
+                <BadgeCent className="h-4 w-4" />
+                Agregar interés
+              </Button>
+            )}
             <Button
-              className="flex-1"
               size="lg"
+              variant={account.type === 'Ahorros' ? 'outline' : 'default'}
               nativeButton={false}
               render={<Link href={`/transaction/new?accountId=${account.id}`} />}
             >
@@ -161,7 +199,6 @@ export default function AccountDetailPage({
               Nueva transacción
             </Button>
             <Button
-              className="flex-1"
               size="lg"
               variant="outline"
               nativeButton={false}

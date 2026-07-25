@@ -30,23 +30,26 @@ create table categories (
   id uuid primary key default gen_random_uuid(),
   slug text not null unique default ('custom-' || gen_random_uuid()::text),
   name text not null unique check (char_length(trim(name)) between 1 and 60),
+  transaction_type text not null default 'expense'
+    check (transaction_type in ('expense', 'income')),
   sort_order integer not null default 1000,
   is_active boolean not null default true,
   is_system boolean not null default false,
   created_at timestamptz not null default now()
 );
 
-insert into categories (slug, name, sort_order, is_system) values
-  ('food', 'Alimentación', 10, true),
-  ('transport', 'Transporte', 20, true),
-  ('housing', 'Vivienda', 30, true),
-  ('utilities', 'Servicios', 40, true),
-  ('health', 'Salud', 50, true),
-  ('education', 'Educación', 60, true),
-  ('entertainment', 'Entretenimiento', 70, true),
-  ('shopping', 'Compras', 80, true),
-  ('debt', 'Deudas', 90, true),
-  ('other', 'Otros', 100, true);
+insert into categories (slug, name, transaction_type, sort_order, is_system) values
+  ('food', 'Alimentación', 'expense', 10, true),
+  ('transport', 'Transporte', 'expense', 20, true),
+  ('housing', 'Vivienda', 'expense', 30, true),
+  ('utilities', 'Servicios', 'expense', 40, true),
+  ('health', 'Salud', 'expense', 50, true),
+  ('education', 'Educación', 'expense', 60, true),
+  ('entertainment', 'Entretenimiento', 'expense', 70, true),
+  ('shopping', 'Compras', 'expense', 80, true),
+  ('debt', 'Deudas', 'expense', 90, true),
+  ('other', 'Otros', 'expense', 100, true),
+  ('savings-interest', 'Intereses de ahorros', 'income', 10, true);
 
 create unique index categories_name_unique_ci on categories (lower(name));
 
@@ -64,7 +67,7 @@ create table transactions (
   constraint transactions_category_matches_amount check (
     (transfer_id is not null and category_id is null and budget_cycle_id is null)
     or (transfer_id is null and amount < 0 and category_id is not null)
-    or (transfer_id is null and amount >= 0 and category_id is null)
+    or (transfer_id is null and amount >= 0 and budget_cycle_id is null)
   ),
   created_at timestamptz not null default now()
 );

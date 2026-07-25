@@ -140,21 +140,24 @@ function mapExpenseCategory(dto: ExpenseCategoryDTO): ExpenseCategory {
     id: dto.id,
     slug: dto.slug,
     name: dto.name,
+    transactionType: dto.transaction_type,
     isSystem: dto.is_system,
   };
 }
 
 function mapTransaction(
   dto: TransactionDTO,
-  categoryNames: Map<string, string> = new Map(),
+  categories: Map<string, ExpenseCategory> = new Map(),
 ): Transaction {
   const categoryId = dto.category_id ?? null;
+  const category = categoryId ? categories.get(categoryId) : null;
 
   return {
     id: dto.id,
     accountId: dto.account_id,
     categoryId,
-    categoryName: categoryId ? categoryNames.get(categoryId) ?? null : null,
+    categoryName: category?.name ?? null,
+    categorySlug: category?.slug ?? null,
     date: dto.date,
     description: dto.description,
     amount: dto.amount,
@@ -184,7 +187,7 @@ async function fetchAccountsMap() {
 
 async function fetchCategoriesMap() {
   const categories = await fetchExpenseCategories();
-  return new Map(categories.map((category) => [category.id, category.name]));
+  return new Map(categories.map((category) => [category.id, category]));
 }
 
 async function fetchOpenBudgetCycle(budgetId: string) {
@@ -262,6 +265,7 @@ export async function createTransaction(input: CreateTransactionInput) {
   const normalizedAmount = roundCurrencyAmount(input.amount);
   const signedAmount = input.type === 'Gasto' ? -normalizedAmount : normalizedAmount;
 
+  if (normalizedAmount <= 0) throw new Error('Ingresa un monto válido');
   if (input.type === 'Gasto' && !input.categoryId) {
     throw new Error('Selecciona una categoría');
   }
@@ -275,7 +279,7 @@ export async function createTransaction(input: CreateTransactionInput) {
   const payload: InsertTransactionDTO = {
     account_id: input.account.id,
     budget_cycle_id: budgetCycleId,
-    category_id: input.type === 'Gasto' ? input.categoryId : null,
+    category_id: input.categoryId ?? null,
     date: input.date,
     description: input.description,
     amount: signedAmount,
@@ -349,6 +353,7 @@ export async function updateTransaction(
   const normalizedAmount = roundCurrencyAmount(input.amount);
   const signedAmount = input.type === 'Gasto' ? -normalizedAmount : normalizedAmount;
 
+  if (normalizedAmount <= 0) throw new Error('Ingresa un monto válido');
   if (input.type === 'Gasto' && !input.categoryId) {
     throw new Error('Selecciona una categoría');
   }
@@ -369,7 +374,7 @@ export async function updateTransaction(
   const payload: UpdateTransactionDTO = {
     account_id: input.account.id,
     budget_cycle_id: budgetCycleId,
-    category_id: input.type === 'Gasto' ? input.categoryId : null,
+    category_id: input.categoryId ?? null,
     date: input.date,
     description: input.description,
     amount: signedAmount,
@@ -404,7 +409,10 @@ export async function createExpenseCategory(
   if (!name) throw new Error('El nombre es obligatorio');
   if (name.length > 60) throw new Error('El nombre no puede superar 60 caracteres');
 
-  const payload: InsertExpenseCategoryDTO = { name };
+  const payload: InsertExpenseCategoryDTO = {
+    name,
+    transaction_type: input.transactionType,
+  };
   const { data, error } = await supabase
     .from('categories')
     .insert(payload)
@@ -511,7 +519,7 @@ export async function fetchBudgetMovements(cycleId: string): Promise<BudgetMovem
     .order('created_at', { ascending: false });
 
   const transactions = ensure(data as TransactionDTO[] | null, error);
-  const [accountsMap, categoryNames] = await Promise.all([
+  const [accountsMap, categories] = await Promise.all([
     fetchAccountsMap(),
     fetchCategoriesMap(),
   ]);
@@ -526,7 +534,7 @@ export async function fetchBudgetMovements(cycleId: string): Promise<BudgetMovem
       description: transaction.description,
       amount: Math.abs(transaction.amount),
       categoryName: transaction.category_id
-        ? categoryNames.get(transaction.category_id) ?? null
+        ? categories.get(transaction.category_id)?.name ?? null
         : null,
     }));
 }
@@ -553,7 +561,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
   const monthsBack = 5;
   const rangeStart = new Date(now.getFullYear(), now.getMonth() - monthsBack, 1);
 
-  const [accounts, categoryNames, txResult] = await Promise.all([
+  const [accounts, categories, txResult] = await Promise.all([
     fetchAccountsOverview(),
     fetchCategoriesMap(),
     supabase
@@ -609,7 +617,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
 
       if (tx.date.startsWith(currentMonthKey)) {
         const categoryName = tx.category_id
-          ? categoryNames.get(tx.category_id) ?? 'Sin categoría'
+          ? categories.get(tx.category_id)?.name ?? 'Sin categoría'
           : 'Sin categoría';
         categoryTotals.set(
           categoryName,
@@ -625,7 +633,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
     value,
   })).sort((a, b) => b.value - a.value);
   const recentTransactions: TransactionWithAccount[] = transactions.slice(0, 8).map((dto) => ({
-    ...mapTransaction(dto, categoryNames),
+    ...mapTransaction(dto, categories),
     accountName: accountNames.get(dto.account_id) ?? 'Cuenta desconocida',
   }));
 

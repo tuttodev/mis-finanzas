@@ -15,9 +15,10 @@ export default function CategoryFormPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [name, setName] = useState('');
+  const [transactionType, setTransactionType] = useState<'expense' | 'income'>('expense');
 
   const mutation = useMutation({
-    mutationFn: () => createExpenseCategory({ name }),
+    mutationFn: () => createExpenseCategory({ name, transactionType }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['expense-categories'] });
       await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
@@ -40,6 +41,29 @@ export default function CategoryFormPage() {
       >
         <div className="space-y-5">
           <div>
+            <Label className="mb-2">Tipo de movimiento</Label>
+            <div className="grid grid-cols-2 gap-1 rounded-xl bg-secondary p-1">
+              {([
+                ['expense', 'Gasto'],
+                ['income', 'Ingreso'],
+              ] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setTransactionType(value)}
+                  className={`rounded-lg py-2 text-sm font-semibold transition-colors ${
+                    transactionType === value
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
             <Label htmlFor="category-name">Nombre</Label>
             <Input
               id="category-name"
@@ -51,7 +75,8 @@ export default function CategoryFormPage() {
               autoFocus
             />
             <p className="mt-2 text-xs text-muted-foreground">
-              Aparecerá como opción al registrar un gasto.
+              Aparecerá como opción al registrar un{' '}
+              {transactionType === 'expense' ? 'gasto' : 'ingreso'}.
             </p>
           </div>
 
@@ -61,7 +86,10 @@ export default function CategoryFormPage() {
             </span>
             <div>
               <p className="text-sm font-semibold">{name.trim() || 'Tu categoría'}</p>
-              <p className="text-xs text-muted-foreground">Categoría personalizada</p>
+              <p className="text-xs text-muted-foreground">
+                Categoría personalizada de{' '}
+                {transactionType === 'expense' ? 'gasto' : 'ingreso'}
+              </p>
             </div>
           </div>
 

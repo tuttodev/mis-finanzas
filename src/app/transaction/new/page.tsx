@@ -6,7 +6,15 @@ import { TransactionForm } from '@/components/finance/transaction-form';
 
 function NewTransactionForm() {
   const searchParams = useSearchParams();
-  return <TransactionForm initialAccountId={searchParams.get('accountId') ?? ''} />;
+  const preset =
+    searchParams.get('preset') === 'savings-interest' ? 'savings-interest' : undefined;
+
+  return (
+    <TransactionForm
+      initialAccountId={searchParams.get('accountId') ?? ''}
+      preset={preset}
+    />
+  );
 }
 
 export default function NewTransactionPage() {

@@ -31,6 +31,7 @@ const TYPE_ICONS: Record<AccountType, typeof PiggyBank> = {
 type TransactionFormProps = {
   initialAccountId?: string;
   transaction?: EditableTransaction;
+  preset?: 'savings-interest';
 };
 
 function yesterdayIsoDate() {
@@ -44,18 +45,21 @@ function yesterdayIsoDate() {
 export function TransactionForm({
   initialAccountId = '',
   transaction,
+  preset,
 }: TransactionFormProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const isEditing = Boolean(transaction);
-  const initialType: TransactionType = transaction && transaction.amount >= 0
-    ? 'Ingreso'
-    : 'Gasto';
+  const isSavingsInterest = preset === 'savings-interest' && !isEditing;
+  const initialType: TransactionType =
+    isSavingsInterest || (transaction && transaction.amount >= 0) ? 'Ingreso' : 'Gasto';
 
   const [amount, setAmount] = useState(
     transaction ? formatCOPInput(Math.abs(transaction.amount)) : '',
   );
-  const [description, setDescription] = useState(transaction?.description ?? '');
+  const [description, setDescription] = useState(
+    transaction?.description ?? (isSavingsInterest ? 'Interes ahorros' : ''),
+  );
   const [date, setDate] = useState(transaction?.date ?? todayIsoDate());
   const [type, setType] = useState<TransactionType>(initialType);
   const [selectedAccountId, setSelectedAccountId] = useState(
@@ -74,6 +78,7 @@ export function TransactionForm({
   const budgetsQuery = useQuery({
     queryKey: ['budgets'],
     queryFn: fetchBudgetProgressList,
+    enabled: !isSavingsInterest,
   });
 
   const categoriesQuery = useQuery({
@@ -85,14 +90,22 @@ export function TransactionForm({
     () => accountsQuery.data?.find((account) => account.id === selectedAccountId) ?? null,
     [accountsQuery.data, selectedAccountId],
   );
+  const presetCategoryId =
+    categoriesQuery.data?.find((category) => category.slug === 'savings-interest')?.id ?? '';
+  const effectiveCategoryId =
+    selectedCategoryId || (isSavingsInterest ? presetCategoryId : '');
   const selectedCategory = useMemo(
-    () => categoriesQuery.data?.find((category) => category.id === selectedCategoryId) ?? null,
-    [categoriesQuery.data, selectedCategoryId],
+    () => categoriesQuery.data?.find((category) => category.id === effectiveCategoryId) ?? null,
+    [categoriesQuery.data, effectiveCategoryId],
   );
+  const availableCategories =
+    categoriesQuery.data?.filter((category) =>
+      category.transactionType === (type === 'Gasto' ? 'expense' : 'income'),
+    ) ?? [];
   const customCategories =
-    categoriesQuery.data?.filter((category) => !category.isSystem) ?? [];
+    availableCategories.filter((category) => !category.isSystem);
   const systemCategories =
-    categoriesQuery.data?.filter((category) => category.isSystem) ?? [];
+    availableCategories.filter((category) => category.isSystem);
 
   const parsedAmount = parseCurrencyInput(amount);
   const isExpense = type === 'Gasto';
@@ -103,7 +116,13 @@ export function TransactionForm({
       if (!description.trim()) throw new Error('La descripción es obligatoria');
       if (!date) throw new Error('Selecciona una fecha');
       if (!selectedAccount) throw new Error('Selecciona una cuenta');
-      if (isExpense && !selectedCategoryId) throw new Error('Selecciona una categoría');
+      if (isSavingsInterest && selectedAccount.type !== 'Ahorros') {
+        throw new Error('Los intereses solo se pueden registrar en una cuenta de ahorros');
+      }
+      if (isExpense && !effectiveCategoryId) throw new Error('Selecciona una categoría');
+      if (isSavingsInterest && !effectiveCategoryId) {
+        throw new Error('No se encontró la categoría de intereses');
+      }
 
       const input = {
         account: selectedAccount,
@@ -112,7 +131,7 @@ export function TransactionForm({
         type,
         date,
         budgetId: isExpense && selectedBudgetId ? selectedBudgetId : null,
-        categoryId: isExpense ? selectedCategoryId : null,
+        categoryId: effectiveCategoryId || null,
       };
 
       if (transaction) {
@@ -147,38 +166,49 @@ export function TransactionForm({
   return (
     <div className="mx-auto max-w-2xl p-4">
       <PageHeader
-        title={isEditing ? 'Editar movimiento' : 'Nueva transacción'}
-        backHref={transaction ? `/account/${transaction.accountId}` : '/'}
+        title={
+          isEditing ? 'Editar movimiento' : isSavingsInterest ? 'Agregar interés' : 'Nueva transacción'
+        }
+        subtitle={isSavingsInterest ? 'Registra el rendimiento diario de tus ahorros' : undefined}
+        backHref={
+          transaction
+            ? `/account/${transaction.accountId}`
+            : isSavingsInterest && initialAccountId
+              ? `/account/${initialAccountId}`
+              : '/'
+        }
       />
 
       <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-1 rounded-2xl border border-border bg-card p-1">
-          {(['Gasto', 'Ingreso'] as TransactionType[]).map((item) => {
-            const active = type === item;
-            return (
-              <button
-                key={item}
-                type="button"
-                onClick={() => {
-                  setType(item);
-                  if (item === 'Ingreso') {
-                    setSelectedBudgetId('');
+        {!isSavingsInterest && (
+          <div className="grid grid-cols-2 gap-1 rounded-2xl border border-border bg-card p-1">
+            {(['Gasto', 'Ingreso'] as TransactionType[]).map((item) => {
+              const active = type === item;
+              return (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => {
+                    setType(item);
                     setSelectedCategoryId('');
-                  }
-                }}
-                className={`rounded-xl py-2.5 text-sm font-semibold transition-colors ${
-                  active
-                    ? item === 'Gasto'
-                      ? 'bg-expense/15 text-expense'
-                      : 'bg-income/15 text-income'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {item}
-              </button>
-            );
-          })}
-        </div>
+                    if (item === 'Ingreso') {
+                      setSelectedBudgetId('');
+                    }
+                  }}
+                  className={`rounded-xl py-2.5 text-sm font-semibold transition-colors ${
+                    active
+                      ? item === 'Gasto'
+                        ? 'bg-expense/15 text-expense'
+                        : 'bg-income/15 text-income'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {item}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         <div className="rounded-2xl border border-border bg-card p-5">
           <Label htmlFor="amount" className="text-xs text-muted-foreground">
@@ -236,50 +266,63 @@ export function TransactionForm({
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-5">
-          <h3 className="mb-3 text-sm font-semibold">Cuenta</h3>
+          <h3 className="mb-3 text-sm font-semibold">
+            {isSavingsInterest ? 'Cuenta de ahorros' : 'Cuenta'}
+          </h3>
           {accountsQuery.isLoading ? (
             <Skeleton className="h-24 w-full rounded-xl" />
           ) : accountsQuery.isError ? (
             <p className="text-sm text-expense">No se pudieron cargar las cuentas.</p>
           ) : (
-            <div className="grid grid-cols-2 gap-2">
-              {accountsQuery.data?.map((account) => {
-                const Icon = TYPE_ICONS[account.type] ?? Banknote;
-                const active = selectedAccountId === account.id;
-                return (
-                  <button
-                    key={account.id}
-                    type="button"
-                    onClick={() => setSelectedAccountId(account.id)}
-                    className={`flex items-center gap-2.5 rounded-xl border p-3 text-left transition-colors ${
-                      active
-                        ? 'border-primary/60 bg-primary/10'
-                        : 'border-border hover:border-muted-foreground/40'
-                    }`}
-                  >
-                    <Icon
-                      className={`h-4 w-4 shrink-0 ${
-                        active ? 'text-primary' : 'text-muted-foreground'
+            <div className={isSavingsInterest ? '' : 'grid grid-cols-2 gap-2'}>
+              {accountsQuery.data
+                ?.filter((account) => !isSavingsInterest || account.id === initialAccountId)
+                .map((account) => {
+                  const Icon = TYPE_ICONS[account.type] ?? Banknote;
+                  const active = selectedAccountId === account.id;
+                  return (
+                    <button
+                      key={account.id}
+                      type="button"
+                      onClick={() => {
+                        if (!isSavingsInterest) setSelectedAccountId(account.id);
+                      }}
+                      disabled={isSavingsInterest}
+                      className={`flex items-center gap-2.5 rounded-xl border p-3 text-left transition-colors ${
+                        active
+                          ? 'border-primary/60 bg-primary/10'
+                          : 'border-border hover:border-muted-foreground/40'
                       }`}
-                    />
-                    <span className="min-w-0">
-                      <span className="block break-words text-sm font-semibold leading-snug">{account.name}</span>
-                      <span className="block text-xs text-muted-foreground">{account.type}</span>
-                    </span>
-                  </button>
-                );
-              })}
+                    >
+                      <Icon
+                        className={`h-4 w-4 shrink-0 ${
+                          active ? 'text-primary' : 'text-muted-foreground'
+                        }`}
+                      />
+                      <span className="min-w-0">
+                        <span className="block break-words text-sm font-semibold leading-snug">
+                          {account.name}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {account.type}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
             </div>
           )}
         </div>
 
-        {isExpense && (
+        {(isExpense || isSavingsInterest || effectiveCategoryId) && (
           <div className="rounded-2xl border border-border bg-card p-5">
             <Label htmlFor="category" className="mb-1">
               Categoría
             </Label>
             <p className="mb-3 text-xs text-muted-foreground">
-              Indica en qué gastaste para incluirlo en tu resumen mensual.
+              {isExpense
+                ? 'Indica en qué gastaste para incluirlo en tu resumen mensual.'
+                : 'La categoría permite identificar y sumar tus rendimientos de ahorros.'}
             </p>
             {categoriesQuery.isLoading ? (
               <Skeleton className="h-32 w-full rounded-xl" />
@@ -296,11 +339,13 @@ export function TransactionForm({
                 </span>
                 <select
                   id="category"
-                  value={selectedCategoryId}
+                  value={effectiveCategoryId}
                   onChange={(event) => setSelectedCategoryId(event.target.value)}
                   className="h-12 w-full appearance-none rounded-xl border border-input bg-input/30 pr-10 pl-11 text-sm font-semibold outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                 >
-                  <option value="">Selecciona una categoría</option>
+                  <option value="">
+                    {isExpense ? 'Selecciona una categoría' : 'Sin categoría'}
+                  </option>
                   {customCategories.length > 0 && (
                     <optgroup label="Tus categorías">
                       {customCategories.map((category) => (
@@ -387,9 +432,11 @@ export function TransactionForm({
             ? 'Guardando...'
             : isEditing
               ? 'Guardar cambios'
-              : isExpense
-                ? 'Guardar gasto'
-                : 'Guardar ingreso'}
+              : isSavingsInterest
+                ? 'Agregar interés'
+                : isExpense
+                  ? 'Guardar gasto'
+                  : 'Guardar ingreso'}
         </Button>
       </div>
     </div>

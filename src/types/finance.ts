@@ -5,6 +5,7 @@ export type ExpenseCategoryDTO = {
   id: string;
   slug: string;
   name: string;
+  transaction_type: 'expense' | 'income';
   sort_order: number;
   is_active: boolean;
   is_system: boolean;
@@ -25,6 +26,7 @@ export type InsertAccountDTO = {
 
 export type InsertExpenseCategoryDTO = {
   name: string;
+  transaction_type: 'expense' | 'income';
 };
 
 export type TransactionDTO = {
@@ -102,6 +104,7 @@ export type ExpenseCategory = {
   id: string;
   slug: string;
   name: string;
+  transactionType: 'expense' | 'income';
   isSystem: boolean;
 };
 
@@ -110,6 +113,7 @@ export type Transaction = {
   accountId: string;
   categoryId: string | null;
   categoryName: string | null;
+  categorySlug: string | null;
   date: string;
   description: string;
   amount: number;
@@ -237,6 +241,7 @@ export type CreateAccountInput = {
 
 export type CreateExpenseCategoryInput = {
   name: string;
+  transactionType: 'expense' | 'income';
 };
 
 export type CreateBudgetInput = {

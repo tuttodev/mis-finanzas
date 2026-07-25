@@ -8,6 +8,7 @@ import {
   ReceiptText,
   Shapes,
   ShoppingBag,
+  BadgeCent,
   Tag,
   Utensils,
 } from 'lucide-react';
@@ -24,6 +25,7 @@ const CATEGORY_ICONS: Record<string, typeof Tag> = {
   shopping: ShoppingBag,
   debt: HandCoins,
   other: Shapes,
+  'savings-interest': BadgeCent,
 };
 
 export function CategoryIcon({

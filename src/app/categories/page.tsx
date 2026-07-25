@@ -25,6 +25,8 @@ function CategoryList({ categories }: { categories: ExpenseCategory[] }) {
               <p className="truncate text-[15px] font-semibold">{category.name}</p>
               <p className="text-xs text-muted-foreground">
                 {category.isSystem ? 'Predeterminada' : 'Personalizada'}
+                {' · '}
+                {category.transactionType === 'income' ? 'Ingreso' : 'Gasto'}
               </p>
             </div>
           </div>
@@ -42,14 +44,20 @@ export default function CategoriesPage() {
 
   const customCategories =
     categoriesQuery.data?.filter((category) => !category.isSystem) ?? [];
-  const systemCategories =
-    categoriesQuery.data?.filter((category) => category.isSystem) ?? [];
+  const systemExpenseCategories =
+    categoriesQuery.data?.filter(
+      (category) => category.isSystem && category.transactionType === 'expense',
+    ) ?? [];
+  const systemIncomeCategories =
+    categoriesQuery.data?.filter(
+      (category) => category.isSystem && category.transactionType === 'income',
+    ) ?? [];
 
   return (
     <div className="mx-auto max-w-2xl p-4">
       <PageHeader
         title="Categorías"
-        subtitle="Organiza tus gastos a tu manera"
+        subtitle="Organiza tus gastos e ingresos a tu manera"
         action={
           <Button nativeButton={false} render={<Link href="/category-form" />}>
             <Plus className="h-4 w-4" />
@@ -82,8 +90,17 @@ export default function CategoriesPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 px-1 text-sm font-semibold">Predeterminadas</h2>
-            <CategoryList categories={systemCategories} />
+            <h2 className="mb-2 px-1 text-sm font-semibold">
+              Predeterminadas de gastos
+            </h2>
+            <CategoryList categories={systemExpenseCategories} />
+          </section>
+
+          <section>
+            <h2 className="mb-2 px-1 text-sm font-semibold">
+              Predeterminadas de ingresos
+            </h2>
+            <CategoryList categories={systemIncomeCategories} />
           </section>
         </div>
       )}
