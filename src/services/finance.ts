@@ -17,6 +17,7 @@ import type {
   CreateAccountInput,
   CreateBudgetInput,
   CreateExpenseCategoryInput,
+  CreatePlanItemInput,
   CreateTransactionInput,
   CreateTransferInput,
   DailySpend,
@@ -25,7 +26,14 @@ import type {
   ExpenseCategoryDTO,
   EditableTransaction,
   InsertAccountDTO,
+  InsertMonthlyPlanDTO,
+  InsertPlanItemDTO,
   MonthlyCashflow,
+  MonthlyPlan,
+  MonthlyPlanDTO,
+  MonthlyPlanSummary,
+  PlanItem,
+  PlanItemDTO,
   TransactionWithAccount,
   InsertBudgetCycleDTO,
   InsertBudgetDTO,
@@ -34,6 +42,8 @@ import type {
   ResetBudgetCycleDTO,
   Transaction,
   TransactionDTO,
+  UpdatePlanItemDTO,
+  UpdatePlanItemInput,
   UpdateTransactionDTO,
   UpdateTransactionInput,
   UpdateBudgetDTO,
@@ -692,4 +702,171 @@ export async function resetBudget(progress: BudgetProgress, restartDate?: string
 
   const { error: insertError } = await supabase.from('budget_cycles').insert(newCyclePayload);
   if (insertError) throw new Error(insertError.message);
+}
+
+function mapMonthlyPlan(dto: MonthlyPlanDTO): MonthlyPlan {
+  return {
+    id: dto.id,
+    month: dto.month,
+    payday: dto.payday ?? null,
+  };
+}
+
+function mapPlanItem(dto: PlanItemDTO): PlanItem {
+  return {
+    id: dto.id,
+    planId: dto.plan_id,
+    name: dto.name,
+    kind: dto.kind,
+    plannedAmount: dto.planned_amount,
+    note: dto.note,
+    isPaid: dto.is_paid,
+    budgetId: dto.budget_id,
+    categoryId: dto.category_id,
+    sortOrder: dto.sort_order,
+  };
+}
+
+function summarizePlan(plan: MonthlyPlan, items: PlanItem[]): MonthlyPlanSummary {
+  const incomeTotal = items
+    .filter((item) => item.kind === 'income')
+    .reduce((sum, item) => sum + item.plannedAmount, 0);
+  const expenseTotal = items
+    .filter((item) => item.kind === 'expense')
+    .reduce((sum, item) => sum + item.plannedAmount, 0);
+
+  return { plan, items, incomeTotal, expenseTotal, leftover: incomeTotal - expenseTotal };
+}
+
+async function fetchPlanItems(planId: string): Promise<PlanItem[]> {
+  const { data, error } = await supabase
+    .from('plan_items')
+    .select('*')
+    .eq('plan_id', planId)
+    .order('sort_order')
+    .order('created_at');
+
+  return ensure(data as PlanItemDTO[] | null, error).map(mapPlanItem);
+}
+
+export async function fetchMonthlyPlan(monthKey: string): Promise<MonthlyPlanSummary | null> {
+  const { data, error } = await supabase
+    .from('monthly_plans')
+    .select('*')
+    .eq('month', monthKey)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!data) return null;
+
+  const plan = mapMonthlyPlan(data as MonthlyPlanDTO);
+  const items = await fetchPlanItems(plan.id);
+  return summarizePlan(plan, items);
+}
+
+export async function fetchPreviousPlanSummary(
+  monthKey: string,
+): Promise<MonthlyPlanSummary | null> {
+  const { data, error } = await supabase
+    .from('monthly_plans')
+    .select('*')
+    .lt('month', monthKey)
+    .order('month', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!data) return null;
+
+  const plan = mapMonthlyPlan(data as MonthlyPlanDTO);
+  const items = await fetchPlanItems(plan.id);
+  return summarizePlan(plan, items);
+}
+
+export async function createBlankPlan(monthKey: string): Promise<MonthlyPlanSummary> {
+  const payload: InsertMonthlyPlanDTO = { month: monthKey };
+  const { data, error } = await supabase
+    .from('monthly_plans')
+    .insert(payload)
+    .select('*')
+    .single();
+
+  const plan = mapMonthlyPlan(ensure(data as MonthlyPlanDTO | null, error));
+  return summarizePlan(plan, []);
+}
+
+export async function duplicatePreviousPlan(monthKey: string): Promise<MonthlyPlanSummary> {
+  const previous = await fetchPreviousPlanSummary(monthKey);
+  if (!previous) throw new Error('No hay un plan anterior para duplicar');
+
+  const payload: InsertMonthlyPlanDTO = { month: monthKey };
+  const { data, error } = await supabase
+    .from('monthly_plans')
+    .insert(payload)
+    .select('*')
+    .single();
+
+  const plan = mapMonthlyPlan(ensure(data as MonthlyPlanDTO | null, error));
+
+  if (previous.items.length) {
+    const itemsPayload: InsertPlanItemDTO[] = previous.items.map((item) => ({
+      plan_id: plan.id,
+      name: item.name,
+      kind: item.kind,
+      planned_amount: item.plannedAmount,
+      note: item.note,
+      sort_order: item.sortOrder,
+    }));
+
+    const { error: itemsError } = await supabase.from('plan_items').insert(itemsPayload);
+    if (itemsError) throw new Error(itemsError.message);
+  }
+
+  const items = await fetchPlanItems(plan.id);
+  return summarizePlan(plan, items);
+}
+
+export async function fetchPlanItem(itemId: string): Promise<PlanItem> {
+  const { data, error } = await supabase.from('plan_items').select('*').eq('id', itemId).single();
+  return mapPlanItem(ensure(data as PlanItemDTO | null, error));
+}
+
+export async function createPlanItem(input: CreatePlanItemInput): Promise<PlanItem> {
+  const name = input.name.trim();
+  if (!name) throw new Error('El nombre es obligatorio');
+
+  const payload: InsertPlanItemDTO = {
+    plan_id: input.planId,
+    name,
+    kind: input.kind,
+    planned_amount: roundCurrencyAmount(input.plannedAmount),
+    note: input.note?.trim() || null,
+  };
+
+  const { data, error } = await supabase.from('plan_items').insert(payload).select('*').single();
+  return mapPlanItem(ensure(data as PlanItemDTO | null, error));
+}
+
+export async function updatePlanItem(itemId: string, input: UpdatePlanItemInput) {
+  const name = input.name.trim();
+  if (!name) throw new Error('El nombre es obligatorio');
+
+  const payload: UpdatePlanItemDTO = {
+    name,
+    planned_amount: roundCurrencyAmount(input.plannedAmount),
+    note: input.note?.trim() || null,
+  };
+
+  const { error } = await supabase.from('plan_items').update(payload).eq('id', itemId);
+  if (error) throw new Error(error.message);
+}
+
+export async function deletePlanItem(itemId: string) {
+  const { error } = await supabase.from('plan_items').delete().eq('id', itemId);
+  if (error) throw new Error(error.message);
+}
+
+export async function setPlanItemPaid(itemId: string, isPaid: boolean) {
+  const { error } = await supabase.from('plan_items').update({ is_paid: isPaid }).eq('id', itemId);
+  if (error) throw new Error(error.message);
 }

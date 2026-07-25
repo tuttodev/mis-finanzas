@@ -244,3 +244,87 @@ export type CreateBudgetInput = {
   limitAmount: number;
   startedAt?: string;
 };
+
+export type PlanItemKind = 'income' | 'expense';
+
+export type MonthlyPlanDTO = {
+  id: string;
+  month: string;
+  payday: string | null;
+  created_at?: string | null;
+};
+
+export type PlanItemDTO = {
+  id: string;
+  plan_id: string;
+  name: string;
+  kind: PlanItemKind;
+  planned_amount: number;
+  note: string | null;
+  is_paid: boolean;
+  budget_id: string | null;
+  category_id: string | null;
+  sort_order: number;
+  created_at?: string | null;
+};
+
+export type InsertMonthlyPlanDTO = {
+  month: string;
+  payday?: string | null;
+};
+
+export type InsertPlanItemDTO = {
+  plan_id: string;
+  name: string;
+  kind: PlanItemKind;
+  planned_amount: number;
+  note: string | null;
+  sort_order?: number;
+};
+
+export type UpdatePlanItemDTO = {
+  name: string;
+  planned_amount: number;
+  note: string | null;
+};
+
+export type MonthlyPlan = {
+  id: string;
+  month: string;
+  payday: string | null;
+};
+
+export type PlanItem = {
+  id: string;
+  planId: string;
+  name: string;
+  kind: PlanItemKind;
+  plannedAmount: number;
+  note: string | null;
+  isPaid: boolean;
+  budgetId: string | null;
+  categoryId: string | null;
+  sortOrder: number;
+};
+
+export type MonthlyPlanSummary = {
+  plan: MonthlyPlan;
+  items: PlanItem[];
+  incomeTotal: number;
+  expenseTotal: number;
+  leftover: number;
+};
+
+export type CreatePlanItemInput = {
+  planId: string;
+  name: string;
+  kind: PlanItemKind;
+  plannedAmount: number;
+  note?: string;
+};
+
+export type UpdatePlanItemInput = {
+  name: string;
+  plannedAmount: number;
+  note?: string;
+};

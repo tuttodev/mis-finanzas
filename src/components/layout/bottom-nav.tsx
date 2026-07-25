@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Landmark, PieChart, Plus, Tags } from 'lucide-react';
+import { CalendarCheck, Home, Landmark, PieChart, Plus, Tags } from 'lucide-react';
 
 const tabs = [
   { href: '/', label: 'Inicio', icon: Home, exact: true },
+  { href: '/plan', label: 'Plan', icon: CalendarCheck, exact: false, prefix: '/plan' },
   { href: '/accounts', label: 'Cuentas', icon: Landmark, exact: false, prefix: '/account' },
   { href: '/categories', label: 'Categorías', icon: Tags, exact: false, prefix: '/categor' },
   { href: '/budgets', label: 'Presupuestos', icon: PieChart, exact: false, prefix: '/budget' },

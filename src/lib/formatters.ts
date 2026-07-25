@@ -135,6 +135,28 @@ export function todayIsoDate() {
   return `${now.getFullYear()}-${month}-${day}`;
 }
 
+export function toMonthKey(dateIso: string) {
+  return `${dateIso.slice(0, 7)}-01`;
+}
+
+export function currentMonthKey() {
+  return toMonthKey(todayIsoDate());
+}
+
+export function shiftMonthKey(monthKey: string, delta: number) {
+  const [year, month] = monthKey.split('-').map(Number);
+  const shifted = new Date(year, month - 1 + delta, 1);
+  return `${shifted.getFullYear()}-${String(shifted.getMonth() + 1).padStart(2, '0')}-01`;
+}
+
+const monthTitleFormatter = new Intl.DateTimeFormat('es-CO', { month: 'long', year: 'numeric' });
+
+export function formatMonthTitle(monthKey: string) {
+  const [year, month] = monthKey.split('-').map(Number);
+  const label = monthTitleFormatter.format(new Date(year, month - 1, 1));
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 export function parseCurrencyInput(value: string) {
   const formatted = formatCOPInput(value);
   const normalized = formatted
