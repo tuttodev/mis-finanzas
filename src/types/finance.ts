@@ -106,6 +106,7 @@ export type ExpenseCategory = {
   name: string;
   transactionType: 'expense' | 'income';
   isSystem: boolean;
+  hasTransactions: boolean;
 };
 
 export type Transaction = {

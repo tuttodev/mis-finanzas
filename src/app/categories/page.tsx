@@ -38,7 +38,7 @@ function CategoryList({
                 {category.transactionType === 'income' ? 'Ingreso' : 'Gasto'}
               </p>
             </div>
-            {onDelete && (
+            {onDelete && !category.hasTransactions && (
               <button
                 type="button"
                 onClick={() => onDelete(category)}

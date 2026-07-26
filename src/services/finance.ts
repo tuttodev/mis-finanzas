@@ -135,13 +135,17 @@ function mapSnapshot(dto: BudgetCycleDTO): BudgetSnapshot | null {
   };
 }
 
-function mapExpenseCategory(dto: ExpenseCategoryDTO): ExpenseCategory {
+function mapExpenseCategory(
+  dto: ExpenseCategoryDTO,
+  usedCategoryIds: Set<string> = new Set(),
+): ExpenseCategory {
   return {
     id: dto.id,
     slug: dto.slug,
     name: dto.name,
     transactionType: dto.transaction_type,
     isSystem: dto.is_system,
+    hasTransactions: usedCategoryIds.has(dto.id),
   };
 }
 
@@ -391,15 +395,21 @@ export async function updateTransaction(
 }
 
 export async function fetchExpenseCategories(): Promise<ExpenseCategory[]> {
-  const { data, error } = await supabase
-    .from('categories')
-    .select('*')
-    .eq('is_active', true)
-    .order('sort_order')
-    .order('name');
+  const [{ data, error }, { data: txData, error: txError }] = await Promise.all([
+    supabase
+      .from('categories')
+      .select('*')
+      .eq('is_active', true)
+      .order('sort_order')
+      .order('name'),
+    supabase.from('transactions').select('category_id').not('category_id', 'is', null),
+  ]);
 
   const categories = ensure(data as ExpenseCategoryDTO[] | null, error);
-  return categories.map(mapExpenseCategory);
+  const usedRows = ensure(txData as { category_id: string }[] | null, txError);
+  const usedCategoryIds = new Set(usedRows.map((row) => row.category_id));
+
+  return categories.map((category) => mapExpenseCategory(category, usedCategoryIds));
 }
 
 export async function createExpenseCategory(
