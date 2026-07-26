@@ -6,6 +6,15 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight, Copy, Plus } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlanItemRow } from '@/components/finance/plan-item-row';
@@ -18,9 +27,10 @@ import {
   duplicatePreviousPlan,
   fetchMonthlyPlan,
   fetchPreviousPlanSummary,
+  reorderPlanItems,
   setPlanItemPaid,
 } from '@/services/finance';
-import type { PlanItem } from '@/types/finance';
+import type { MonthlyPlanSummary, PlanItem, PlanItemKind } from '@/types/finance';
 
 function PlanPage() {
   const router = useRouter();
@@ -65,6 +75,16 @@ function PlanPage() {
     onError: (error: Error) => toast.error(error.message),
   });
 
+  const reorderMutation = useMutation({
+    mutationFn: (updates: { id: string; sortOrder: number }[]) => reorderPlanItems(updates),
+    onError: (error: Error) => {
+      toast.error(error.message);
+      queryClient.invalidateQueries({ queryKey: ['plan', monthKey] });
+    },
+  });
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+
   function goToMonth(delta: number) {
     router.push(`/plan?month=${shiftMonthKey(monthKey, delta)}`);
   }
@@ -72,6 +92,31 @@ function PlanPage() {
   const plan = planQuery.data;
   const incomeItems = plan?.items.filter((item) => item.kind === 'income') ?? [];
   const expenseItems = plan?.items.filter((item) => item.kind === 'expense') ?? [];
+
+  function handleDragEnd(kind: PlanItemKind) {
+    return (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+
+      const items = kind === 'income' ? incomeItems : expenseItems;
+      const oldIndex = items.findIndex((item) => item.id === active.id);
+      const newIndex = items.findIndex((item) => item.id === over.id);
+      if (oldIndex === -1 || newIndex === -1) return;
+
+      const reordered = arrayMove(items, oldIndex, newIndex).map((item, index) => ({
+        ...item,
+        sortOrder: (index + 1) * 10,
+      }));
+
+      queryClient.setQueryData<MonthlyPlanSummary | null>(['plan', monthKey], (old) => {
+        if (!old) return old;
+        const otherItems = old.items.filter((item) => item.kind !== kind);
+        return { ...old, items: [...otherItems, ...reordered] };
+      });
+
+      reorderMutation.mutate(reordered.map((item) => ({ id: item.id, sortOrder: item.sortOrder })));
+    };
+  }
 
   return (
     <div className="mx-auto max-w-2xl p-4">
@@ -131,16 +176,27 @@ function PlanPage() {
               </Link>
             </div>
             {incomeItems.length ? (
-              <div className="divide-y divide-border">
-                {incomeItems.map((item) => (
-                  <PlanItemRow
-                    key={item.id}
-                    item={item}
-                    onTogglePaid={(i) => togglePaidMutation.mutate(i)}
-                    togglePending={togglePaidMutation.isPending}
-                  />
-                ))}
-              </div>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd('income')}
+              >
+                <SortableContext
+                  items={incomeItems.map((item) => item.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="divide-y divide-border">
+                    {incomeItems.map((item) => (
+                      <PlanItemRow
+                        key={item.id}
+                        item={item}
+                        onTogglePaid={(i) => togglePaidMutation.mutate(i)}
+                        togglePending={togglePaidMutation.isPending}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
             ) : (
               <p className="px-1 py-2 text-sm text-muted-foreground">Sin ingresos registrados.</p>
             )}
@@ -160,16 +216,27 @@ function PlanPage() {
               </Link>
             </div>
             {expenseItems.length ? (
-              <div className="divide-y divide-border">
-                {expenseItems.map((item) => (
-                  <PlanItemRow
-                    key={item.id}
-                    item={item}
-                    onTogglePaid={(i) => togglePaidMutation.mutate(i)}
-                    togglePending={togglePaidMutation.isPending}
-                  />
-                ))}
-              </div>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd('expense')}
+              >
+                <SortableContext
+                  items={expenseItems.map((item) => item.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="divide-y divide-border">
+                    {expenseItems.map((item) => (
+                      <PlanItemRow
+                        key={item.id}
+                        item={item}
+                        onTogglePaid={(i) => togglePaidMutation.mutate(i)}
+                        togglePending={togglePaidMutation.isPending}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
             ) : (
               <p className="px-1 py-2 text-sm text-muted-foreground">Sin partidas registradas.</p>
             )}

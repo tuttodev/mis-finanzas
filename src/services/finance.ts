@@ -888,6 +888,19 @@ export async function updatePlanItem(itemId: string, input: UpdatePlanItemInput)
   if (error) throw new Error(error.message);
 }
 
+export async function reorderPlanItems(
+  updates: { id: string; sortOrder: number }[],
+): Promise<void> {
+  const results = await Promise.all(
+    updates.map(({ id, sortOrder }) =>
+      supabase.from('plan_items').update({ sort_order: sortOrder }).eq('id', id),
+    ),
+  );
+
+  const failed = results.find((result) => result.error);
+  if (failed?.error) throw new Error(failed.error.message);
+}
+
 export async function deletePlanItem(itemId: string) {
   const { error } = await supabase.from('plan_items').delete().eq('id', itemId);
   if (error) throw new Error(error.message);

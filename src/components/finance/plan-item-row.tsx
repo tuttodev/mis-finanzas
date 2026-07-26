@@ -1,5 +1,9 @@
+'use client';
+
 import Link from 'next/link';
-import { Circle, CircleCheck } from 'lucide-react';
+import { Circle, CircleCheck, GripVertical } from 'lucide-react';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { formatCOP } from '@/lib/formatters';
 import type { PlanItem } from '@/types/finance';
 
@@ -10,8 +14,31 @@ type PlanItemRowProps = {
 };
 
 export function PlanItemRow({ item, onTogglePaid, togglePending }: PlanItemRowProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: item.id,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
   return (
-    <div className="flex items-center gap-2 py-1">
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-1 py-1 ${isDragging ? 'relative z-10 bg-card' : ''}`}
+    >
+      <button
+        type="button"
+        aria-label="Arrastrar para reordenar"
+        {...attributes}
+        {...listeners}
+        className="shrink-0 touch-none p-1 text-muted-foreground/50 hover:text-muted-foreground"
+      >
+        <GripVertical className="h-4 w-4" />
+      </button>
+
       {item.kind === 'expense' ? (
         <button
           type="button"
