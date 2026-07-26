@@ -1,18 +1,27 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
-import { Plus } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Plus, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';
 import { CategoryIcon } from '@/components/finance/category-icon';
 import { PageHeader } from '@/components/layout/page-header';
-import { fetchExpenseCategories } from '@/services/finance';
+import { deleteExpenseCategory, fetchExpenseCategories } from '@/services/finance';
 import type { ExpenseCategory } from '@/types/finance';
 
-function CategoryList({ categories }: { categories: ExpenseCategory[] }) {
+function CategoryList({
+  categories,
+  onDelete,
+}: {
+  categories: ExpenseCategory[];
+  onDelete?: (category: ExpenseCategory) => void;
+}) {
   return (
     <div className="rounded-2xl border border-border bg-card px-4 py-2">
       <div className="divide-y divide-border">
@@ -29,6 +38,16 @@ function CategoryList({ categories }: { categories: ExpenseCategory[] }) {
                 {category.transactionType === 'income' ? 'Ingreso' : 'Gasto'}
               </p>
             </div>
+            {onDelete && (
+              <button
+                type="button"
+                onClick={() => onDelete(category)}
+                aria-label={`Eliminar ${category.name}`}
+                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
           </div>
         ))}
       </div>
@@ -37,9 +56,21 @@ function CategoryList({ categories }: { categories: ExpenseCategory[] }) {
 }
 
 export default function CategoriesPage() {
+  const queryClient = useQueryClient();
+  const [deleteTarget, setDeleteTarget] = useState<ExpenseCategory | null>(null);
+
   const categoriesQuery = useQuery({
     queryKey: ['expense-categories'],
     queryFn: fetchExpenseCategories,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (categoryId: string) => deleteExpenseCategory(categoryId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['expense-categories'] });
+      toast.success('Categoría eliminada');
+    },
+    onError: (error: Error) => toast.error(error.message),
   });
 
   const customCategories =
@@ -78,7 +109,10 @@ export default function CategoriesPage() {
           <section>
             <h2 className="mb-2 px-1 text-sm font-semibold">Tus categorías</h2>
             {customCategories.length ? (
-              <CategoryList categories={customCategories} />
+              <CategoryList
+                categories={customCategories}
+                onDelete={(category) => setDeleteTarget(category)}
+              />
             ) : (
               <div className="rounded-2xl border border-border bg-card">
                 <EmptyState
@@ -104,6 +138,20 @@ export default function CategoriesPage() {
           </section>
         </div>
       )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Eliminar categoría"
+        description={`Se eliminará "${deleteTarget?.name}". Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar"
+        onConfirm={() => {
+          if (deleteTarget) {
+            deleteMutation.mutate(deleteTarget.id);
+            setDeleteTarget(null);
+          }
+        }}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

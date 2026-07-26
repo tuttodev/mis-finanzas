@@ -426,6 +426,15 @@ export async function createExpenseCategory(
   return mapExpenseCategory(ensure(data as ExpenseCategoryDTO | null, error));
 }
 
+export async function deleteExpenseCategory(categoryId: string) {
+  const { error } = await supabase.from('categories').delete().eq('id', categoryId);
+
+  if (error?.code === '23503') {
+    throw new Error('No puedes eliminar una categoría con transacciones asociadas');
+  }
+  if (error) throw new Error(error.message);
+}
+
 export async function deleteTransaction(transactionId: string) {
   const { data, error: fetchError } = await supabase
     .from('transactions')
