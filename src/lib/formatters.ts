@@ -157,14 +157,15 @@ export function formatMonthTitle(monthKey: string) {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
-export function parseCurrencyInput(value: string) {
+export function parseCurrencyInput(value: string, options?: { allowZero?: boolean }) {
   const formatted = formatCOPInput(value);
   const normalized = formatted
     .replace(/\./g, '')
     .replace(/,/g, '.');
 
   const amount = Number(normalized);
-  if (!Number.isFinite(amount) || amount <= 0) {
+  const minValid = options?.allowZero ? 0 : Number.EPSILON;
+  if (!Number.isFinite(amount) || amount < minValid) {
     return null;
   }
 

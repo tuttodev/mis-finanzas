@@ -46,7 +46,7 @@ function PlanItemForm() {
   }
 
   const kind: PlanItemKind = itemQuery.data?.kind ?? kindParam ?? 'expense';
-  const parsedAmount = parseCurrencyInput(amount);
+  const parsedAmount = parseCurrencyInput(amount, { allowZero: true });
 
   const invalidatePlanQueries = () =>
     Promise.all([
@@ -57,7 +57,7 @@ function PlanItemForm() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!name.trim()) throw new Error('El nombre es obligatorio');
-      if (!parsedAmount) throw new Error('Ingresa un monto válido');
+      if (parsedAmount === null) throw new Error('Ingresa un monto válido');
 
       if (itemId) {
         await updatePlanItem(itemId, { name: name.trim(), plannedAmount: parsedAmount, note });
