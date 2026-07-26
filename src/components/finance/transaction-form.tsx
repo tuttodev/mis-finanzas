@@ -314,7 +314,7 @@ export function TransactionForm({
           )}
         </div>
 
-        {(isExpense || isSavingsInterest || effectiveCategoryId) && (
+        {(isExpense || effectiveCategoryId || availableCategories.length > 0) && (
           <div className="rounded-2xl border border-border bg-card p-5">
             <Label htmlFor="category" className="mb-1">
               Categoría
@@ -322,7 +322,7 @@ export function TransactionForm({
             <p className="mb-3 text-xs text-muted-foreground">
               {isExpense
                 ? 'Indica en qué gastaste para incluirlo en tu resumen mensual.'
-                : 'La categoría permite identificar y sumar tus rendimientos de ahorros.'}
+                : 'La categoría permite identificar y sumar tus ingresos por tipo.'}
             </p>
             {categoriesQuery.isLoading ? (
               <Skeleton className="h-32 w-full rounded-xl" />
