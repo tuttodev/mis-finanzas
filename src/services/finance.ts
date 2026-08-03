@@ -18,6 +18,7 @@ import type {
   CreateBudgetInput,
   CreateExpenseCategoryInput,
   CreatePlanItemInput,
+  CreateRefundInput,
   CreateTransactionInput,
   CreateTransferInput,
   DailySpend,
@@ -44,6 +45,7 @@ import type {
   TransactionDTO,
   UpdatePlanItemDTO,
   UpdatePlanItemInput,
+  UpdateRefundInput,
   UpdateTransactionDTO,
   UpdateTransactionInput,
   UpdateBudgetDTO,
@@ -166,6 +168,8 @@ function mapTransaction(
     description: dto.description,
     amount: dto.amount,
     transferId: dto.transfer_id ?? null,
+    kind: dto.kind ?? 'regular',
+    relatedTransactionId: dto.related_transaction_id ?? null,
   };
 }
 
@@ -208,11 +212,15 @@ async function fetchOpenBudgetCycle(budgetId: string) {
 async function fetchSpentAmount(cycleId: string) {
   const { data, error } = await supabase
     .from('transactions')
-    .select('amount')
+    .select('amount, kind')
     .eq('budget_cycle_id', cycleId);
 
-  const rows = ensure(data as Array<{ amount: number }> | null, error);
-  return rows.reduce((total, row) => (row.amount < 0 ? total + Math.abs(row.amount) : total), 0);
+  const rows = ensure(data as Array<{ amount: number; kind?: string }> | null, error);
+  return rows.reduce((total, row) => {
+    if (row.amount < 0) return total + Math.abs(row.amount);
+    if (row.kind === 'refund') return total - row.amount;
+    return total;
+  }, 0);
 }
 
 export async function fetchAccountsOverview(): Promise<Account[]> {
@@ -293,6 +301,86 @@ export async function createTransaction(input: CreateTransactionInput) {
   return mapTransaction(ensure(data as TransactionDTO | null, error));
 }
 
+export async function fetchRefundedAmount(
+  transactionId: string,
+  excludeRefundId?: string,
+): Promise<number> {
+  let query = supabase
+    .from('transactions')
+    .select('amount')
+    .eq('kind', 'refund')
+    .eq('related_transaction_id', transactionId);
+
+  if (excludeRefundId) query = query.neq('id', excludeRefundId);
+
+  const { data, error } = await query;
+  const rows = ensure(data as Array<{ amount: number }> | null, error);
+  return rows.reduce((total, row) => total + row.amount, 0);
+}
+
+function validateRefundInput(input: CreateRefundInput) {
+  const normalizedAmount = roundCurrencyAmount(input.amount);
+  const original = input.originalTransaction;
+
+  if (normalizedAmount <= 0) throw new Error('Ingresa un monto válido');
+  if (original.kind !== 'regular' || original.amount >= 0 || !original.budgetCycleId) {
+    throw new Error('El movimiento relacionado debe ser un gasto con presupuesto');
+  }
+  if (original.budgetCycleEndedAt) {
+    throw new Error('No se pueden registrar reembolsos en un ciclo cerrado');
+  }
+
+  return normalizedAmount;
+}
+
+export async function createRefund(input: CreateRefundInput) {
+  const normalizedAmount = validateRefundInput(input);
+  const payload: InsertTransactionDTO = {
+    account_id: input.account.id,
+    budget_cycle_id: input.originalTransaction.budgetCycleId,
+    category_id: input.originalTransaction.categoryId,
+    date: input.date,
+    description: input.description,
+    amount: normalizedAmount,
+    kind: 'refund',
+    related_transaction_id: input.originalTransaction.id,
+  };
+
+  const { data, error } = await supabase
+    .from('transactions')
+    .insert(payload)
+    .select('*')
+    .single();
+
+  return mapTransaction(ensure(data as TransactionDTO | null, error));
+}
+
+export async function updateRefund(
+  refundId: string,
+  input: UpdateRefundInput,
+) {
+  const normalizedAmount = validateRefundInput(input);
+  const payload: UpdateTransactionDTO = {
+    account_id: input.account.id,
+    budget_cycle_id: input.originalTransaction.budgetCycleId,
+    category_id: input.originalTransaction.categoryId,
+    date: input.date,
+    description: input.description,
+    amount: normalizedAmount,
+    kind: 'refund',
+    related_transaction_id: input.originalTransaction.id,
+  };
+
+  const { data, error } = await supabase
+    .from('transactions')
+    .update(payload)
+    .eq('id', refundId)
+    .select('*')
+    .single();
+
+  return mapTransaction(ensure(data as TransactionDTO | null, error));
+}
+
 export async function createTransfer(input: CreateTransferInput) {
   const normalizedAmount = roundCurrencyAmount(input.amount);
   if (normalizedAmount <= 0) throw new Error('Ingresa un monto válido');
@@ -333,20 +421,27 @@ export async function fetchTransaction(transactionId: string): Promise<EditableT
   );
   const budgetCycleId = transactionDto.budget_cycle_id ?? null;
   let budgetId: string | null = null;
+  let budgetCycleEndedAt: string | null = null;
 
   if (budgetCycleId) {
     const { data, error } = await supabase
       .from('budget_cycles')
-      .select('budget_id')
+      .select('budget_id, ended_at')
       .eq('id', budgetCycleId)
       .single();
-    budgetId = ensure(data as { budget_id: string } | null, error).budget_id;
+    const cycle = ensure(
+      data as { budget_id: string; ended_at: string | null } | null,
+      error,
+    );
+    budgetId = cycle.budget_id;
+    budgetCycleEndedAt = cycle.ended_at;
   }
 
   return {
     ...mapTransaction(transactionDto, categoryNames),
     budgetCycleId,
     budgetId,
+    budgetCycleEndedAt,
   };
 }
 
@@ -382,6 +477,8 @@ export async function updateTransaction(
     date: input.date,
     description: input.description,
     amount: signedAmount,
+    kind: 'regular',
+    related_transaction_id: null,
   };
 
   const { data, error } = await supabase
@@ -459,6 +556,9 @@ export async function deleteTransaction(transactionId: string) {
     : supabase.from('transactions').delete().eq('id', transactionId);
 
   const { error } = await deleteQuery;
+  if (error?.code === '23503') {
+    throw new Error('Elimina primero los reembolsos asociados a este gasto');
+  }
   if (error) throw new Error(error.message);
 }
 
@@ -544,17 +644,18 @@ export async function fetchBudgetMovements(cycleId: string): Promise<BudgetMovem
   ]);
 
   return transactions
-    .filter((transaction) => transaction.amount < 0)
+    .filter((transaction) => transaction.amount < 0 || transaction.kind === 'refund')
     .map((transaction) => ({
       id: transaction.id,
       accountId: transaction.account_id,
       accountName: accountsMap.get(transaction.account_id) ?? 'Cuenta desconocida',
       date: transaction.date,
       description: transaction.description,
-      amount: Math.abs(transaction.amount),
+      amount: transaction.amount,
       categoryName: transaction.category_id
         ? categories.get(transaction.category_id)?.name ?? null
         : null,
+      kind: transaction.kind ?? 'regular',
     }));
 }
 
@@ -624,15 +725,19 @@ export async function fetchDashboardData(): Promise<DashboardData> {
     // Transfers move money between own accounts; they are not income nor expense
     if (tx.transfer_id) continue;
 
+    const isRefund = tx.kind === 'refund';
     const monthIdx = monthIndex.get(tx.date.slice(0, 7));
     if (monthIdx !== undefined) {
-      if (tx.amount >= 0) cashflow[monthIdx].income += tx.amount;
+      if (isRefund) cashflow[monthIdx].expense -= tx.amount;
+      else if (tx.amount >= 0) cashflow[monthIdx].income += tx.amount;
       else cashflow[monthIdx].expense += Math.abs(tx.amount);
     }
 
-    if (tx.amount < 0) {
+    if (tx.amount < 0 || isRefund) {
       const dayIdx = dayIndex.get(tx.date.slice(0, 10));
-      if (dayIdx !== undefined) dailySpend[dayIdx].value += Math.abs(tx.amount);
+      if (dayIdx !== undefined) {
+        dailySpend[dayIdx].value += isRefund ? -tx.amount : Math.abs(tx.amount);
+      }
 
       if (tx.date.startsWith(currentMonthKey)) {
         const categoryName = tx.category_id
@@ -640,17 +745,27 @@ export async function fetchDashboardData(): Promise<DashboardData> {
           : 'Sin categoría';
         categoryTotals.set(
           categoryName,
-          (categoryTotals.get(categoryName) ?? 0) + Math.abs(tx.amount),
+          (categoryTotals.get(categoryName) ?? 0)
+            + (isRefund ? -tx.amount : Math.abs(tx.amount)),
         );
       }
     }
   }
 
+  cashflow.forEach((point) => {
+    point.expense = Math.max(0, point.expense);
+  });
+  dailySpend.forEach((point) => {
+    point.value = Math.max(0, point.value);
+  });
+
   const currentMonth = cashflow[cashflow.length - 1];
   const categorySpending: CategorySpending[] = Array.from(categoryTotals, ([label, value]) => ({
     label,
     value,
-  })).sort((a, b) => b.value - a.value);
+  }))
+    .filter((item) => item.value > 0)
+    .sort((a, b) => b.value - a.value);
   const recentTransactions: TransactionWithAccount[] = transactions.slice(0, 8).map((dto) => ({
     ...mapTransaction(dto, categories),
     accountName: accountNames.get(dto.account_id) ?? 'Cuenta desconocida',

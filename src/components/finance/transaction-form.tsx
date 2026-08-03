@@ -2,8 +2,9 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Banknote, ChevronDown, CreditCard, PiggyBank, Tag } from 'lucide-react';
+import { Banknote, ChevronDown, CreditCard, PiggyBank, RotateCcw, Tag } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { CurrencyInput } from '@/components/ui/currency-input';
@@ -438,6 +439,23 @@ export function TransactionForm({
                   ? 'Guardar gasto'
                   : 'Guardar ingreso'}
         </Button>
+
+        {transaction
+          && transaction.kind === 'regular'
+          && transaction.amount < 0
+          && transaction.budgetCycleId
+          && !transaction.budgetCycleEndedAt && (
+            <Button
+              className="w-full"
+              size="lg"
+              variant="outline"
+              nativeButton={false}
+              render={<Link href={`/transaction/${transaction.id}/refund`} />}
+            >
+              <RotateCcw className="h-4 w-4" />
+              Registrar reembolso
+            </Button>
+          )}
       </div>
     </div>
   );

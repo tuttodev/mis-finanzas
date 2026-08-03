@@ -1,5 +1,6 @@
 export type AccountType = 'Ahorros' | 'Crédito' | 'Efectivo';
 export type TransactionType = 'Ingreso' | 'Gasto';
+export type TransactionKind = 'regular' | 'refund';
 
 export type ExpenseCategoryDTO = {
   id: string;
@@ -38,6 +39,8 @@ export type TransactionDTO = {
   description: string;
   amount: number;
   transfer_id?: string | null;
+  kind?: TransactionKind;
+  related_transaction_id?: string | null;
   created_at?: string | null;
 };
 
@@ -49,6 +52,8 @@ export type InsertTransactionDTO = {
   description: string;
   amount: number;
   transfer_id?: string | null;
+  kind?: TransactionKind;
+  related_transaction_id?: string | null;
 };
 
 export type UpdateTransactionDTO = InsertTransactionDTO;
@@ -119,11 +124,14 @@ export type Transaction = {
   description: string;
   amount: number;
   transferId: string | null;
+  kind: TransactionKind;
+  relatedTransactionId: string | null;
 };
 
 export type EditableTransaction = Transaction & {
   budgetCycleId: string | null;
   budgetId: string | null;
+  budgetCycleEndedAt: string | null;
 };
 
 export type Budget = {
@@ -169,6 +177,7 @@ export type BudgetMovement = {
   description: string;
   amount: number;
   categoryName: string | null;
+  kind: TransactionKind;
 };
 
 export type BudgetDetail = {
@@ -234,6 +243,16 @@ export type CreateTransferInput = {
   date: string;
   description: string;
 };
+
+export type CreateRefundInput = {
+  originalTransaction: EditableTransaction;
+  account: Account;
+  amount: number;
+  date: string;
+  description: string;
+};
+
+export type UpdateRefundInput = CreateRefundInput;
 
 export type CreateAccountInput = {
   name: string;

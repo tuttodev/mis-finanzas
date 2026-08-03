@@ -4,6 +4,7 @@ import { formatCOP, formatShortDate } from '@/lib/formatters';
 import type { BudgetMovement } from '@/types/finance';
 
 import { CategoryBadge } from './category-badge';
+import { RefundBadge } from './refund-badge';
 
 export function BudgetMovementRow({
   movement,
@@ -18,14 +19,20 @@ export function BudgetMovementRow({
         <span className="truncate text-[15px] font-medium">{movement.description}</span>
         <span className="flex min-w-0 flex-wrap items-center gap-1.5 text-[13px] text-muted-foreground">
           {movement.categoryName && <CategoryBadge name={movement.categoryName} />}
+          {movement.kind === 'refund' && <RefundBadge />}
           <span>
             {movement.accountName} · {formatShortDate(movement.date)}
           </span>
         </span>
       </div>
       <span className="flex shrink-0 items-center gap-2">
-        <span className="tabular text-[15px] font-semibold text-expense">
-          −{formatCOP(movement.amount)}
+        <span
+          className={`tabular text-[15px] font-semibold ${
+            movement.kind === 'refund' ? 'text-income' : 'text-expense'
+          }`}
+        >
+          {movement.kind === 'refund' ? '+' : '−'}
+          {formatCOP(Math.abs(movement.amount))}
         </span>
         {href && <Pencil className="h-4 w-4 text-muted-foreground" />}
       </span>

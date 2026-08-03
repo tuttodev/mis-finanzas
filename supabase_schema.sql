@@ -64,10 +64,25 @@ create table transactions (
   amount numeric(15, 2) not null,
   -- Shared by the two legs of a transfer between accounts
   transfer_id uuid,
+  kind text not null default 'regular' check (kind in ('regular', 'refund')),
+  related_transaction_id uuid references transactions (id) on delete restrict,
   constraint transactions_category_matches_amount check (
-    (transfer_id is not null and category_id is null and budget_cycle_id is null)
-    or (transfer_id is null and amount < 0 and category_id is not null)
-    or (transfer_id is null and amount >= 0 and budget_cycle_id is null)
+    (
+      kind = 'regular' and related_transaction_id is null and transfer_id is not null
+      and category_id is null and budget_cycle_id is null
+    )
+    or (
+      kind = 'regular' and related_transaction_id is null and transfer_id is null
+      and amount < 0 and category_id is not null
+    )
+    or (
+      kind = 'regular' and related_transaction_id is null and transfer_id is null
+      and amount >= 0 and budget_cycle_id is null
+    )
+    or (
+      kind = 'refund' and related_transaction_id is not null and transfer_id is null
+      and amount > 0 and category_id is not null and budget_cycle_id is not null
+    )
   ),
   created_at timestamptz not null default now()
 );
@@ -76,6 +91,8 @@ create index idx_transactions_account on transactions (account_id, date desc);
 create index idx_transactions_cycle on transactions (budget_cycle_id);
 create index idx_transactions_category on transactions (category_id, date desc);
 create index idx_transactions_transfer on transactions (transfer_id) where transfer_id is not null;
+create index idx_transactions_related on transactions (related_transaction_id)
+where related_transaction_id is not null;
 create index idx_budget_cycles_budget on budget_cycles (budget_id, started_at desc);
 
 create view account_balances with (security_invoker = true) as

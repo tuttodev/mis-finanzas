@@ -3,6 +3,7 @@ import type { Transaction } from '@/types/finance';
 
 import { CategoryBadge } from './category-badge';
 import { TransferBadge } from './transfer-badge';
+import { RefundBadge } from './refund-badge';
 
 type TransactionRowProps = {
   transaction: Transaction;
@@ -11,7 +12,8 @@ type TransactionRowProps = {
 };
 
 export function TransactionRow({ transaction, onClick, hideDate }: TransactionRowProps) {
-  const hasMeta = transaction.categoryName || transaction.transferId || !hideDate;
+  const hasMeta =
+    transaction.categoryName || transaction.transferId || transaction.kind === 'refund' || !hideDate;
 
   return (
     <div
@@ -24,6 +26,7 @@ export function TransactionRow({ transaction, onClick, hideDate }: TransactionRo
           <span className="flex min-w-0 flex-wrap items-center gap-1.5 text-[13px] text-muted-foreground">
             {transaction.categoryName && <CategoryBadge name={transaction.categoryName} />}
             {transaction.transferId && <TransferBadge />}
+            {transaction.kind === 'refund' && <RefundBadge />}
             {!hideDate && <span>{formatShortDate(transaction.date)}</span>}
           </span>
         )}
