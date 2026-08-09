@@ -145,7 +145,9 @@ export default function AccountDetailPage({
 
       <div className="space-y-4">
         <div className="rounded-2xl border border-border bg-card p-5">
-          <p className="text-sm text-muted-foreground">Saldo actual</p>
+          <p className="text-sm text-muted-foreground">
+            {account.type === 'Crédito' ? 'Cupo disponible' : 'Saldo actual'}
+          </p>
           <p
             className={`tabular mt-1 font-display text-3xl font-bold ${
               account.currentBalance < 0 ? 'text-expense' : 'text-foreground'
@@ -156,7 +158,7 @@ export default function AccountDetailPage({
 
           {account.type === 'Crédito' && (
             <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-expense/10 px-3 py-2.5">
-              <span className="text-sm font-medium text-expense">Debe a la tarjeta</span>
+              <span className="text-sm font-medium text-expense">Deuda actual</span>
               <span className="tabular text-sm font-bold text-expense">
                 {formatCOP(account.debtAmount)}
               </span>

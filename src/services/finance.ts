@@ -56,6 +56,11 @@ type AccountBalanceDTO = {
   balance: number;
 };
 
+type AccountTransactionBalanceDTO = {
+  account_id: string;
+  amount: number;
+};
+
 function ensure<T>(data: T | null, error: { message: string } | null): T {
   if (error) throw new Error(error.message);
   if (data === null) throw new Error('No se encontró información');
@@ -84,13 +89,31 @@ function mapAccountTypeToDatabase(type: AccountType): InsertAccountDTO['type'] {
   }
 }
 
-function mapAccount(dto: AccountDTO, currentBalance = 0): Account {
+function inferCreditLimit(transactions: AccountTransactionBalanceDTO[]) {
+  let balance = 0;
+  let creditLimit = 0;
+
+  for (const transaction of transactions) {
+    balance += transaction.amount;
+    creditLimit = Math.max(creditLimit, balance);
+  }
+
+  return creditLimit;
+}
+
+function mapAccount(
+  dto: AccountDTO,
+  currentBalance = 0,
+  creditLimit = 0,
+): Account {
+  const type = mapAccountType(dto.type);
+
   return {
     id: dto.id,
     name: dto.name,
-    type: mapAccountType(dto.type),
+    type,
     currentBalance,
-    debtAmount: dto.type === 'credit' ? Math.max(0, -currentBalance) : 0,
+    debtAmount: type === 'Crédito' ? Math.max(0, creditLimit - currentBalance) : 0,
   };
 }
 
@@ -225,16 +248,38 @@ async function fetchSpentAmount(cycleId: string) {
 }
 
 export async function fetchAccountsOverview(): Promise<Account[]> {
-  const [accountsResult, balancesResult] = await Promise.all([
+  const [accountsResult, balancesResult, transactionsResult] = await Promise.all([
     supabase.from('accounts').select('*').order('name'),
     supabase.from('account_balances').select('*'),
+    supabase
+      .from('transactions')
+      .select('account_id, amount')
+      .order('date', { ascending: true })
+      .order('created_at', { ascending: true }),
   ]);
 
   const accountDtos = ensure(accountsResult.data as AccountDTO[] | null, accountsResult.error);
   const balanceDtos = ensure(balancesResult.data as AccountBalanceDTO[] | null, balancesResult.error);
+  const transactionDtos = ensure(
+    transactionsResult.data as AccountTransactionBalanceDTO[] | null,
+    transactionsResult.error,
+  );
   const balanceMap = new Map(balanceDtos.map((b) => [b.account_id, b.balance]));
+  const transactionsMap = new Map<string, AccountTransactionBalanceDTO[]>();
 
-  return accountDtos.map((dto) => mapAccount(dto, balanceMap.get(dto.id) ?? 0));
+  for (const transaction of transactionDtos) {
+    const accountTransactions = transactionsMap.get(transaction.account_id) ?? [];
+    accountTransactions.push(transaction);
+    transactionsMap.set(transaction.account_id, accountTransactions);
+  }
+
+  return accountDtos.map((dto) => {
+    const currentBalance = balanceMap.get(dto.id) ?? 0;
+    const creditLimit =
+      dto.type === 'credit' ? inferCreditLimit(transactionsMap.get(dto.id) ?? []) : 0;
+
+    return mapAccount(dto, currentBalance, creditLimit);
+  });
 }
 
 export async function createAccount(input: CreateAccountInput): Promise<Account> {
