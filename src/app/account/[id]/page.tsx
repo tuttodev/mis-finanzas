@@ -154,6 +154,15 @@ export default function AccountDetailPage({
             {formatCOP(account.currentBalance)}
           </p>
 
+          {account.type === 'Crédito' && (
+            <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-expense/10 px-3 py-2.5">
+              <span className="text-sm font-medium text-expense">Debe a la tarjeta</span>
+              <span className="tabular text-sm font-bold text-expense">
+                {formatCOP(account.debtAmount)}
+              </span>
+            </div>
+          )}
+
           {account.type === 'Ahorros' && (
             <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-income/10 px-3 py-2.5">
               <span className="flex items-center gap-2 text-sm font-medium text-income">

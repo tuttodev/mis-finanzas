@@ -103,6 +103,7 @@ export type Account = {
   name: string;
   type: AccountType;
   currentBalance: number;
+  debtAmount: number;
 };
 
 export type ExpenseCategory = {

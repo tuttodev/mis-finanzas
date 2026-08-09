@@ -90,6 +90,7 @@ function mapAccount(dto: AccountDTO, currentBalance = 0): Account {
     name: dto.name,
     type: mapAccountType(dto.type),
     currentBalance,
+    debtAmount: dto.type === 'credit' ? Math.max(0, -currentBalance) : 0,
   };
 }
 

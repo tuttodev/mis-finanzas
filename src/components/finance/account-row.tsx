@@ -24,13 +24,20 @@ export function AccountRow({ account }: { account: Account }) {
         <span className="break-words text-[15px] font-semibold leading-snug">{account.name}</span>
         <span className="text-[13px] text-muted-foreground">{account.type}</span>
       </div>
-      <span
-        className={`tabular shrink-0 text-[15px] font-semibold ${
-          account.currentBalance < 0 ? 'text-expense' : 'text-foreground'
-        }`}
-      >
-        {formatCOP(account.currentBalance)}
-      </span>
+      <div className="flex shrink-0 flex-col items-end gap-0.5">
+        <span
+          className={`tabular text-[15px] font-semibold ${
+            account.currentBalance < 0 ? 'text-expense' : 'text-foreground'
+          }`}
+        >
+          {formatCOP(account.currentBalance)}
+        </span>
+        {account.type === 'Crédito' && (
+          <span className="tabular text-xs font-medium text-expense">
+            Debe {formatCOP(account.debtAmount)}
+          </span>
+        )}
+      </div>
     </Link>
   );
 }
