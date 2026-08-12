@@ -20,6 +20,7 @@ export const shortDateTimeFormatter = new Intl.DateTimeFormat('es-CO', {
 });
 
 export const longDateFormatter = new Intl.DateTimeFormat('es-CO', {
+  weekday: 'long',
   day: 'numeric',
   month: 'long',
   year: 'numeric',
