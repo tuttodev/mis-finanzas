@@ -110,8 +110,11 @@ function mapAccount(
   const type = mapAccountType(dto.type);
   const hasStoredCreditLimit = type === 'Crédito' && dto.credit_limit != null;
   const creditLimit = hasStoredCreditLimit ? dto.credit_limit! : inferredCreditLimit;
+  const openingBalance = hasStoredCreditLimit
+    ? dto.credit_opening_balance ?? creditLimit
+    : null;
   const availableBalance = hasStoredCreditLimit
-    ? creditLimit + currentBalance
+    ? openingBalance! + currentBalance
     : currentBalance;
 
   return {
@@ -119,6 +122,7 @@ function mapAccount(
     name: dto.name,
     type,
     creditLimit: type === 'Crédito' ? creditLimit : null,
+    creditOpeningBalance: type === 'Crédito' ? openingBalance : null,
     currentBalance: availableBalance,
     debtAmount: type === 'Crédito' ? Math.max(0, creditLimit - availableBalance) : 0,
   };
@@ -317,6 +321,7 @@ function buildAccountPayload(input: CreateAccountInput): InsertAccountDTO {
     name,
     type: mapAccountTypeToDatabase(input.type),
     credit_limit: input.type === 'Crédito' ? creditLimit : null,
+    credit_opening_balance: input.type === 'Crédito' ? creditLimit : null,
   };
 
   return payload;
@@ -326,7 +331,20 @@ export async function updateAccount(
   accountId: string,
   input: UpdateAccountInput,
 ): Promise<Account> {
+  const currentAccounts = await fetchAccountsOverview();
+  const currentAccount = currentAccounts.find((account) => account.id === accountId);
   const payload = buildAccountPayload(input);
+
+  if (input.type === 'Crédito' && payload.credit_limit != null) {
+    const previousLimit = currentAccount?.type === 'Crédito'
+      ? currentAccount.creditLimit ?? 0
+      : 0;
+    const previousOpeningBalance = currentAccount?.type === 'Crédito'
+      ? currentAccount.creditOpeningBalance ?? 0
+      : 0;
+
+    payload.credit_opening_balance = previousOpeningBalance + payload.credit_limit - previousLimit;
+  }
 
   const { data, error } = await supabase
     .from('accounts')

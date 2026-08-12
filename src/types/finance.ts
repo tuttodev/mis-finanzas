@@ -18,6 +18,7 @@ export type AccountDTO = {
   name: string;
   type: string;
   credit_limit?: number | null;
+  credit_opening_balance?: number | null;
   created_at?: string | null;
 };
 
@@ -25,6 +26,7 @@ export type InsertAccountDTO = {
   name: string;
   type: 'savings' | 'credit' | 'cash';
   credit_limit?: number | null;
+  credit_opening_balance?: number | null;
 };
 
 export type InsertExpenseCategoryDTO = {
@@ -105,6 +107,7 @@ export type Account = {
   name: string;
   type: AccountType;
   creditLimit: number | null;
+  creditOpeningBalance: number | null;
   currentBalance: number;
   debtAmount: number;
 };
