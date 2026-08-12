@@ -264,6 +264,8 @@ export type CreateAccountInput = {
   creditLimit?: number | null;
 };
 
+export type UpdateAccountInput = CreateAccountInput;
+
 export type CreateExpenseCategoryInput = {
   name: string;
   transactionType: 'expense' | 'income';

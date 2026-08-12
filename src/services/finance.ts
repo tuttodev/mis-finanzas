@@ -49,6 +49,7 @@ import type {
   UpdateTransactionDTO,
   UpdateTransactionInput,
   UpdateBudgetDTO,
+  UpdateAccountInput,
 } from '@/types/finance';
 
 type AccountBalanceDTO = {
@@ -289,6 +290,18 @@ export async function fetchAccountsOverview(): Promise<Account[]> {
 }
 
 export async function createAccount(input: CreateAccountInput): Promise<Account> {
+  const payload = buildAccountPayload(input);
+
+  const { data, error } = await supabase
+    .from('accounts')
+    .insert(payload)
+    .select('*')
+    .single();
+
+  return mapAccount(ensure(data as AccountDTO | null, error));
+}
+
+function buildAccountPayload(input: CreateAccountInput): InsertAccountDTO {
   const name = input.name.trim();
   if (!name) throw new Error('El nombre es obligatorio');
   if (name.length > 80) throw new Error('El nombre no puede superar 80 caracteres');
@@ -306,13 +319,27 @@ export async function createAccount(input: CreateAccountInput): Promise<Account>
     credit_limit: input.type === 'Crédito' ? creditLimit : null,
   };
 
+  return payload;
+}
+
+export async function updateAccount(
+  accountId: string,
+  input: UpdateAccountInput,
+): Promise<Account> {
+  const payload = buildAccountPayload(input);
+
   const { data, error } = await supabase
     .from('accounts')
-    .insert(payload)
+    .update(payload)
+    .eq('id', accountId)
     .select('*')
     .single();
 
-  return mapAccount(ensure(data as AccountDTO | null, error));
+  ensure(data as AccountDTO | null, error);
+  const accounts = await fetchAccountsOverview();
+  const updatedAccount = accounts.find((account) => account.id === accountId);
+  if (!updatedAccount) throw new Error('No se encontró la cuenta actualizada');
+  return updatedAccount;
 }
 
 export async function fetchAccountTransactions(accountId: string): Promise<Transaction[]> {

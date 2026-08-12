@@ -226,6 +226,16 @@ export default function AccountDetailPage({
               <ArrowLeftRight className="h-4 w-4" />
               Transferir
             </Button>
+            <Button
+              className="col-span-2"
+              size="lg"
+              variant="outline"
+              nativeButton={false}
+              render={<Link href={`/account-form/${account.id}`} />}
+            >
+              <Pencil className="h-4 w-4" />
+              Editar cuenta
+            </Button>
           </div>
         </div>
 
