@@ -17,12 +17,14 @@ export type AccountDTO = {
   id: string;
   name: string;
   type: string;
+  credit_limit?: number | null;
   created_at?: string | null;
 };
 
 export type InsertAccountDTO = {
   name: string;
   type: 'savings' | 'credit' | 'cash';
+  credit_limit?: number | null;
 };
 
 export type InsertExpenseCategoryDTO = {
@@ -102,6 +104,7 @@ export type Account = {
   id: string;
   name: string;
   type: AccountType;
+  creditLimit: number | null;
   currentBalance: number;
   debtAmount: number;
 };
@@ -258,6 +261,7 @@ export type UpdateRefundInput = CreateRefundInput;
 export type CreateAccountInput = {
   name: string;
   type: AccountType;
+  creditLimit?: number | null;
 };
 
 export type CreateExpenseCategoryInput = {

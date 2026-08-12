@@ -104,16 +104,22 @@ function inferCreditLimit(transactions: AccountTransactionBalanceDTO[]) {
 function mapAccount(
   dto: AccountDTO,
   currentBalance = 0,
-  creditLimit = 0,
+  inferredCreditLimit = 0,
 ): Account {
   const type = mapAccountType(dto.type);
+  const hasStoredCreditLimit = type === 'Crédito' && dto.credit_limit != null;
+  const creditLimit = hasStoredCreditLimit ? dto.credit_limit! : inferredCreditLimit;
+  const availableBalance = hasStoredCreditLimit
+    ? creditLimit + currentBalance
+    : currentBalance;
 
   return {
     id: dto.id,
     name: dto.name,
     type,
-    currentBalance,
-    debtAmount: type === 'Crédito' ? Math.max(0, creditLimit - currentBalance) : 0,
+    creditLimit: type === 'Crédito' ? creditLimit : null,
+    currentBalance: availableBalance,
+    debtAmount: type === 'Crédito' ? Math.max(0, creditLimit - availableBalance) : 0,
   };
 }
 
@@ -287,9 +293,17 @@ export async function createAccount(input: CreateAccountInput): Promise<Account>
   if (!name) throw new Error('El nombre es obligatorio');
   if (name.length > 80) throw new Error('El nombre no puede superar 80 caracteres');
 
+  const creditLimit = input.creditLimit == null
+    ? null
+    : roundCurrencyAmount(input.creditLimit);
+  if (input.type === 'Crédito' && (!creditLimit || creditLimit <= 0)) {
+    throw new Error('Ingresa un cupo válido para la tarjeta');
+  }
+
   const payload: InsertAccountDTO = {
     name,
     type: mapAccountTypeToDatabase(input.type),
+    credit_limit: input.type === 'Crédito' ? creditLimit : null,
   };
 
   const { data, error } = await supabase

@@ -4,6 +4,7 @@ create table accounts (
   id uuid primary key default gen_random_uuid(),
   name text not null check (char_length(trim(name)) between 1 and 80),
   type text not null default 'cash' check (type in ('savings', 'credit', 'cash')),
+  credit_limit numeric(15, 2) check (credit_limit is null or credit_limit > 0),
   created_at timestamptz not null default now()
 );
 

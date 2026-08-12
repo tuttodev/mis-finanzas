@@ -6,10 +6,12 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Banknote, CreditCard, PiggyBank } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { CurrencyInput } from '@/components/ui/currency-input';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PageHeader } from '@/components/layout/page-header';
 import { createAccount } from '@/services/finance';
+import { parseCurrencyInput } from '@/lib/formatters';
 import type { AccountType } from '@/types/finance';
 
 const ACCOUNT_TYPES: Array<{
@@ -27,9 +29,17 @@ export default function AccountFormPage() {
   const queryClient = useQueryClient();
   const [name, setName] = useState('');
   const [type, setType] = useState<AccountType>('Ahorros');
+  const [creditLimit, setCreditLimit] = useState('');
 
   const mutation = useMutation({
-    mutationFn: () => createAccount({ name, type }),
+    mutationFn: () => {
+      const parsedCreditLimit = type === 'Crédito' ? parseCurrencyInput(creditLimit) : null;
+      if (type === 'Crédito' && !parsedCreditLimit) {
+        throw new Error('Ingresa un cupo válido para la tarjeta');
+      }
+
+      return createAccount({ name, type, creditLimit: parsedCreditLimit });
+    },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['accounts'] });
       await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
@@ -101,6 +111,23 @@ export default function AccountFormPage() {
               })}
             </div>
           </fieldset>
+
+          {type === 'Crédito' && (
+            <div>
+              <Label htmlFor="credit-limit">Cupo de la tarjeta</Label>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Este valor se usará para calcular el cupo disponible y la deuda actual.
+              </p>
+              <CurrencyInput
+                id="credit-limit"
+                className="mt-2 h-10"
+                value={creditLimit}
+                onValueChange={setCreditLimit}
+                placeholder="0,00"
+                aria-label="Cupo de la tarjeta en pesos colombianos"
+              />
+            </div>
+          )}
 
           <Button className="w-full" size="lg" type="submit" disabled={mutation.isPending}>
             {mutation.isPending ? 'Guardando...' : 'Crear cuenta'}

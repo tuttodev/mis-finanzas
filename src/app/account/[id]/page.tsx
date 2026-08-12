@@ -157,11 +157,19 @@ export default function AccountDetailPage({
           </p>
 
           {account.type === 'Crédito' && (
-            <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-expense/10 px-3 py-2.5">
-              <span className="text-sm font-medium text-expense">Deuda actual</span>
-              <span className="tabular text-sm font-bold text-expense">
-                {formatCOP(account.debtAmount)}
-              </span>
+            <div className="mt-3 space-y-2 rounded-xl bg-expense/10 px-3 py-2.5">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-medium">Cupo total</span>
+                <span className="tabular text-sm font-bold">
+                  {formatCOP(account.creditLimit ?? 0)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-medium text-expense">Deuda actual</span>
+                <span className="tabular text-sm font-bold text-expense">
+                  {formatCOP(account.debtAmount)}
+                </span>
+              </div>
             </div>
           )}
 
