@@ -32,11 +32,6 @@ export function AccountRow({ account }: { account: Account }) {
         >
           {formatCOP(account.currentBalance)}
         </span>
-        {account.type === 'Crédito' && (
-          <span className="tabular text-xs font-medium text-expense">
-            Debe {formatCOP(account.debtAmount)}
-          </span>
-        )}
       </div>
     </Link>
   );

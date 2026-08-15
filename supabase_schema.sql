@@ -4,8 +4,6 @@ create table accounts (
   id uuid primary key default gen_random_uuid(),
   name text not null check (char_length(trim(name)) between 1 and 80),
   type text not null default 'cash' check (type in ('savings', 'credit', 'cash')),
-  credit_limit numeric(15, 2) check (credit_limit is null or credit_limit > 0),
-  credit_opening_balance numeric(15, 2),
   created_at timestamptz not null default now()
 );
 
@@ -64,6 +62,7 @@ create table transactions (
   description text not null,
   -- Negative = expense, positive = income
   amount numeric(15, 2) not null,
+  is_planned boolean default null,
   -- Shared by the two legs of a transfer between accounts
   transfer_id uuid,
   kind text not null default 'regular' check (kind in ('regular', 'refund')),
@@ -97,6 +96,22 @@ create index idx_transactions_related on transactions (related_transaction_id)
 where related_transaction_id is not null;
 create index idx_budget_cycles_budget on budget_cycles (budget_id, started_at desc);
 
+create table tags (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique check (char_length(trim(name)) between 1 and 40),
+  created_at timestamptz not null default now()
+);
+
+create unique index tags_name_unique_ci on tags (lower(name));
+
+create table transaction_tags (
+  transaction_id uuid not null references transactions (id) on delete cascade,
+  tag_id uuid not null references tags (id) on delete cascade,
+  primary key (transaction_id, tag_id)
+);
+
+create index idx_transaction_tags_tag on transaction_tags (tag_id, transaction_id);
+
 create view account_balances with (security_invoker = true) as
 select a.id as account_id, coalesce(sum(t.amount), 0) as balance
 from accounts a
@@ -110,6 +125,8 @@ alter table budgets enable row level security;
 alter table budget_cycles enable row level security;
 alter table categories enable row level security;
 alter table transactions enable row level security;
+alter table tags enable row level security;
+alter table transaction_tags enable row level security;
 
 create policy "anon full access" on accounts for all to anon using (true) with check (true);
 create policy "anon full access" on budgets for all to anon using (true) with check (true);
@@ -118,9 +135,13 @@ create policy "anon read access" on categories for select to anon using (true);
 create policy "anon insert custom categories" on categories for insert to anon
 with check (not is_system);
 create policy "anon full access" on transactions for all to anon using (true) with check (true);
+create policy "anon full access" on tags for all to anon using (true) with check (true);
+create policy "anon full access" on transaction_tags for all to anon using (true) with check (true);
 
 grant select, insert on categories to anon;
 grant select, insert on accounts to anon;
+grant select, insert on tags to anon;
+grant select, insert, delete on transaction_tags to anon;
 
 -- Seed your accounts (edit names/types as needed, then uncomment):
 -- insert into accounts (name, type) values

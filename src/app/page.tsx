@@ -12,6 +12,8 @@ import { DonutChart, type DonutSlice } from '@/components/charts/donut-chart';
 import { CategoryBadge } from '@/components/finance/category-badge';
 import { TransferBadge } from '@/components/finance/transfer-badge';
 import { RefundBadge } from '@/components/finance/refund-badge';
+import { PlanningBadge } from '@/components/finance/planning-badge';
+import { TagBadge } from '@/components/finance/tag-badge';
 import { formatCOP, formatShortDate } from '@/lib/formatters';
 import { fetchBudgetProgressList, fetchDashboardData } from '@/services/finance';
 
@@ -197,6 +199,8 @@ export default function DashboardPage() {
                   <p className="truncate text-sm font-medium">{tx.description}</p>
                   <p className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                     {tx.categoryName && <CategoryBadge name={tx.categoryName} />}
+                    {tx.tags.map((tag) => <TagBadge key={tag.id} name={tag.name} />)}
+                    {!tx.transferId && <PlanningBadge isPlanned={tx.isPlanned} />}
                     {tx.transferId && <TransferBadge />}
                     {tx.kind === 'refund' && <RefundBadge />}
                     <span>

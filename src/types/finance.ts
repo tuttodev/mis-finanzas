@@ -2,6 +2,17 @@ export type AccountType = 'Ahorros' | 'Crédito' | 'Efectivo';
 export type TransactionType = 'Ingreso' | 'Gasto';
 export type TransactionKind = 'regular' | 'refund';
 
+export type TagDTO = {
+  id: string;
+  name: string;
+  created_at?: string | null;
+};
+
+export type Tag = {
+  id: string;
+  name: string;
+};
+
 export type ExpenseCategoryDTO = {
   id: string;
   slug: string;
@@ -17,16 +28,12 @@ export type AccountDTO = {
   id: string;
   name: string;
   type: string;
-  credit_limit?: number | null;
-  credit_opening_balance?: number | null;
   created_at?: string | null;
 };
 
 export type InsertAccountDTO = {
   name: string;
   type: 'savings' | 'credit' | 'cash';
-  credit_limit?: number | null;
-  credit_opening_balance?: number | null;
 };
 
 export type InsertExpenseCategoryDTO = {
@@ -45,7 +52,13 @@ export type TransactionDTO = {
   transfer_id?: string | null;
   kind?: TransactionKind;
   related_transaction_id?: string | null;
+  is_planned: boolean | null;
   created_at?: string | null;
+};
+
+export type TransactionTagDTO = {
+  transaction_id: string;
+  tag_id: string;
 };
 
 export type InsertTransactionDTO = {
@@ -58,6 +71,7 @@ export type InsertTransactionDTO = {
   transfer_id?: string | null;
   kind?: TransactionKind;
   related_transaction_id?: string | null;
+  is_planned?: boolean | null;
 };
 
 export type UpdateTransactionDTO = InsertTransactionDTO;
@@ -106,8 +120,6 @@ export type Account = {
   id: string;
   name: string;
   type: AccountType;
-  creditLimit: number | null;
-  creditOpeningBalance: number | null;
   currentBalance: number;
   debtAmount: number;
 };
@@ -133,6 +145,8 @@ export type Transaction = {
   transferId: string | null;
   kind: TransactionKind;
   relatedTransactionId: string | null;
+  isPlanned: boolean | null;
+  tags: Tag[];
 };
 
 export type EditableTransaction = Transaction & {
@@ -236,6 +250,8 @@ export type CreateTransactionInput = {
   date: string;
   budgetId?: string | null;
   categoryId?: string | null;
+  isPlanned: boolean | null;
+  tags: string[];
 };
 
 export type UpdateTransactionInput = CreateTransactionInput & {
@@ -264,10 +280,7 @@ export type UpdateRefundInput = CreateRefundInput;
 export type CreateAccountInput = {
   name: string;
   type: AccountType;
-  creditLimit?: number | null;
 };
-
-export type UpdateAccountInput = CreateAccountInput;
 
 export type CreateExpenseCategoryInput = {
   name: string;

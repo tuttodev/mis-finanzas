@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { calculateAccountBalance } from '@/lib/account-balance';
 import { roundCurrencyAmount } from '@/lib/formatters';
 import type {
   Account,
@@ -36,6 +37,9 @@ import type {
   PlanItem,
   PlanItemDTO,
   TransactionWithAccount,
+  Tag,
+  TagDTO,
+  TransactionTagDTO,
   InsertBudgetCycleDTO,
   InsertBudgetDTO,
   InsertExpenseCategoryDTO,
@@ -49,13 +53,7 @@ import type {
   UpdateTransactionDTO,
   UpdateTransactionInput,
   UpdateBudgetDTO,
-  UpdateAccountInput,
 } from '@/types/finance';
-
-type AccountBalanceDTO = {
-  account_id: string;
-  balance: number;
-};
 
 type AccountTransactionBalanceDTO = {
   account_id: string;
@@ -91,12 +89,12 @@ function mapAccountTypeToDatabase(type: AccountType): InsertAccountDTO['type'] {
 }
 
 function inferCreditLimit(transactions: AccountTransactionBalanceDTO[]) {
-  let balance = 0;
+  let balanceCents = 0;
   let creditLimit = 0;
 
   for (const transaction of transactions) {
-    balance += transaction.amount;
-    creditLimit = Math.max(creditLimit, balance);
+    balanceCents += Math.round(Number(transaction.amount) * 100);
+    creditLimit = Math.max(creditLimit, balanceCents / 100);
   }
 
   return creditLimit;
@@ -105,26 +103,16 @@ function inferCreditLimit(transactions: AccountTransactionBalanceDTO[]) {
 function mapAccount(
   dto: AccountDTO,
   currentBalance = 0,
-  inferredCreditLimit = 0,
+  creditLimit = 0,
 ): Account {
   const type = mapAccountType(dto.type);
-  const hasStoredCreditLimit = type === 'Crédito' && dto.credit_limit != null;
-  const creditLimit = hasStoredCreditLimit ? dto.credit_limit! : inferredCreditLimit;
-  const openingBalance = hasStoredCreditLimit
-    ? dto.credit_opening_balance ?? creditLimit
-    : null;
-  const availableBalance = hasStoredCreditLimit
-    ? openingBalance! + currentBalance
-    : currentBalance;
 
   return {
     id: dto.id,
     name: dto.name,
     type,
-    creditLimit: type === 'Crédito' ? creditLimit : null,
-    creditOpeningBalance: type === 'Crédito' ? openingBalance : null,
-    currentBalance: availableBalance,
-    debtAmount: type === 'Crédito' ? Math.max(0, creditLimit - availableBalance) : 0,
+    currentBalance,
+    debtAmount: type === 'Crédito' ? Math.max(0, creditLimit - currentBalance) : 0,
   };
 }
 
@@ -189,6 +177,7 @@ function mapExpenseCategory(
 function mapTransaction(
   dto: TransactionDTO,
   categories: Map<string, ExpenseCategory> = new Map(),
+  tags: Tag[] = [],
 ): Transaction {
   const categoryId = dto.category_id ?? null;
   const category = categoryId ? categories.get(categoryId) : null;
@@ -205,7 +194,96 @@ function mapTransaction(
     transferId: dto.transfer_id ?? null,
     kind: dto.kind ?? 'regular',
     relatedTransactionId: dto.related_transaction_id ?? null,
+    isPlanned: dto.is_planned ?? null,
+    tags,
   };
+}
+
+function normalizeTagNames(names: string[]) {
+  const uniqueNames = new Map<string, string>();
+
+  for (const rawName of names) {
+    const name = rawName.trim();
+    if (!name) continue;
+    if (name.length > 40) throw new Error('Las etiquetas no pueden superar 40 caracteres');
+    uniqueNames.set(name.toLocaleLowerCase(), name);
+  }
+
+  return Array.from(uniqueNames.values());
+}
+
+async function fetchTransactionTagsMap(transactionIds: string[]) {
+  const tagsByTransaction = new Map<string, Tag[]>();
+  if (!transactionIds.length) return tagsByTransaction;
+
+  const [{ data: linksData, error: linksError }, { data: tagsData, error: tagsError }] =
+    await Promise.all([
+      supabase
+        .from('transaction_tags')
+        .select('transaction_id, tag_id')
+        .in('transaction_id', transactionIds),
+      supabase.from('tags').select('*').order('name'),
+    ]);
+
+  const links = ensure(linksData as TransactionTagDTO[] | null, linksError);
+  const tags = ensure(tagsData as TagDTO[] | null, tagsError);
+  const tagsById = new Map(tags.map((tag) => [tag.id, { id: tag.id, name: tag.name }]));
+
+  for (const link of links) {
+    const tag = tagsById.get(link.tag_id);
+    if (!tag) continue;
+    const transactionTags = tagsByTransaction.get(link.transaction_id) ?? [];
+    transactionTags.push(tag);
+    tagsByTransaction.set(link.transaction_id, transactionTags);
+  }
+
+  return tagsByTransaction;
+}
+
+async function syncTransactionTags(transactionId: string, names: string[]) {
+  const normalizedNames = normalizeTagNames(names);
+  const { data: existingData, error: existingError } = await supabase
+    .from('tags')
+    .select('*')
+    .order('name');
+  const existingTags = ensure(existingData as TagDTO[] | null, existingError);
+  const existingByName = new Map(
+    existingTags.map((tag) => [tag.name.toLocaleLowerCase(), { id: tag.id, name: tag.name }]),
+  );
+  const selectedTags: Tag[] = [];
+
+  for (const name of normalizedNames) {
+    const existingTag = existingByName.get(name.toLocaleLowerCase());
+    if (existingTag) {
+      selectedTags.push(existingTag);
+      continue;
+    }
+
+    const { data, error } = await supabase
+      .from('tags')
+      .insert({ name })
+      .select('*')
+      .single();
+    const createdTag = ensure(data as TagDTO | null, error);
+    const tag = { id: createdTag.id, name: createdTag.name };
+    existingByName.set(tag.name.toLocaleLowerCase(), tag);
+    selectedTags.push(tag);
+  }
+
+  const { error: deleteError } = await supabase
+    .from('transaction_tags')
+    .delete()
+    .eq('transaction_id', transactionId);
+  if (deleteError) throw new Error(deleteError.message);
+
+  if (selectedTags.length) {
+    const { error: insertError } = await supabase.from('transaction_tags').insert(
+      selectedTags.map((tag) => ({ transaction_id: transactionId, tag_id: tag.id })),
+    );
+    if (insertError) throw new Error(insertError.message);
+  }
+
+  return selectedTags;
 }
 
 function mapBudgetProgress(budget: Budget, cycle: BudgetCycle, spentAmount: number): BudgetProgress {
@@ -259,9 +337,8 @@ async function fetchSpentAmount(cycleId: string) {
 }
 
 export async function fetchAccountsOverview(): Promise<Account[]> {
-  const [accountsResult, balancesResult, transactionsResult] = await Promise.all([
+  const [accountsResult, transactionsResult] = await Promise.all([
     supabase.from('accounts').select('*').order('name'),
-    supabase.from('account_balances').select('*'),
     supabase
       .from('transactions')
       .select('account_id, amount')
@@ -270,12 +347,10 @@ export async function fetchAccountsOverview(): Promise<Account[]> {
   ]);
 
   const accountDtos = ensure(accountsResult.data as AccountDTO[] | null, accountsResult.error);
-  const balanceDtos = ensure(balancesResult.data as AccountBalanceDTO[] | null, balancesResult.error);
   const transactionDtos = ensure(
     transactionsResult.data as AccountTransactionBalanceDTO[] | null,
     transactionsResult.error,
   );
-  const balanceMap = new Map(balanceDtos.map((b) => [b.account_id, b.balance]));
   const transactionsMap = new Map<string, AccountTransactionBalanceDTO[]>();
 
   for (const transaction of transactionDtos) {
@@ -285,16 +360,23 @@ export async function fetchAccountsOverview(): Promise<Account[]> {
   }
 
   return accountDtos.map((dto) => {
-    const currentBalance = balanceMap.get(dto.id) ?? 0;
-    const creditLimit =
-      dto.type === 'credit' ? inferCreditLimit(transactionsMap.get(dto.id) ?? []) : 0;
+    const accountTransactions = transactionsMap.get(dto.id) ?? [];
+    const currentBalance = calculateAccountBalance(accountTransactions);
+    const creditLimit = dto.type === 'credit' ? inferCreditLimit(accountTransactions) : 0;
 
     return mapAccount(dto, currentBalance, creditLimit);
   });
 }
 
 export async function createAccount(input: CreateAccountInput): Promise<Account> {
-  const payload = buildAccountPayload(input);
+  const name = input.name.trim();
+  if (!name) throw new Error('El nombre es obligatorio');
+  if (name.length > 80) throw new Error('El nombre no puede superar 80 caracteres');
+
+  const payload: InsertAccountDTO = {
+    name,
+    type: mapAccountTypeToDatabase(input.type),
+  };
 
   const { data, error } = await supabase
     .from('accounts')
@@ -303,61 +385,6 @@ export async function createAccount(input: CreateAccountInput): Promise<Account>
     .single();
 
   return mapAccount(ensure(data as AccountDTO | null, error));
-}
-
-function buildAccountPayload(input: CreateAccountInput): InsertAccountDTO {
-  const name = input.name.trim();
-  if (!name) throw new Error('El nombre es obligatorio');
-  if (name.length > 80) throw new Error('El nombre no puede superar 80 caracteres');
-
-  const creditLimit = input.creditLimit == null
-    ? null
-    : roundCurrencyAmount(input.creditLimit);
-  if (input.type === 'Crédito' && (!creditLimit || creditLimit <= 0)) {
-    throw new Error('Ingresa un cupo válido para la tarjeta');
-  }
-
-  const payload: InsertAccountDTO = {
-    name,
-    type: mapAccountTypeToDatabase(input.type),
-    credit_limit: input.type === 'Crédito' ? creditLimit : null,
-    credit_opening_balance: input.type === 'Crédito' ? creditLimit : null,
-  };
-
-  return payload;
-}
-
-export async function updateAccount(
-  accountId: string,
-  input: UpdateAccountInput,
-): Promise<Account> {
-  const currentAccounts = await fetchAccountsOverview();
-  const currentAccount = currentAccounts.find((account) => account.id === accountId);
-  const payload = buildAccountPayload(input);
-
-  if (input.type === 'Crédito' && payload.credit_limit != null) {
-    const previousLimit = currentAccount?.type === 'Crédito'
-      ? currentAccount.creditLimit ?? 0
-      : 0;
-    const previousOpeningBalance = currentAccount?.type === 'Crédito'
-      ? currentAccount.creditOpeningBalance ?? 0
-      : 0;
-
-    payload.credit_opening_balance = previousOpeningBalance + payload.credit_limit - previousLimit;
-  }
-
-  const { data, error } = await supabase
-    .from('accounts')
-    .update(payload)
-    .eq('id', accountId)
-    .select('*')
-    .single();
-
-  ensure(data as AccountDTO | null, error);
-  const accounts = await fetchAccountsOverview();
-  const updatedAccount = accounts.find((account) => account.id === accountId);
-  if (!updatedAccount) throw new Error('No se encontró la cuenta actualizada');
-  return updatedAccount;
 }
 
 export async function fetchAccountTransactions(accountId: string): Promise<Transaction[]> {
@@ -375,7 +402,10 @@ export async function fetchAccountTransactions(accountId: string): Promise<Trans
     transactionsResult.data as TransactionDTO[] | null,
     transactionsResult.error,
   );
-  return transactions.map((transaction) => mapTransaction(transaction, categoryNames));
+  const transactionTags = await fetchTransactionTagsMap(transactions.map((transaction) => transaction.id));
+  return transactions.map((transaction) =>
+    mapTransaction(transaction, categoryNames, transactionTags.get(transaction.id)),
+  );
 }
 
 export async function createTransaction(input: CreateTransactionInput) {
@@ -400,10 +430,13 @@ export async function createTransaction(input: CreateTransactionInput) {
     date: input.date,
     description: input.description,
     amount: signedAmount,
+    is_planned: input.isPlanned,
   };
 
   const { data, error } = await supabase.from('transactions').insert(payload).select('*').single();
-  return mapTransaction(ensure(data as TransactionDTO | null, error));
+  const transaction = ensure(data as TransactionDTO | null, error);
+  const tags = await syncTransactionTags(transaction.id, input.tags);
+  return mapTransaction(transaction, new Map(), tags);
 }
 
 export async function fetchRefundedAmount(
@@ -449,6 +482,7 @@ export async function createRefund(input: CreateRefundInput) {
     amount: normalizedAmount,
     kind: 'refund',
     related_transaction_id: input.originalTransaction.id,
+    is_planned: input.originalTransaction.isPlanned,
   };
 
   const { data, error } = await supabase
@@ -457,7 +491,12 @@ export async function createRefund(input: CreateRefundInput) {
     .select('*')
     .single();
 
-  return mapTransaction(ensure(data as TransactionDTO | null, error));
+  const transaction = ensure(data as TransactionDTO | null, error);
+  const tags = await syncTransactionTags(
+    transaction.id,
+    input.originalTransaction.tags.map((tag) => tag.name),
+  );
+  return mapTransaction(transaction, new Map(), tags);
 }
 
 export async function updateRefund(
@@ -474,6 +513,7 @@ export async function updateRefund(
     amount: normalizedAmount,
     kind: 'refund',
     related_transaction_id: input.originalTransaction.id,
+    is_planned: input.originalTransaction.isPlanned,
   };
 
   const { data, error } = await supabase
@@ -483,7 +523,12 @@ export async function updateRefund(
     .select('*')
     .single();
 
-  return mapTransaction(ensure(data as TransactionDTO | null, error));
+  const transaction = ensure(data as TransactionDTO | null, error);
+  const tags = await syncTransactionTags(
+    transaction.id,
+    input.originalTransaction.tags.map((tag) => tag.name),
+  );
+  return mapTransaction(transaction, new Map(), tags);
 }
 
 export async function createTransfer(input: CreateTransferInput) {
@@ -516,9 +561,10 @@ export async function createTransfer(input: CreateTransferInput) {
 }
 
 export async function fetchTransaction(transactionId: string): Promise<EditableTransaction> {
-  const [transactionResult, categoryNames] = await Promise.all([
+  const [transactionResult, categoryNames, transactionTags] = await Promise.all([
     supabase.from('transactions').select('*').eq('id', transactionId).single(),
     fetchCategoriesMap(),
+    fetchTransactionTagsMap([transactionId]),
   ]);
   const transactionDto = ensure(
     transactionResult.data as TransactionDTO | null,
@@ -543,7 +589,7 @@ export async function fetchTransaction(transactionId: string): Promise<EditableT
   }
 
   return {
-    ...mapTransaction(transactionDto, categoryNames),
+    ...mapTransaction(transactionDto, categoryNames, transactionTags.get(transactionId)),
     budgetCycleId,
     budgetId,
     budgetCycleEndedAt,
@@ -582,6 +628,7 @@ export async function updateTransaction(
     date: input.date,
     description: input.description,
     amount: signedAmount,
+    is_planned: input.isPlanned,
     kind: 'regular',
     related_transaction_id: null,
   };
@@ -593,7 +640,9 @@ export async function updateTransaction(
     .select('*')
     .single();
 
-  return mapTransaction(ensure(data as TransactionDTO | null, error));
+  const transaction = ensure(data as TransactionDTO | null, error);
+  const tags = await syncTransactionTags(transaction.id, input.tags);
+  return mapTransaction(transaction, new Map(), tags);
 }
 
 export async function fetchExpenseCategories(): Promise<ExpenseCategory[]> {
@@ -798,6 +847,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
   ]);
 
   const transactions = ensure(txResult.data as TransactionDTO[] | null, txResult.error);
+  const transactionTags = await fetchTransactionTagsMap(transactions.map((transaction) => transaction.id));
   const accountNames = new Map(accounts.map((account) => [account.id, account.name]));
   const totalBalance = accounts.reduce((sum, account) => sum + account.currentBalance, 0);
 
@@ -872,7 +922,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
     .filter((item) => item.value > 0)
     .sort((a, b) => b.value - a.value);
   const recentTransactions: TransactionWithAccount[] = transactions.slice(0, 8).map((dto) => ({
-    ...mapTransaction(dto, categories),
+    ...mapTransaction(dto, categories, transactionTags.get(dto.id)),
     accountName: accountNames.get(dto.account_id) ?? 'Cuenta desconocida',
   }));
 

@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Banknote, ChevronDown, CreditCard, PiggyBank, RotateCcw, Tag } from 'lucide-react';
+import { Banknote, ChevronDown, CreditCard, PiggyBank, RotateCcw, Tag, Tags } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { CurrencyInput } from '@/components/ui/currency-input';
@@ -70,6 +70,10 @@ export function TransactionForm({
   const [selectedCategoryId, setSelectedCategoryId] = useState(
     transaction?.categoryId ?? '',
   );
+  const [isPlanned, setIsPlanned] = useState<boolean | null>(transaction?.isPlanned ?? null);
+  const [tagsText, setTagsText] = useState(
+    transaction?.tags.map((tag) => tag.name).join(', ') ?? '',
+  );
 
   const accountsQuery = useQuery({
     queryKey: ['accounts'],
@@ -133,6 +137,8 @@ export function TransactionForm({
         date,
         budgetId: isExpense && selectedBudgetId ? selectedBudgetId : null,
         categoryId: effectiveCategoryId || null,
+        isPlanned,
+        tags: tagsText.split(',').map((tag) => tag.trim()).filter(Boolean),
       };
 
       if (transaction) {
@@ -367,6 +373,58 @@ export function TransactionForm({
                 <ChevronDown className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               </div>
             )}
+          </div>
+        )}
+
+        <div className="rounded-2xl border border-border bg-card p-5">
+          <h3 className="mb-1 text-sm font-semibold">Planificación</h3>
+          <p className="mb-3 text-xs text-muted-foreground">
+            Indica si este movimiento estaba contemplado en tu plan o presupuesto.
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { label: 'Planeado', value: true },
+              { label: 'No planeado', value: false },
+              { label: 'Sin especificar', value: null },
+            ].map((option) => (
+              <button
+                key={option.label}
+                type="button"
+                aria-pressed={isPlanned === option.value}
+                onClick={() => setIsPlanned(option.value)}
+                className={`rounded-xl border p-3 text-sm font-semibold transition-colors ${
+                  isPlanned === option.value
+                    ? option.value === true
+                      ? 'border-income/60 bg-income/10 text-income'
+                      : option.value === false
+                        ? 'border-expense/60 bg-expense/10 text-expense'
+                        : 'border-primary/60 bg-primary/10 text-primary'
+                    : 'border-border text-muted-foreground hover:border-muted-foreground/40'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {!isSavingsInterest && (
+          <div className="rounded-2xl border border-border bg-card p-5">
+            <Label htmlFor="tags">Etiquetas</Label>
+            <p className="mb-3 text-xs text-muted-foreground">
+              Añade una o varias separadas por comas, por ejemplo: Trabajo, Viaje.
+            </p>
+            <div className="relative">
+              <Tags className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-primary" />
+              <Input
+                id="tags"
+                className="h-10 pl-10"
+                value={tagsText}
+                onChange={(event) => setTagsText(event.target.value)}
+                placeholder="Trabajo, Familia, Viaje"
+                maxLength={240}
+              />
+            </div>
           </div>
         )}
 

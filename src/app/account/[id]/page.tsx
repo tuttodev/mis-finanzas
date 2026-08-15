@@ -146,7 +146,7 @@ export default function AccountDetailPage({
       <div className="space-y-4">
         <div className="rounded-2xl border border-border bg-card p-5">
           <p className="text-sm text-muted-foreground">
-            {account.type === 'Crédito' ? 'Cupo disponible' : 'Saldo actual'}
+            Saldo actual
           </p>
           <p
             className={`tabular mt-1 font-display text-3xl font-bold ${
@@ -155,23 +155,6 @@ export default function AccountDetailPage({
           >
             {formatCOP(account.currentBalance)}
           </p>
-
-          {account.type === 'Crédito' && (
-            <div className="mt-3 space-y-2 rounded-xl bg-expense/10 px-3 py-2.5">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm font-medium">Cupo total</span>
-                <span className="tabular text-sm font-bold">
-                  {formatCOP(account.creditLimit ?? 0)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm font-medium text-expense">Deuda actual</span>
-                <span className="tabular text-sm font-bold text-expense">
-                  {formatCOP(account.debtAmount)}
-                </span>
-              </div>
-            </div>
-          )}
 
           {account.type === 'Ahorros' && (
             <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-income/10 px-3 py-2.5">
@@ -225,16 +208,6 @@ export default function AccountDetailPage({
             >
               <ArrowLeftRight className="h-4 w-4" />
               Transferir
-            </Button>
-            <Button
-              className="col-span-2"
-              size="lg"
-              variant="outline"
-              nativeButton={false}
-              render={<Link href={`/account-form/${account.id}`} />}
-            >
-              <Pencil className="h-4 w-4" />
-              Editar cuenta
             </Button>
           </div>
         </div>

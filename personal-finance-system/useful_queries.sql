@@ -251,6 +251,24 @@ SELECT pg_size_pretty(pg_total_relation_size('transactions')) as table_size;
 -- \copy (SELECT * FROM monthly_summary) TO '~/Desktop/monthly_summary.csv' CSV HEADER;
 
 
+-- -------------------------------------------------------------------------------
+-- 16. NET TRANSFER BALANCE BY ACCOUNT
+-- -------------------------------------------------------------------------------
+-- Net balance = transfers received - transfers sent
+-- Replace 'ACCOUNT_ID' with the actual account UUID
+SELECT
+    a.name as account_name,
+    a.type as account_type,
+    COALESCE(SUM(CASE WHEN t.amount > 0 THEN t.amount ELSE 0 END), 0) as total_received,
+    COALESCE(SUM(CASE WHEN t.amount < 0 THEN ABS(t.amount) ELSE 0 END), 0) as total_sent,
+    COALESCE(SUM(t.amount), 0) as net_balance
+FROM accounts a
+LEFT JOIN transactions t ON t.account_id = a.id
+    AND t.transfer_id IS NOT NULL
+WHERE a.id = 'ACCOUNT_ID'
+GROUP BY a.id, a.name, a.type;
+
+
 -- ===============================================================================
 -- NOTES
 -- ===============================================================================
