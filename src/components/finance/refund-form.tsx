@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Banknote, CreditCard, PiggyBank, RotateCcw } from 'lucide-react';
+import { Banknote, Calendar, CreditCard, PiggyBank, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
@@ -37,6 +37,14 @@ type RefundFormProps = {
   refund?: EditableTransaction;
 };
 
+function yesterdayIsoDate() {
+  const date = new Date();
+  date.setDate(date.getDate() - 1);
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
 export function RefundForm({ originalTransaction, refund }: RefundFormProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -47,6 +55,11 @@ export function RefundForm({ originalTransaction, refund }: RefundFormProps) {
   );
   const [date, setDate] = useState(refund?.date ?? todayIsoDate());
   const [selectedAccountId, setSelectedAccountId] = useState(refund?.accountId ?? '');
+
+  const dateChips = [
+    { label: 'Hoy', value: todayIsoDate() },
+    { label: 'Ayer', value: yesterdayIsoDate() },
+  ];
 
   const accountsQuery = useQuery({
     queryKey: ['accounts'],
@@ -159,15 +172,34 @@ export function RefundForm({ originalTransaction, refund }: RefundFormProps) {
                 onChange={(event) => setDescription(event.target.value)}
               />
             </div>
-            <div>
-              <Label htmlFor="refund-date">Fecha de recepción</Label>
-              <Input
-                id="refund-date"
-                type="date"
-                className="mt-1 h-10"
-                value={date}
-                onChange={(event) => setDate(event.target.value)}
-              />
+            <div className="rounded-xl bg-primary/5 p-3">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-primary" />
+                <Label htmlFor="refund-date" className="text-sm font-semibold">Fecha de recepción</Label>
+              </div>
+              <div className="mt-2 flex gap-2">
+                {dateChips.map((chip) => (
+                  <button
+                    key={chip.label}
+                    type="button"
+                    onClick={() => setDate(chip.value)}
+                    className={`rounded-lg border px-4 py-2.5 text-sm font-semibold transition-colors ${
+                      date === chip.value
+                        ? 'border-primary bg-primary/15 text-primary shadow-sm'
+                        : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                    }`}
+                  >
+                    {chip.label}
+                  </button>
+                ))}
+                <Input
+                  id="refund-date"
+                  type="date"
+                  className="h-11 flex-1 font-semibold"
+                  value={date}
+                  onChange={(event) => setDate(event.target.value)}
+                />
+              </div>
             </div>
           </div>
         </div>

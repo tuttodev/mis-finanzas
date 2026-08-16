@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Banknote, CreditCard, PiggyBank } from 'lucide-react';
+import { Banknote, Calendar, CreditCard, PiggyBank } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { CurrencyInput } from '@/components/ui/currency-input';
@@ -164,18 +164,21 @@ export function TransferForm({ initialFromAccountId = '' }: TransferFormProps) {
                 placeholder="Pago tarjeta de crédito"
               />
             </div>
-            <div>
-              <Label htmlFor="date">Fecha</Label>
-              <div className="mt-1 flex gap-2">
+            <div className="rounded-xl bg-primary/5 p-3">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-primary" />
+                <Label htmlFor="date" className="text-sm font-semibold">Fecha</Label>
+              </div>
+              <div className="mt-2 flex gap-2">
                 {dateChips.map((chip) => (
                   <button
                     key={chip.label}
                     type="button"
                     onClick={() => setDate(chip.value)}
-                    className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                    className={`rounded-lg border px-4 py-2.5 text-sm font-semibold transition-colors ${
                       date === chip.value
-                        ? 'border-primary/60 bg-primary/10 text-primary'
-                        : 'border-border text-muted-foreground hover:text-foreground'
+                        ? 'border-primary bg-primary/15 text-primary shadow-sm'
+                        : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground'
                     }`}
                   >
                     {chip.label}
@@ -184,7 +187,7 @@ export function TransferForm({ initialFromAccountId = '' }: TransferFormProps) {
                 <Input
                   id="date"
                   type="date"
-                  className="h-10 flex-1"
+                  className="h-11 flex-1 font-semibold"
                   value={date}
                   onChange={(event) => setDate(event.target.value)}
                 />

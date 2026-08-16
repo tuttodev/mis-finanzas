@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { CalendarCheck, Home, Landmark, PieChart, Plus, Tags } from 'lucide-react';
+import { CalendarCheck, Home, Landmark, PieChart, Plus, Tag, Tags } from 'lucide-react';
 
 const tabs = [
   { href: '/', label: 'Inicio', icon: Home, exact: true },
   { href: '/plan', label: 'Plan', icon: CalendarCheck, exact: false, prefix: '/plan' },
   { href: '/accounts', label: 'Cuentas', icon: Landmark, exact: false, prefix: '/account' },
   { href: '/categories', label: 'Categorías', icon: Tags, exact: false, prefix: '/categor' },
+  { href: '/tags', label: 'Etiquetas', icon: Tag, exact: false, prefix: '/tag' },
   { href: '/budgets', label: 'Presupuestos', icon: PieChart, exact: false, prefix: '/budget' },
 ] as const;
 
@@ -44,7 +45,7 @@ export function BottomNav() {
               <Link
                 key={tab.href}
                 href={tab.href}
-                className={`flex min-w-16 flex-col items-center gap-1 text-[11px] transition-colors ${
+                className={`flex min-w-0 flex-1 flex-col items-center gap-1 text-[11px] transition-colors ${
                   active ? 'font-semibold text-primary' : 'text-muted-foreground'
                 }`}
               >

@@ -5,12 +5,15 @@ export type TransactionKind = 'regular' | 'refund';
 export type TagDTO = {
   id: string;
   name: string;
+  is_system: boolean;
   created_at?: string | null;
 };
 
 export type Tag = {
   id: string;
   name: string;
+  isSystem: boolean;
+  usageCount?: number;
 };
 
 export type ExpenseCategoryDTO = {
@@ -251,7 +254,7 @@ export type CreateTransactionInput = {
   budgetId?: string | null;
   categoryId?: string | null;
   isPlanned: boolean | null;
-  tags: string[];
+  tagIds: string[];
 };
 
 export type UpdateTransactionInput = CreateTransactionInput & {
@@ -285,6 +288,10 @@ export type CreateAccountInput = {
 export type CreateExpenseCategoryInput = {
   name: string;
   transactionType: 'expense' | 'income';
+};
+
+export type CreateTagInput = {
+  name: string;
 };
 
 export type CreateBudgetInput = {

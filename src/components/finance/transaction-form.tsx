@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Banknote, ChevronDown, CreditCard, PiggyBank, RotateCcw, Tag, Tags } from 'lucide-react';
+import { Banknote, Calendar, Check, ChevronDown, CreditCard, PiggyBank, RotateCcw, Tag, Tags } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { CurrencyInput } from '@/components/ui/currency-input';
@@ -18,10 +18,12 @@ import {
   fetchAccountsOverview,
   fetchBudgetProgressList,
   fetchExpenseCategories,
+  fetchTags,
   updateTransaction,
 } from '@/services/finance';
 import type { AccountType, EditableTransaction, TransactionType } from '@/types/finance';
 import { CategoryIcon } from './category-icon';
+import { TagBadge } from './tag-badge';
 
 const TYPE_ICONS: Record<AccountType, typeof PiggyBank> = {
   Ahorros: PiggyBank,
@@ -71,9 +73,10 @@ export function TransactionForm({
     transaction?.categoryId ?? '',
   );
   const [isPlanned, setIsPlanned] = useState<boolean | null>(transaction?.isPlanned ?? null);
-  const [tagsText, setTagsText] = useState(
-    transaction?.tags.map((tag) => tag.name).join(', ') ?? '',
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>(
+    transaction?.tags.map((tag) => tag.id) ?? [],
   );
+  const [isTagsOpen, setIsTagsOpen] = useState(false);
 
   const accountsQuery = useQuery({
     queryKey: ['accounts'],
@@ -89,6 +92,11 @@ export function TransactionForm({
   const categoriesQuery = useQuery({
     queryKey: ['expense-categories'],
     queryFn: fetchExpenseCategories,
+  });
+
+  const tagsQuery = useQuery({
+    queryKey: ['tags'],
+    queryFn: fetchTags,
   });
 
   const selectedAccount = useMemo(
@@ -111,6 +119,14 @@ export function TransactionForm({
     availableCategories.filter((category) => !category.isSystem);
   const systemCategories =
     availableCategories.filter((category) => category.isSystem);
+  const selectedTags = useMemo(
+    () => tagsQuery.data?.filter((tag) => selectedTagIds.includes(tag.id)) ?? [],
+    [selectedTagIds, tagsQuery.data],
+  );
+  const tagGroups = [
+    { label: 'Comunes', tags: tagsQuery.data?.filter((tag) => tag.isSystem) ?? [] },
+    { label: 'Personalizadas', tags: tagsQuery.data?.filter((tag) => !tag.isSystem) ?? [] },
+  ].filter((group) => group.tags.length > 0);
 
   const parsedAmount = parseCurrencyInput(amount);
   const isExpense = type === 'Gasto';
@@ -138,7 +154,7 @@ export function TransactionForm({
         budgetId: isExpense && selectedBudgetId ? selectedBudgetId : null,
         categoryId: effectiveCategoryId || null,
         isPlanned,
-        tags: tagsText.split(',').map((tag) => tag.trim()).filter(Boolean),
+        tagIds: selectedTagIds,
       };
 
       if (transaction) {
@@ -243,18 +259,21 @@ export function TransactionForm({
                 placeholder="Mercado de la semana"
               />
             </div>
-            <div>
-              <Label htmlFor="date">Fecha</Label>
-              <div className="mt-1 flex gap-2">
+            <div className="rounded-xl bg-primary/5 p-3">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-primary" />
+                <Label htmlFor="date" className="text-sm font-semibold">Fecha</Label>
+              </div>
+              <div className="mt-2 flex gap-2">
                 {dateChips.map((chip) => (
                   <button
                     key={chip.label}
                     type="button"
                     onClick={() => setDate(chip.value)}
-                    className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                    className={`rounded-lg border px-4 py-2.5 text-sm font-semibold transition-colors ${
                       date === chip.value
-                        ? 'border-primary/60 bg-primary/10 text-primary'
-                        : 'border-border text-muted-foreground hover:text-foreground'
+                        ? 'border-primary bg-primary/15 text-primary shadow-sm'
+                        : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground'
                     }`}
                   >
                     {chip.label}
@@ -263,7 +282,7 @@ export function TransactionForm({
                 <Input
                   id="date"
                   type="date"
-                  className="h-10 flex-1"
+                  className="h-11 flex-1 font-semibold"
                   value={date}
                   onChange={(event) => setDate(event.target.value)}
                 />
@@ -408,25 +427,103 @@ export function TransactionForm({
           </div>
         </div>
 
-        {!isSavingsInterest && (
-          <div className="rounded-2xl border border-border bg-card p-5">
+        <div className="rounded-2xl border border-border bg-card p-5">
+          <div className="mb-1 flex items-center justify-between gap-3">
             <Label htmlFor="tags">Etiquetas</Label>
-            <p className="mb-3 text-xs text-muted-foreground">
-              Añade una o varias separadas por comas, por ejemplo: Trabajo, Viaje.
-            </p>
-            <div className="relative">
-              <Tags className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-primary" />
-              <Input
-                id="tags"
-                className="h-10 pl-10"
-                value={tagsText}
-                onChange={(event) => setTagsText(event.target.value)}
-                placeholder="Trabajo, Familia, Viaje"
-                maxLength={240}
-              />
-            </div>
+            <Link
+              href="/tag-form"
+              className="text-xs font-medium text-primary underline-offset-2 hover:underline"
+              onClick={() => setIsTagsOpen(false)}
+            >
+              Crear nueva
+            </Link>
           </div>
-        )}
+          <p className="mb-3 text-xs text-muted-foreground">
+            Puedes seleccionar varias etiquetas para este movimiento.
+          </p>
+          {tagsQuery.isError ? (
+            <p className="text-sm text-expense">No se pudieron cargar las etiquetas.</p>
+          ) : (
+            <div className="relative">
+              <button
+                id="tags"
+                type="button"
+                aria-haspopup="listbox"
+                aria-expanded={isTagsOpen}
+                onClick={() => setIsTagsOpen((open) => !open)}
+                className="flex min-h-12 w-full items-center gap-2 rounded-xl border border-input bg-input/30 px-3 text-left outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                <Tags className="h-5 w-5 shrink-0 text-primary" />
+                <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+                  {selectedTags.length ? (
+                    selectedTags.map((tag) => <span key={tag.id} className="max-w-full"><TagBadge name={tag.name} /></span>)
+                  ) : (
+                    <span className="text-sm text-muted-foreground">Sin etiquetas</span>
+                  )}
+                </span>
+                <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+              </button>
+
+              {isTagsOpen && (
+                <div className="absolute top-[calc(100%+0.5rem)] z-20 max-h-64 w-full overflow-y-auto rounded-xl border border-border bg-card p-2 shadow-xl">
+                  {tagsQuery.isLoading ? (
+                    <Skeleton className="h-10 w-full rounded-lg" />
+                  ) : tagGroups.length ? (
+                    <div className="space-y-1" role="listbox" aria-label="Etiquetas disponibles" aria-multiselectable="true">
+                      {tagGroups.map((group) => (
+                        <div key={group.label}>
+                          <p className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            {group.label}
+                          </p>
+                          {group.tags.map((tag) => {
+                            const selected = selectedTagIds.includes(tag.id);
+                            return (
+                              <button
+                                key={tag.id}
+                                type="button"
+                                role="option"
+                                aria-selected={selected}
+                                onClick={() => {
+                                  setSelectedTagIds((current) =>
+                                    selected
+                                      ? current.filter((id) => id !== tag.id)
+                                      : [...current, tag.id],
+                                  );
+                                }}
+                                className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                                  selected
+                                    ? 'bg-primary/10 font-semibold text-primary'
+                                    : 'hover:bg-secondary'
+                                }`}
+                              >
+                                <span className="flex h-5 w-5 items-center justify-center rounded-md border border-border">
+                                  {selected && <Check className="h-3.5 w-3.5" />}
+                                </span>
+                                <span className="truncate">{tag.name}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="px-2 py-3 text-sm text-muted-foreground">
+                      Aún no tienes etiquetas creadas.
+                    </p>
+                  )}
+                  <Link
+                    href="/tag-form"
+                    onClick={() => setIsTagsOpen(false)}
+                    className="mt-2 flex items-center gap-2 rounded-lg border-t border-border px-3 pt-3 text-sm font-semibold text-primary hover:underline"
+                  >
+                    <Tag className="h-4 w-4" />
+                    Crear nueva etiqueta
+                  </Link>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         {isExpense && (
           <div className="rounded-2xl border border-border bg-card p-5">

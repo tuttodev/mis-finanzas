@@ -99,10 +99,30 @@ create index idx_budget_cycles_budget on budget_cycles (budget_id, started_at de
 create table tags (
   id uuid primary key default gen_random_uuid(),
   name text not null unique check (char_length(trim(name)) between 1 and 40),
+  is_system boolean not null default false,
   created_at timestamptz not null default now()
 );
 
 create unique index tags_name_unique_ci on tags (lower(name));
+
+insert into tags (name, is_system)
+select common_tags.name, true
+from (values
+  ('Mercado'), ('Restaurantes'), ('Domicilios'), ('Cafeterías'), ('Snacks'),
+  ('Gasolina'), ('Taxi'), ('Transporte público'), ('Parqueadero'), ('Peajes'),
+  ('Mantenimiento vehículo'), ('Arriendo'), ('Hipoteca'), ('Reparaciones del hogar'),
+  ('Muebles'), ('Decoración'), ('Energía'), ('Agua'), ('Gas'), ('Internet'),
+  ('Telefonía'), ('Suscripciones'), ('Medicamentos'), ('Médico'), ('Odontología'),
+  ('Exámenes médicos'), ('Seguro médico'), ('Matrícula'), ('Cursos'), ('Libros'),
+  ('Útiles escolares'), ('Certificaciones'), ('Cine'), ('Streaming'), ('Eventos'),
+  ('Juegos'), ('Hobbies'), ('Ropa'), ('Tecnología'), ('Hogar'), ('Regalos'),
+  ('Mascotas'), ('Tarjeta de crédito'), ('Préstamo'), ('Cuota'), ('Intereses de deuda'),
+  ('Donaciones'), ('Impuestos'), ('Trámites'), ('Viajes'), ('Rendimientos de ahorro'),
+  ('Intereses de ahorro')
+) as common_tags(name)
+where not exists (
+  select 1 from tags existing where lower(existing.name) = lower(common_tags.name)
+);
 
 create table transaction_tags (
   transaction_id uuid not null references transactions (id) on delete cascade,
@@ -140,7 +160,7 @@ create policy "anon full access" on transaction_tags for all to anon using (true
 
 grant select, insert on categories to anon;
 grant select, insert on accounts to anon;
-grant select, insert on tags to anon;
+grant select, insert, delete on tags to anon;
 grant select, insert, delete on transaction_tags to anon;
 
 -- Seed your accounts (edit names/types as needed, then uncomment):

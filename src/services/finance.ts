@@ -22,6 +22,7 @@ import type {
   CreateRefundInput,
   CreateTransactionInput,
   CreateTransferInput,
+  CreateTagInput,
   DailySpend,
   DashboardData,
   ExpenseCategory,
@@ -199,19 +200,6 @@ function mapTransaction(
   };
 }
 
-function normalizeTagNames(names: string[]) {
-  const uniqueNames = new Map<string, string>();
-
-  for (const rawName of names) {
-    const name = rawName.trim();
-    if (!name) continue;
-    if (name.length > 40) throw new Error('Las etiquetas no pueden superar 40 caracteres');
-    uniqueNames.set(name.toLocaleLowerCase(), name);
-  }
-
-  return Array.from(uniqueNames.values());
-}
-
 async function fetchTransactionTagsMap(transactionIds: string[]) {
   const tagsByTransaction = new Map<string, Tag[]>();
   if (!transactionIds.length) return tagsByTransaction;
@@ -227,7 +215,12 @@ async function fetchTransactionTagsMap(transactionIds: string[]) {
 
   const links = ensure(linksData as TransactionTagDTO[] | null, linksError);
   const tags = ensure(tagsData as TagDTO[] | null, tagsError);
-  const tagsById = new Map(tags.map((tag) => [tag.id, { id: tag.id, name: tag.name }]));
+  const tagsById = new Map(
+    tags.map((tag) => [
+      tag.id,
+      { id: tag.id, name: tag.name, isSystem: tag.is_system },
+    ]),
+  );
 
   for (const link of links) {
     const tag = tagsById.get(link.tag_id);
@@ -240,35 +233,8 @@ async function fetchTransactionTagsMap(transactionIds: string[]) {
   return tagsByTransaction;
 }
 
-async function syncTransactionTags(transactionId: string, names: string[]) {
-  const normalizedNames = normalizeTagNames(names);
-  const { data: existingData, error: existingError } = await supabase
-    .from('tags')
-    .select('*')
-    .order('name');
-  const existingTags = ensure(existingData as TagDTO[] | null, existingError);
-  const existingByName = new Map(
-    existingTags.map((tag) => [tag.name.toLocaleLowerCase(), { id: tag.id, name: tag.name }]),
-  );
-  const selectedTags: Tag[] = [];
-
-  for (const name of normalizedNames) {
-    const existingTag = existingByName.get(name.toLocaleLowerCase());
-    if (existingTag) {
-      selectedTags.push(existingTag);
-      continue;
-    }
-
-    const { data, error } = await supabase
-      .from('tags')
-      .insert({ name })
-      .select('*')
-      .single();
-    const createdTag = ensure(data as TagDTO | null, error);
-    const tag = { id: createdTag.id, name: createdTag.name };
-    existingByName.set(tag.name.toLocaleLowerCase(), tag);
-    selectedTags.push(tag);
-  }
+async function syncTransactionTags(transactionId: string, tagIds: string[]) {
+  const selectedTagIds = Array.from(new Set(tagIds));
 
   const { error: deleteError } = await supabase
     .from('transaction_tags')
@@ -276,14 +242,22 @@ async function syncTransactionTags(transactionId: string, names: string[]) {
     .eq('transaction_id', transactionId);
   if (deleteError) throw new Error(deleteError.message);
 
-  if (selectedTags.length) {
+  if (selectedTagIds.length) {
     const { error: insertError } = await supabase.from('transaction_tags').insert(
-      selectedTags.map((tag) => ({ transaction_id: transactionId, tag_id: tag.id })),
+      selectedTagIds.map((tagId) => ({ transaction_id: transactionId, tag_id: tagId })),
     );
     if (insertError) throw new Error(insertError.message);
   }
 
-  return selectedTags;
+  if (!selectedTagIds.length) return [];
+
+  const { data, error } = await supabase
+    .from('tags')
+    .select('*')
+    .in('id', selectedTagIds)
+    .order('name');
+  const selectedTags = ensure(data as TagDTO[] | null, error);
+  return selectedTags.map((tag) => mapTag(tag));
 }
 
 function mapBudgetProgress(budget: Budget, cycle: BudgetCycle, spentAmount: number): BudgetProgress {
@@ -435,7 +409,7 @@ export async function createTransaction(input: CreateTransactionInput) {
 
   const { data, error } = await supabase.from('transactions').insert(payload).select('*').single();
   const transaction = ensure(data as TransactionDTO | null, error);
-  const tags = await syncTransactionTags(transaction.id, input.tags);
+  const tags = await syncTransactionTags(transaction.id, input.tagIds);
   return mapTransaction(transaction, new Map(), tags);
 }
 
@@ -494,7 +468,7 @@ export async function createRefund(input: CreateRefundInput) {
   const transaction = ensure(data as TransactionDTO | null, error);
   const tags = await syncTransactionTags(
     transaction.id,
-    input.originalTransaction.tags.map((tag) => tag.name),
+    input.originalTransaction.tags.map((tag) => tag.id),
   );
   return mapTransaction(transaction, new Map(), tags);
 }
@@ -526,7 +500,7 @@ export async function updateRefund(
   const transaction = ensure(data as TransactionDTO | null, error);
   const tags = await syncTransactionTags(
     transaction.id,
-    input.originalTransaction.tags.map((tag) => tag.name),
+    input.originalTransaction.tags.map((tag) => tag.id),
   );
   return mapTransaction(transaction, new Map(), tags);
 }
@@ -641,7 +615,7 @@ export async function updateTransaction(
     .single();
 
   const transaction = ensure(data as TransactionDTO | null, error);
-  const tags = await syncTransactionTags(transaction.id, input.tags);
+  const tags = await syncTransactionTags(transaction.id, input.tagIds);
   return mapTransaction(transaction, new Map(), tags);
 }
 
@@ -661,6 +635,68 @@ export async function fetchExpenseCategories(): Promise<ExpenseCategory[]> {
   const usedCategoryIds = new Set(usedRows.map((row) => row.category_id));
 
   return categories.map((category) => mapExpenseCategory(category, usedCategoryIds));
+}
+
+function mapTag(dto: TagDTO, usageCount = 0): Tag {
+  return { id: dto.id, name: dto.name, isSystem: dto.is_system, usageCount };
+}
+
+export async function fetchTags(): Promise<Tag[]> {
+  const [{ data, error }, { data: usageData, error: usageError }] = await Promise.all([
+    supabase.from('tags').select('*').order('name'),
+    supabase.from('transaction_tags').select('tag_id'),
+  ]);
+  const tagDtos = ensure(data as TagDTO[] | null, error);
+  const usageRows = ensure(usageData as Array<{ tag_id: string }> | null, usageError);
+  const usageCounts = new Map<string, number>();
+
+  for (const row of usageRows) {
+    usageCounts.set(row.tag_id, (usageCounts.get(row.tag_id) ?? 0) + 1);
+  }
+
+  return tagDtos.map((tag) => mapTag(tag, usageCounts.get(tag.id) ?? 0));
+}
+
+export async function createTag(input: CreateTagInput): Promise<Tag> {
+  const name = input.name.trim();
+  if (!name) throw new Error('El nombre es obligatorio');
+  if (name.length > 40) throw new Error('La etiqueta no puede superar 40 caracteres');
+
+  const { data, error } = await supabase
+    .from('tags')
+    .insert({ name })
+    .select('*')
+    .single();
+
+  if (error?.code === '23505') {
+    throw new Error('Ya existe una etiqueta con ese nombre');
+  }
+
+  return mapTag(ensure(data as TagDTO | null, error));
+}
+
+export async function deleteTag(tagId: string) {
+  const { data: tagData, error: tagError } = await supabase
+    .from('tags')
+    .select('is_system')
+    .eq('id', tagId)
+    .single();
+  const tag = ensure(tagData as { is_system: boolean } | null, tagError);
+  if (tag.is_system) throw new Error('Las etiquetas comunes no se pueden eliminar');
+
+  const { data, error } = await supabase
+    .from('transaction_tags')
+    .select('transaction_id')
+    .eq('tag_id', tagId)
+    .limit(1);
+  const links = ensure(data as Array<{ transaction_id: string }> | null, error);
+
+  if (links.length) {
+    throw new Error('No se puede eliminar una etiqueta que está en uso');
+  }
+
+  const { error: deleteError } = await supabase.from('tags').delete().eq('id', tagId);
+  if (deleteError) throw new Error(deleteError.message);
 }
 
 export async function createExpenseCategory(
