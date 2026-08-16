@@ -334,6 +334,8 @@ export type InsertPlanItemDTO = {
   kind: PlanItemKind;
   planned_amount: number;
   note: string | null;
+  budget_id?: string | null;
+  category_id?: string | null;
   sort_order?: number;
 };
 
@@ -341,6 +343,8 @@ export type UpdatePlanItemDTO = {
   name: string;
   planned_amount: number;
   note: string | null;
+  budget_id?: string | null;
+  category_id?: string | null;
 };
 
 export type MonthlyPlan = {
@@ -359,6 +363,7 @@ export type PlanItem = {
   isPaid: boolean;
   budgetId: string | null;
   categoryId: string | null;
+  tagIds: string[];
   sortOrder: number;
 };
 
@@ -376,10 +381,16 @@ export type CreatePlanItemInput = {
   kind: PlanItemKind;
   plannedAmount: number;
   note?: string;
+  budgetId?: string | null;
+  categoryId?: string | null;
+  tagIds?: string[];
 };
 
 export type UpdatePlanItemInput = {
   name: string;
   plannedAmount: number;
   note?: string;
+  budgetId?: string | null;
+  categoryId?: string | null;
+  tagIds?: string[];
 };

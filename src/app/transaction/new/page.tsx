@@ -13,6 +13,7 @@ function NewTransactionForm() {
     <TransactionForm
       initialAccountId={searchParams.get('accountId') ?? ''}
       preset={preset}
+      planItemId={searchParams.get('planItemId') ?? undefined}
     />
   );
 }

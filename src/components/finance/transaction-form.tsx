@@ -18,7 +18,9 @@ import {
   fetchAccountsOverview,
   fetchBudgetProgressList,
   fetchExpenseCategories,
+  fetchPlanItem,
   fetchTags,
+  setPlanItemPaid,
   updateTransaction,
 } from '@/services/finance';
 import type { AccountType, EditableTransaction, TransactionType } from '@/types/finance';
@@ -35,6 +37,7 @@ type TransactionFormProps = {
   initialAccountId?: string;
   transaction?: EditableTransaction;
   preset?: 'savings-interest';
+  planItemId?: string;
 };
 
 function yesterdayIsoDate() {
@@ -49,6 +52,7 @@ export function TransactionForm({
   initialAccountId = '',
   transaction,
   preset,
+  planItemId,
 }: TransactionFormProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -77,6 +81,7 @@ export function TransactionForm({
     transaction?.tags.map((tag) => tag.id) ?? [],
   );
   const [isTagsOpen, setIsTagsOpen] = useState(false);
+  const [loadedPlanItemId, setLoadedPlanItemId] = useState<string | null>(null);
 
   const accountsQuery = useQuery({
     queryKey: ['accounts'],
@@ -98,6 +103,28 @@ export function TransactionForm({
     queryKey: ['tags'],
     queryFn: fetchTags,
   });
+
+  const planItemQuery = useQuery({
+    queryKey: ['plan-item', planItemId],
+    queryFn: () => fetchPlanItem(planItemId!),
+    enabled: Boolean(planItemId) && !isEditing,
+  });
+  const isPlanItemLoading = Boolean(planItemId) && planItemQuery.isLoading;
+
+  if (
+    !isEditing &&
+    planItemId &&
+    planItemQuery.data &&
+    loadedPlanItemId !== planItemQuery.data.id
+  ) {
+    setLoadedPlanItemId(planItemQuery.data.id);
+    setAmount(formatCOPInput(planItemQuery.data.plannedAmount));
+    setDescription(planItemQuery.data.name);
+    setSelectedBudgetId(planItemQuery.data.budgetId ?? '');
+    setSelectedCategoryId(planItemQuery.data.categoryId ?? '');
+    setSelectedTagIds(planItemQuery.data.tagIds);
+    setIsPlanned(true);
+  }
 
   const selectedAccount = useMemo(
     () => accountsQuery.data?.find((account) => account.id === selectedAccountId) ?? null,
@@ -165,7 +192,12 @@ export function TransactionForm({
         });
       }
 
-      return createTransaction(input);
+      return createTransaction(input).then(async (createdTransaction) => {
+        if (planItemId && input.type === 'Gasto') {
+          await setPlanItemPaid(planItemId, true);
+        }
+        return createdTransaction;
+      });
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries();
@@ -192,7 +224,13 @@ export function TransactionForm({
         title={
           isEditing ? 'Editar movimiento' : isSavingsInterest ? 'Agregar interés' : 'Nueva transacción'
         }
-        subtitle={isSavingsInterest ? 'Registra el rendimiento diario de tus ahorros' : undefined}
+        subtitle={
+          isSavingsInterest
+            ? 'Registra el rendimiento diario de tus ahorros'
+            : planItemId
+              ? 'Gasto creado desde tu partida del plan'
+              : undefined
+        }
         backHref={
           transaction
             ? `/account/${transaction.accountId}`
@@ -581,18 +619,20 @@ export function TransactionForm({
         <Button
           className="w-full"
           size="lg"
-          disabled={mutation.isPending}
+          disabled={mutation.isPending || isPlanItemLoading}
           onClick={() => mutation.mutate()}
         >
           {mutation.isPending
             ? 'Guardando...'
-            : isEditing
-              ? 'Guardar cambios'
-              : isSavingsInterest
-                ? 'Agregar interés'
-                : isExpense
-                  ? 'Guardar gasto'
-                  : 'Guardar ingreso'}
+            : isPlanItemLoading
+              ? 'Cargando partida...'
+              : isEditing
+                ? 'Guardar cambios'
+                : isSavingsInterest
+                  ? 'Agregar interés'
+                  : isExpense
+                    ? 'Guardar gasto'
+                    : 'Guardar ingreso'}
         </Button>
 
         {transaction

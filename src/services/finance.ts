@@ -1045,7 +1045,7 @@ function mapMonthlyPlan(dto: MonthlyPlanDTO): MonthlyPlan {
   };
 }
 
-function mapPlanItem(dto: PlanItemDTO): PlanItem {
+function mapPlanItem(dto: PlanItemDTO, tagIds: string[] = []): PlanItem {
   return {
     id: dto.id,
     planId: dto.plan_id,
@@ -1056,6 +1056,7 @@ function mapPlanItem(dto: PlanItemDTO): PlanItem {
     isPaid: dto.is_paid,
     budgetId: dto.budget_id,
     categoryId: dto.category_id,
+    tagIds,
     sortOrder: dto.sort_order,
   };
 }
@@ -1079,7 +1080,47 @@ async function fetchPlanItems(planId: string): Promise<PlanItem[]> {
     .order('sort_order')
     .order('created_at');
 
-  return ensure(data as PlanItemDTO[] | null, error).map(mapPlanItem);
+  const planItems = ensure(data as PlanItemDTO[] | null, error);
+  const tagIdsByPlanItem = await fetchPlanItemTagsMap(planItems.map((item) => item.id));
+  return planItems.map((item) => mapPlanItem(item, tagIdsByPlanItem.get(item.id)));
+}
+
+async function fetchPlanItemTagsMap(planItemIds: string[]) {
+  const tagsByPlanItem = new Map<string, string[]>();
+  if (!planItemIds.length) return tagsByPlanItem;
+
+  const { data, error } = await supabase
+    .from('plan_item_tags')
+    .select('plan_item_id, tag_id')
+    .in('plan_item_id', planItemIds);
+  const links = ensure(
+    data as Array<{ plan_item_id: string; tag_id: string }> | null,
+    error,
+  );
+
+  for (const link of links) {
+    const tagIds = tagsByPlanItem.get(link.plan_item_id) ?? [];
+    tagIds.push(link.tag_id);
+    tagsByPlanItem.set(link.plan_item_id, tagIds);
+  }
+
+  return tagsByPlanItem;
+}
+
+async function syncPlanItemTags(planItemId: string, tagIds: string[]) {
+  const selectedTagIds = Array.from(new Set(tagIds));
+  const { error: deleteError } = await supabase
+    .from('plan_item_tags')
+    .delete()
+    .eq('plan_item_id', planItemId);
+  if (deleteError) throw new Error(deleteError.message);
+
+  if (!selectedTagIds.length) return;
+
+  const { error: insertError } = await supabase.from('plan_item_tags').insert(
+    selectedTagIds.map((tagId) => ({ plan_item_id: planItemId, tag_id: tagId })),
+  );
+  if (insertError) throw new Error(insertError.message);
 }
 
 export async function fetchMonthlyPlan(monthKey: string): Promise<MonthlyPlanSummary | null> {
@@ -1142,17 +1183,26 @@ export async function duplicatePreviousPlan(monthKey: string): Promise<MonthlyPl
   const plan = mapMonthlyPlan(ensure(data as MonthlyPlanDTO | null, error));
 
   if (previous.items.length) {
-    const itemsPayload: InsertPlanItemDTO[] = previous.items.map((item) => ({
-      plan_id: plan.id,
-      name: item.name,
-      kind: item.kind,
-      planned_amount: item.plannedAmount,
-      note: item.note,
-      sort_order: item.sortOrder,
-    }));
-
-    const { error: itemsError } = await supabase.from('plan_items').insert(itemsPayload);
-    if (itemsError) throw new Error(itemsError.message);
+    await Promise.all(
+      previous.items.map(async (item) => {
+        const { data: insertedItem, error: itemError } = await supabase
+          .from('plan_items')
+          .insert({
+            plan_id: plan.id,
+            name: item.name,
+            kind: item.kind,
+            planned_amount: item.plannedAmount,
+            note: item.note,
+            budget_id: item.budgetId,
+            category_id: item.categoryId,
+            sort_order: item.sortOrder,
+          })
+          .select('*')
+          .single();
+        const createdItem = ensure(insertedItem as PlanItemDTO | null, itemError);
+        await syncPlanItemTags(createdItem.id, item.tagIds);
+      }),
+    );
   }
 
   const items = await fetchPlanItems(plan.id);
@@ -1161,7 +1211,9 @@ export async function duplicatePreviousPlan(monthKey: string): Promise<MonthlyPl
 
 export async function fetchPlanItem(itemId: string): Promise<PlanItem> {
   const { data, error } = await supabase.from('plan_items').select('*').eq('id', itemId).single();
-  return mapPlanItem(ensure(data as PlanItemDTO | null, error));
+  const planItem = ensure(data as PlanItemDTO | null, error);
+  const tagIdsByPlanItem = await fetchPlanItemTagsMap([itemId]);
+  return mapPlanItem(planItem, tagIdsByPlanItem.get(itemId));
 }
 
 export async function createPlanItem(input: CreatePlanItemInput): Promise<PlanItem> {
@@ -1174,10 +1226,14 @@ export async function createPlanItem(input: CreatePlanItemInput): Promise<PlanIt
     kind: input.kind,
     planned_amount: roundCurrencyAmount(input.plannedAmount),
     note: input.note?.trim() || null,
+    budget_id: input.budgetId ?? null,
+    category_id: input.kind === 'expense' ? input.categoryId ?? null : null,
   };
 
   const { data, error } = await supabase.from('plan_items').insert(payload).select('*').single();
-  return mapPlanItem(ensure(data as PlanItemDTO | null, error));
+  const planItem = ensure(data as PlanItemDTO | null, error);
+  await syncPlanItemTags(planItem.id, input.kind === 'expense' ? input.tagIds ?? [] : []);
+  return mapPlanItem(planItem, Array.from(new Set(input.tagIds ?? [])));
 }
 
 export async function updatePlanItem(itemId: string, input: UpdatePlanItemInput) {
@@ -1189,9 +1245,12 @@ export async function updatePlanItem(itemId: string, input: UpdatePlanItemInput)
     planned_amount: roundCurrencyAmount(input.plannedAmount),
     note: input.note?.trim() || null,
   };
+  if (input.budgetId !== undefined) payload.budget_id = input.budgetId;
+  if (input.categoryId !== undefined) payload.category_id = input.categoryId;
 
   const { error } = await supabase.from('plan_items').update(payload).eq('id', itemId);
   if (error) throw new Error(error.message);
+  await syncPlanItemTags(itemId, input.tagIds ?? []);
 }
 
 export async function reorderPlanItems(

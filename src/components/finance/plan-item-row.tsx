@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Circle, CircleCheck, GripVertical } from 'lucide-react';
+import { Circle, CircleCheck, GripVertical, Plus } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { formatCOP } from '@/lib/formatters';
@@ -73,6 +73,18 @@ export function PlanItemRow({ item, onTogglePaid, togglePending }: PlanItemRowPr
           {formatCOP(item.plannedAmount)}
         </span>
       </Link>
+
+      {item.kind === 'expense' && (
+        <Link
+          href={`/transaction/new?planItemId=${item.id}`}
+          aria-label={`Agregar gasto a ${item.name}`}
+          title="Agregar gasto"
+          className="flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/10"
+        >
+          <Plus className="h-4 w-4" />
+          <span className="hidden min-[380px]:inline">Gasto</span>
+        </Link>
+      )}
     </div>
   );
 }
