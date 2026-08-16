@@ -157,11 +157,15 @@ with check (not is_system);
 create policy "anon full access" on transactions for all to anon using (true) with check (true);
 create policy "anon full access" on tags for all to anon using (true) with check (true);
 create policy "anon full access" on transaction_tags for all to anon using (true) with check (true);
+create policy "authenticated full access" on tags for all to authenticated using (true) with check (true);
+create policy "authenticated full access" on transaction_tags for all to authenticated using (true) with check (true);
 
 grant select, insert on categories to anon;
 grant select, insert on accounts to anon;
 grant select, insert, delete on tags to anon;
 grant select, insert, delete on transaction_tags to anon;
+grant select, insert, delete on tags to authenticated;
+grant select, insert, delete on transaction_tags to authenticated;
 
 -- Seed your accounts (edit names/types as needed, then uncomment):
 -- insert into accounts (name, type) values
