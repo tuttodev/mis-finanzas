@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TransactionRow } from '@/components/finance/transaction-row';
+import { TransactionExportDialog } from '@/components/finance/transaction-export-dialog';
 import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';
 import { ConfirmDialog } from '@/components/confirm-dialog';
@@ -209,6 +210,10 @@ export default function AccountDetailPage({
               <ArrowLeftRight className="h-4 w-4" />
               Transferir
             </Button>
+            <TransactionExportDialog
+              accountName={account.name}
+              transactions={transactionsQuery.data ?? []}
+            />
           </div>
         </div>
 
