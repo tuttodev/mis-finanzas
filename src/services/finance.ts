@@ -37,6 +37,7 @@ import type {
   MonthlyPlanSummary,
   PlanItem,
   PlanItemDTO,
+  PayrollDocument,
   TransactionWithAccount,
   Tag,
   TagDTO,
@@ -62,7 +63,6 @@ function ensure<T>(data: T | null, error: { message: string } | null): T {
   if (data === null) throw new Error('No se encontró información');
   return data;
 }
-
 function mapAccountType(type: string): AccountType {
   switch (type) {
     case 'savings':
@@ -473,6 +473,7 @@ export async function createTransaction(input: CreateTransactionInput) {
     description: input.description,
     amount: signedAmount,
     is_planned: input.isPlanned,
+    plan_item_id: input.planItemId ?? null,
   };
 
   const { data, error } = await supabase.from('transactions').insert(payload).select('*').single();
@@ -1113,13 +1114,14 @@ function mapMonthlyPlan(dto: MonthlyPlanDTO): MonthlyPlan {
   };
 }
 
-function mapPlanItem(dto: PlanItemDTO, tagIds: string[] = []): PlanItem {
+function mapPlanItem(dto: PlanItemDTO, tagIds: string[] = [], actualAmount: number | null = null): PlanItem {
   return {
     id: dto.id,
     planId: dto.plan_id,
     name: dto.name,
     kind: dto.kind,
     plannedAmount: dto.planned_amount,
+    actualAmount,
     note: dto.note,
     isPaid: dto.is_paid,
     budgetId: dto.budget_id,
@@ -1130,14 +1132,26 @@ function mapPlanItem(dto: PlanItemDTO, tagIds: string[] = []): PlanItem {
 }
 
 function summarizePlan(plan: MonthlyPlan, items: PlanItem[]): MonthlyPlanSummary {
-  const incomeTotal = items
+  const incomeGross = items
     .filter((item) => item.kind === 'income')
     .reduce((sum, item) => sum + item.plannedAmount, 0);
+  const deductionsTotal = items
+    .filter((item) => item.kind === 'deduction')
+    .reduce((sum, item) => sum + item.plannedAmount, 0);
+  const incomeTotal = incomeGross - deductionsTotal;
   const expenseTotal = items
     .filter((item) => item.kind === 'expense')
     .reduce((sum, item) => sum + item.plannedAmount, 0);
 
-  return { plan, items, incomeTotal, expenseTotal, leftover: incomeTotal - expenseTotal };
+  return {
+    plan,
+    items,
+    incomeGross,
+    deductionsTotal,
+    incomeTotal,
+    expenseTotal,
+    leftover: incomeTotal - expenseTotal,
+  };
 }
 
 async function fetchPlanItems(planId: string): Promise<PlanItem[]> {
@@ -1149,8 +1163,38 @@ async function fetchPlanItems(planId: string): Promise<PlanItem[]> {
     .order('created_at');
 
   const planItems = ensure(data as PlanItemDTO[] | null, error);
-  const tagIdsByPlanItem = await fetchPlanItemTagsMap(planItems.map((item) => item.id));
-  return planItems.map((item) => mapPlanItem(item, tagIdsByPlanItem.get(item.id)));
+  const planItemIds = planItems.map((item) => item.id);
+
+  const [tagIdsByPlanItem, actualAmountByPlanItem] = await Promise.all([
+    fetchPlanItemTagsMap(planItemIds),
+    fetchPlanItemActualAmounts(planItemIds),
+  ]);
+
+  return planItems.map((item) =>
+    mapPlanItem(item, tagIdsByPlanItem.get(item.id), actualAmountByPlanItem.get(item.id) ?? null),
+  );
+}
+
+async function fetchPlanItemActualAmounts(planItemIds: string[]): Promise<Map<string, number>> {
+  const result = new Map<string, number>();
+  if (!planItemIds.length) return result;
+
+  const { data, error } = await supabase
+    .from('transactions')
+    .select('plan_item_id, amount')
+    .in('plan_item_id', planItemIds);
+
+  if (error) throw new Error(error.message);
+
+  const rows = (data ?? []) as Array<{ plan_item_id: string; amount: number }>;
+  for (const row of rows) {
+    if (!row.plan_item_id) continue;
+    const prev = result.get(row.plan_item_id) ?? 0;
+    // amounts for expenses are stored as negative; we sum absolute values
+    result.set(row.plan_item_id, prev + Math.abs(row.amount));
+  }
+
+  return result;
 }
 
 async function fetchPlanItemTagsMap(planItemIds: string[]) {
@@ -1313,12 +1357,15 @@ export async function updatePlanItem(itemId: string, input: UpdatePlanItemInput)
     planned_amount: roundCurrencyAmount(input.plannedAmount),
     note: input.note?.trim() || null,
   };
+  if (input.kind !== undefined) payload.kind = input.kind;
   if (input.budgetId !== undefined) payload.budget_id = input.budgetId;
-  if (input.categoryId !== undefined) payload.category_id = input.categoryId;
+  if (input.categoryId !== undefined) {
+    payload.category_id = input.kind === 'expense' ? input.categoryId : null;
+  }
 
   const { error } = await supabase.from('plan_items').update(payload).eq('id', itemId);
   if (error) throw new Error(error.message);
-  await syncPlanItemTags(itemId, input.tagIds ?? []);
+  await syncPlanItemTags(itemId, input.kind === 'expense' ? input.tagIds ?? [] : []);
 }
 
 export async function reorderPlanItems(
@@ -1342,4 +1389,130 @@ export async function deletePlanItem(itemId: string) {
 export async function setPlanItemPaid(itemId: string, isPaid: boolean) {
   const { error } = await supabase.from('plan_items').update({ is_paid: isPaid }).eq('id', itemId);
   if (error) throw new Error(error.message);
+}
+
+export async function createPlanItemsBatch(
+  planId: string,
+  items: CreatePlanItemInput[],
+): Promise<PlanItem[]> {
+  if (!items.length) return [];
+
+  const payloads: InsertPlanItemDTO[] = items.map((item, index) => ({
+    plan_id: planId,
+    name: item.name.trim(),
+    kind: item.kind,
+    planned_amount: roundCurrencyAmount(item.plannedAmount),
+    note: item.note?.trim() || null,
+    budget_id: item.budgetId ?? null,
+    category_id: item.kind === 'expense' ? item.categoryId ?? null : null,
+    sort_order: (index + 1) * 10,
+  }));
+
+  const { data, error } = await supabase
+    .from('plan_items')
+    .insert(payloads)
+    .select('*');
+
+  const createdDtos = ensure(data as PlanItemDTO[] | null, error);
+  return createdDtos.map((dto) => mapPlanItem(dto, []));
+}
+
+export async function replacePayrollPlanItems(
+  planId: string,
+  newItems: CreatePlanItemInput[],
+): Promise<PlanItem[]> {
+  const { error: deleteError } = await supabase
+    .from('plan_items')
+    .delete()
+    .eq('plan_id', planId)
+    .in('kind', ['income', 'deduction']);
+
+  if (deleteError) throw new Error(deleteError.message);
+
+  return createPlanItemsBatch(planId, newItems);
+}
+
+const PAYROLL_DOCUMENT_BUCKET = 'payroll-documents';
+
+export async function uploadPayrollDocument(planId: string, file: File): Promise<PayrollDocument> {
+  const storagePath = `${planId}/${crypto.randomUUID()}.pdf`;
+  const storage = supabase.storage.from(PAYROLL_DOCUMENT_BUCKET);
+
+  const { error: uploadError } = await storage.upload(storagePath, file, {
+    contentType: 'application/pdf',
+    upsert: false,
+  });
+
+  if (uploadError) throw new Error(uploadError.message);
+
+  const { data, error: metadataError } = await supabase
+    .from('payroll_documents')
+    .insert({
+      plan_id: planId,
+      storage_path: storagePath,
+      original_name: file.name,
+      mime_type: 'application/pdf',
+      file_size: file.size,
+    })
+    .select('*')
+    .single();
+
+  if (metadataError || !data) {
+    await storage.remove([storagePath]);
+    throw new Error(metadataError?.message ?? 'No se pudo registrar el documento');
+  }
+
+  return {
+    id: data.id,
+    planId: data.plan_id,
+    storagePath: data.storage_path,
+    originalName: data.original_name,
+    mimeType: data.mime_type,
+    fileSize: data.file_size,
+    createdAt: data.created_at,
+  };
+}
+
+export async function fetchPayrollDocuments(planId: string): Promise<PayrollDocument[]> {
+  const { data, error } = await supabase
+    .from('payroll_documents')
+    .select('*')
+    .eq('plan_id', planId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw new Error(error.message);
+
+  return (data ?? []).map((document) => ({
+    id: document.id,
+    planId: document.plan_id,
+    storagePath: document.storage_path,
+    originalName: document.original_name,
+    mimeType: document.mime_type,
+    fileSize: document.file_size,
+    createdAt: document.created_at,
+  }));
+}
+
+export async function createPayrollDocumentSignedUrl(storagePath: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from(PAYROLL_DOCUMENT_BUCKET)
+    .createSignedUrl(storagePath, 10 * 60);
+
+  if (error || !data?.signedUrl) {
+    throw new Error(error?.message ?? 'No se pudo generar el enlace del documento');
+  }
+
+  return data.signedUrl;
+}
+
+export async function downloadPayrollDocument(storagePath: string): Promise<Blob> {
+  const { data, error } = await supabase.storage
+    .from(PAYROLL_DOCUMENT_BUCKET)
+    .download(storagePath);
+
+  if (error || !data) {
+    throw new Error(error?.message ?? 'No se pudo descargar el documento');
+  }
+
+  return data;
 }

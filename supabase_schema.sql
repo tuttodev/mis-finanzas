@@ -172,3 +172,89 @@ grant select, insert, delete on transaction_tags to authenticated;
 --   ('Bancolombia', 'savings'),
 --   ('Tarjeta de crédito', 'credit'),
 --   ('Efectivo', 'cash');
+
+create table monthly_plans (
+  id uuid primary key default gen_random_uuid(),
+  month date not null unique,
+  payday date,
+  created_at timestamptz not null default now()
+);
+
+create table plan_items (
+  id uuid primary key default gen_random_uuid(),
+  plan_id uuid not null references monthly_plans (id) on delete cascade,
+  name text not null check (char_length(trim(name)) between 1 and 80),
+  kind text not null check (kind in ('income', 'expense', 'deduction')),
+  planned_amount numeric(15, 2) not null check (planned_amount >= 0),
+  note text,
+  is_paid boolean not null default false,
+  budget_id uuid references budgets (id) on delete set null,
+  category_id uuid references categories (id) on delete set null,
+  sort_order integer not null default 1000,
+  created_at timestamptz not null default now()
+);
+
+create table plan_item_tags (
+  plan_item_id uuid not null references plan_items (id) on delete cascade,
+  tag_id uuid not null references tags (id) on delete cascade,
+  primary key (plan_item_id, tag_id)
+);
+
+create index idx_plan_items_plan on plan_items (plan_id, sort_order);
+create index idx_plan_item_tags_tag on plan_item_tags (tag_id, plan_item_id);
+
+alter table monthly_plans enable row level security;
+alter table plan_items enable row level security;
+alter table plan_item_tags enable row level security;
+
+create policy "anon full access" on monthly_plans for all to anon using (true) with check (true);
+create policy "anon full access" on plan_items for all to anon using (true) with check (true);
+create policy "anon full access" on plan_item_tags for all to anon using (true) with check (true);
+create policy "authenticated full access" on monthly_plans for all to authenticated using (true) with check (true);
+create policy "authenticated full access" on plan_items for all to authenticated using (true) with check (true);
+create policy "authenticated full access" on plan_item_tags for all to authenticated using (true) with check (true);
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'payroll-documents',
+  'payroll-documents',
+  false,
+  10485760,
+  array['application/pdf']::text[]
+)
+on conflict (id) do update
+set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+create table payroll_documents (
+  id uuid primary key default gen_random_uuid(),
+  plan_id uuid not null references monthly_plans (id) on delete cascade,
+  storage_path text not null unique,
+  original_name text not null check (char_length(trim(original_name)) between 1 and 255),
+  mime_type text not null default 'application/pdf' check (mime_type = 'application/pdf'),
+  file_size bigint not null check (file_size > 0 and file_size <= 10485760),
+  created_at timestamptz not null default now()
+);
+
+create index idx_payroll_documents_plan on payroll_documents (plan_id, created_at desc);
+
+alter table payroll_documents enable row level security;
+
+create policy "authenticated can read payroll documents"
+on payroll_documents for select to authenticated using (true);
+create policy "authenticated can create payroll documents"
+on payroll_documents for insert to authenticated with check (true);
+
+grant select, insert on table payroll_documents to authenticated;
+
+create policy "authenticated can upload payroll documents"
+on storage.objects for insert to authenticated
+with check (bucket_id = 'payroll-documents');
+create policy "authenticated can read payroll document files"
+on storage.objects for select to authenticated
+using (bucket_id = 'payroll-documents');
+create policy "authenticated can delete payroll document files"
+on storage.objects for delete to authenticated
+using (bucket_id = 'payroll-documents');

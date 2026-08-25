@@ -23,6 +23,14 @@ export function PlanItemRow({ item, onTogglePaid, togglePending }: PlanItemRowPr
     transition,
   };
 
+  // Show actual amount only for expense items that have a linked transaction with a different amount
+  const showActual =
+    item.kind === 'expense' &&
+    item.actualAmount !== null &&
+    Math.round(item.actualAmount) !== Math.round(item.plannedAmount);
+
+  const actualIsCheaper = item.actualAmount !== null && item.actualAmount < item.plannedAmount;
+
   return (
     <div
       ref={setNodeRef}
@@ -62,16 +70,37 @@ export function PlanItemRow({ item, onTogglePaid, togglePending }: PlanItemRowPr
         className="flex min-w-0 flex-1 items-center justify-between gap-3 rounded-xl px-1 py-1.5 transition-colors hover:bg-secondary/50"
       >
         <div className="flex min-w-0 flex-col gap-0.5">
-          <span className="break-words text-[15px] font-medium leading-snug">{item.name}</span>
+          <div className="flex items-center gap-1.5">
+            <span className="break-words text-[15px] font-medium leading-snug">{item.name}</span>
+            {item.kind === 'deduction' && (
+              <span className="rounded-md bg-expense/10 px-1.5 py-0.5 text-[10px] font-semibold text-expense">
+                Deducción
+              </span>
+            )}
+          </div>
           {item.note && <span className="text-[12px] text-muted-foreground">{item.note}</span>}
         </div>
-        <span
-          className={`tabular shrink-0 text-[15px] font-semibold ${
-            item.kind === 'income' ? 'text-income' : 'text-foreground'
-          }`}
-        >
-          {formatCOP(item.plannedAmount)}
-        </span>
+        <div className="flex shrink-0 flex-col items-end gap-0.5">
+          <span
+            className={`tabular text-[15px] font-semibold ${
+              item.kind === 'income'
+                ? 'text-income'
+                : item.kind === 'deduction'
+                  ? 'text-expense'
+                  : 'text-foreground'
+            }`}
+          >
+            {item.kind === 'deduction' ? `-${formatCOP(item.plannedAmount)}` : formatCOP(item.plannedAmount)}
+          </span>
+          {showActual && (
+            <span
+              className={`tabular text-[12px] font-semibold ${actualIsCheaper ? 'text-income' : 'text-expense'}`}
+              title="Monto real pagado"
+            >
+              Real: {formatCOP(item.actualAmount!)}
+            </span>
+          )}
+        </div>
       </Link>
 
       {item.kind === 'expense' && (

@@ -39,6 +39,7 @@ function PlanItemForm() {
     enabled: Boolean(itemId),
   });
 
+  const [currentKind, setCurrentKind] = useState<PlanItemKind>(kindParam ?? 'expense');
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
@@ -50,6 +51,7 @@ function PlanItemForm() {
 
   if (itemQuery.data && loadedItemId !== itemQuery.data.id) {
     setLoadedItemId(itemQuery.data.id);
+    setCurrentKind(itemQuery.data.kind);
     setName(itemQuery.data.name);
     setAmount(formatCOPInput(itemQuery.data.plannedAmount));
     setNote(itemQuery.data.note ?? '');
@@ -57,16 +59,15 @@ function PlanItemForm() {
     setSelectedTagIds(itemQuery.data.tagIds);
   }
 
-  const kind: PlanItemKind = itemQuery.data?.kind ?? kindParam ?? 'expense';
   const categoriesQuery = useQuery({
     queryKey: ['expense-categories'],
     queryFn: fetchExpenseCategories,
-    enabled: kind === 'expense',
+    enabled: currentKind === 'expense',
   });
   const tagsQuery = useQuery({
     queryKey: ['tags'],
     queryFn: fetchTags,
-    enabled: kind === 'expense',
+    enabled: currentKind === 'expense',
   });
 
   const expenseCategories = categoriesQuery.data ?? [];
@@ -96,27 +97,36 @@ function PlanItemForm() {
       if (itemId) {
         await updatePlanItem(itemId, {
           name: name.trim(),
+          kind: currentKind,
           plannedAmount: parsedAmount,
           note,
-          categoryId: kind === 'expense' ? selectedCategoryId || null : null,
-          tagIds: kind === 'expense' ? selectedTagIds : [],
+          categoryId: currentKind === 'expense' ? selectedCategoryId || null : null,
+          tagIds: currentKind === 'expense' ? selectedTagIds : [],
         });
       } else {
         if (!planId) throw new Error('No se encontró el plan');
         await createPlanItem({
           planId,
           name: name.trim(),
-          kind,
+          kind: currentKind,
           plannedAmount: parsedAmount,
           note,
-          categoryId: kind === 'expense' ? selectedCategoryId || null : null,
-          tagIds: kind === 'expense' ? selectedTagIds : [],
+          categoryId: currentKind === 'expense' ? selectedCategoryId || null : null,
+          tagIds: currentKind === 'expense' ? selectedTagIds : [],
         });
       }
     },
     onSuccess: async () => {
       await invalidatePlanQueries();
-      toast.success(itemId ? 'Partida actualizada' : 'Partida creada');
+      toast.success(
+        itemId
+          ? 'Item actualizado'
+          : currentKind === 'deduction'
+            ? 'Deducción creada'
+            : currentKind === 'income'
+              ? 'Ingreso creado'
+              : 'Partida creada',
+      );
       router.back();
     },
     onError: (error: Error) => toast.error(error.message),
@@ -126,7 +136,7 @@ function PlanItemForm() {
     mutationFn: () => deletePlanItem(itemId!),
     onSuccess: async () => {
       await invalidatePlanQueries();
-      toast.success('Partida eliminada');
+      toast.success('Item eliminado');
       router.back();
     },
     onError: (error: Error) => toast.error(error.message),
@@ -149,15 +159,62 @@ function PlanItemForm() {
     );
   }
 
+  const isPayrollSection = currentKind === 'income' || currentKind === 'deduction';
+
+  const pageTitle = itemId
+    ? currentKind === 'income'
+      ? 'Editar ingreso'
+      : currentKind === 'deduction'
+        ? 'Editar deducción'
+        : 'Editar partida'
+    : currentKind === 'income'
+      ? 'Nuevo ingreso / devengo'
+      : currentKind === 'deduction'
+        ? 'Nueva deducción de nómina'
+        : 'Nueva partida';
+
   return (
     <div className="mx-auto max-w-2xl p-4">
-      <PageHeader
-        title={itemId ? 'Editar partida' : kind === 'income' ? 'Nuevo ingreso' : 'Nueva partida'}
-        backHref="/plan"
-      />
+      <PageHeader title={pageTitle} backHref="/plan" />
 
       <div className="rounded-2xl border border-border bg-card p-5">
         <div className="space-y-4">
+          {/* Segmented switch when in payroll/income section */}
+          {isPayrollSection && (
+            <div>
+              <Label className="mb-1.5 block text-xs text-muted-foreground">Tipo de concepto</Label>
+              <div className="grid grid-cols-2 gap-2 rounded-xl bg-muted/40 p-1">
+                <button
+                  type="button"
+                  onClick={() => setCurrentKind('income')}
+                  className={`rounded-lg py-2 text-xs font-semibold transition-all ${
+                    currentKind === 'income'
+                      ? 'bg-card text-income shadow-xs'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  + Ingreso / Devengo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrentKind('deduction')}
+                  className={`rounded-lg py-2 text-xs font-semibold transition-all ${
+                    currentKind === 'deduction'
+                      ? 'bg-card text-expense shadow-xs'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  - Deducción de nómina
+                </button>
+              </div>
+              <p className="mt-1.5 text-[11px] text-muted-foreground">
+                {currentKind === 'income'
+                  ? 'Suma a tus ingresos (ej. Salario base, conectividad, bonificaciones).'
+                  : 'Resta de tu nómina bruta (ej. Salud, pensión, retención en la fuente).'}
+              </p>
+            </div>
+          )}
+
           <div>
             <Label htmlFor="name">Nombre</Label>
             <Input
@@ -165,7 +222,13 @@ function PlanItemForm() {
               className="mt-1 h-10"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder={kind === 'income' ? 'Salario neto' : 'Arriendo'}
+              placeholder={
+                currentKind === 'income'
+                  ? 'Salario básico, Conectividad, GLIM...'
+                  : currentKind === 'deduction'
+                    ? 'Aporte salud (4%), Pensión, Retefuente...'
+                    : 'Arriendo, Mercado, Servicios...'
+              }
               maxLength={80}
               autoFocus
             />
@@ -188,12 +251,18 @@ function PlanItemForm() {
               className="mt-1 h-10"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="Va pa'la TC"
+              placeholder={
+                currentKind === 'deduction'
+                  ? 'Descuento obligatorio por ley'
+                  : currentKind === 'income'
+                    ? 'Cada quincena / fin de mes'
+                    : "Va pa'la TC"
+              }
               maxLength={120}
             />
           </div>
 
-          {kind === 'expense' && (
+          {currentKind === 'expense' && (
             <>
               <div>
                 <Label htmlFor="plan-category">Categoría para los gastos</Label>
@@ -341,7 +410,7 @@ function PlanItemForm() {
               onClick={() => setConfirmDelete(true)}
             >
               <Trash2 className="h-4 w-4" />
-              Eliminar partida
+              Eliminar
             </Button>
           )}
         </div>
@@ -350,7 +419,7 @@ function PlanItemForm() {
       <ConfirmDialog
         open={confirmDelete}
         title="Eliminar partida"
-        description="Esta partida se eliminará del plan de este mes."
+        description="Este elemento se eliminará del plan de este mes."
         confirmLabel="Eliminar"
         onConfirm={() => {
           deleteMutation.mutate();

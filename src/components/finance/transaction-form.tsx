@@ -210,6 +210,7 @@ export function TransactionForm({
         categoryId: effectiveCategoryId || null,
         isPlanned,
         tagIds: selectedTagIds,
+        planItemId: isExpense && planItemId ? planItemId : null,
       };
 
       if (transaction) {

@@ -8,7 +8,6 @@ export type TagDTO = {
   is_system: boolean;
   created_at?: string | null;
 };
-
 export type Tag = {
   id: string;
   name: string;
@@ -56,6 +55,7 @@ export type TransactionDTO = {
   kind?: TransactionKind;
   related_transaction_id?: string | null;
   is_planned: boolean | null;
+  plan_item_id?: string | null;
   created_at?: string | null;
 };
 
@@ -75,6 +75,7 @@ export type InsertTransactionDTO = {
   kind?: TransactionKind;
   related_transaction_id?: string | null;
   is_planned?: boolean | null;
+  plan_item_id?: string | null;
 };
 
 export type UpdateTransactionDTO = InsertTransactionDTO;
@@ -262,6 +263,7 @@ export type CreateTransactionInput = {
   categoryId?: string | null;
   isPlanned: boolean | null;
   tagIds: string[];
+  planItemId?: string | null;
 };
 
 export type UpdateTransactionInput = CreateTransactionInput & {
@@ -314,7 +316,7 @@ export type CreateBudgetInput = {
   startedAt?: string;
 };
 
-export type PlanItemKind = 'income' | 'expense';
+export type PlanItemKind = 'income' | 'expense' | 'deduction';
 
 export type MonthlyPlanDTO = {
   id: string;
@@ -355,6 +357,7 @@ export type InsertPlanItemDTO = {
 
 export type UpdatePlanItemDTO = {
   name: string;
+  kind?: PlanItemKind;
   planned_amount: number;
   note: string | null;
   budget_id?: string | null;
@@ -373,6 +376,8 @@ export type PlanItem = {
   name: string;
   kind: PlanItemKind;
   plannedAmount: number;
+  /** Sum of amounts of all transactions linked to this plan item (absolute value). */
+  actualAmount: number | null;
   note: string | null;
   isPaid: boolean;
   budgetId: string | null;
@@ -384,6 +389,8 @@ export type PlanItem = {
 export type MonthlyPlanSummary = {
   plan: MonthlyPlan;
   items: PlanItem[];
+  incomeGross: number;
+  deductionsTotal: number;
   incomeTotal: number;
   expenseTotal: number;
   leftover: number;
@@ -402,9 +409,49 @@ export type CreatePlanItemInput = {
 
 export type UpdatePlanItemInput = {
   name: string;
+  kind?: PlanItemKind;
   plannedAmount: number;
   note?: string;
   budgetId?: string | null;
   categoryId?: string | null;
   tagIds?: string[];
+};
+
+export type ParsedColillaItem = {
+  id: string;
+  name: string;
+  amount: number;
+  kind: 'income' | 'deduction';
+  originalText?: string;
+  selected?: boolean;
+};
+
+export type ParsedColillaSummary = {
+  period?: string | null;
+  monthKey?: string | null;
+  payDate?: string | null;
+  companyName?: string | null;
+  employeeName?: string | null;
+  devengos: ParsedColillaItem[];
+  deducciones: ParsedColillaItem[];
+  totalDevengado: number;
+  totalDeducciones: number;
+  netoPagar: number;
+  rawText?: string;
+};
+
+export type ParseColillaResponse = {
+  success: boolean;
+  data?: ParsedColillaSummary;
+  error?: string;
+};
+
+export type PayrollDocument = {
+  id: string;
+  planId: string;
+  storagePath: string;
+  originalName: string;
+  mimeType: string;
+  fileSize: number;
+  createdAt: string;
 };
