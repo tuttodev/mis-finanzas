@@ -1,5 +1,4 @@
 import { supabase } from '@/lib/supabase';
-import { calculateAccountBalance } from '@/lib/account-balance';
 import { roundCurrencyAmount } from '@/lib/formatters';
 import type {
   Account,
@@ -57,11 +56,6 @@ import type {
   UpdateBudgetDTO,
 } from '@/types/finance';
 
-type AccountTransactionBalanceDTO = {
-  account_id: string;
-  amount: number;
-};
-
 function ensure<T>(data: T | null, error: { message: string } | null): T {
   if (error) throw new Error(error.message);
   if (data === null) throw new Error('No se encontró información');
@@ -88,18 +82,6 @@ function mapAccountTypeToDatabase(type: AccountType): InsertAccountDTO['type'] {
     default:
       return 'cash';
   }
-}
-
-function inferCreditLimit(transactions: AccountTransactionBalanceDTO[]) {
-  let balanceCents = 0;
-  let creditLimit = 0;
-
-  for (const transaction of transactions) {
-    balanceCents += Math.round(Number(transaction.amount) * 100);
-    creditLimit = Math.max(creditLimit, balanceCents / 100);
-  }
-
-  return creditLimit;
 }
 
 function mapAccount(
@@ -312,34 +294,23 @@ async function fetchSpentAmount(cycleId: string) {
 }
 
 export async function fetchAccountsOverview(): Promise<Account[]> {
-  const [accountsResult, transactionsResult] = await Promise.all([
+  const [accountsResult, balancesResult] = await Promise.all([
     supabase.from('accounts').select('*').order('name'),
-    supabase
-      .from('transactions')
-      .select('account_id, amount')
-      .order('date', { ascending: true })
-      .order('created_at', { ascending: true }),
+    supabase.from('account_balances').select('account_id, balance'),
   ]);
 
   const accountDtos = ensure(accountsResult.data as AccountDTO[] | null, accountsResult.error);
-  const transactionDtos = ensure(
-    transactionsResult.data as AccountTransactionBalanceDTO[] | null,
-    transactionsResult.error,
+  const balanceDtos = ensure(
+    balancesResult.data as Array<{ account_id: string; balance: number }> | null,
+    balancesResult.error,
   );
-  const transactionsMap = new Map<string, AccountTransactionBalanceDTO[]>();
-
-  for (const transaction of transactionDtos) {
-    const accountTransactions = transactionsMap.get(transaction.account_id) ?? [];
-    accountTransactions.push(transaction);
-    transactionsMap.set(transaction.account_id, accountTransactions);
-  }
+  const balancesMap = new Map<string, number>(
+    balanceDtos.map((row) => [row.account_id, roundCurrencyAmount(Number(row.balance))]),
+  );
 
   return accountDtos.map((dto) => {
-    const accountTransactions = transactionsMap.get(dto.id) ?? [];
-    const currentBalance = calculateAccountBalance(accountTransactions);
-    const creditLimit = dto.type === 'credit' ? inferCreditLimit(accountTransactions) : 0;
-
-    return mapAccount(dto, currentBalance, creditLimit);
+    const currentBalance = balancesMap.get(dto.id) ?? 0;
+    return mapAccount(dto, currentBalance);
   });
 }
 
