@@ -41,6 +41,7 @@ import type {
   Tag,
   TagDTO,
   TransactionTagDTO,
+  TransactionDescriptionSuggestion,
   InsertBudgetCycleDTO,
   InsertBudgetDTO,
   InsertExpenseCategoryDTO,
@@ -380,6 +381,40 @@ export async function fetchAccountTransactions(accountId: string): Promise<Trans
   return transactions.map((transaction) =>
     mapTransaction(transaction, categoryNames, transactionTags.get(transaction.id)),
   );
+}
+
+export async function fetchTransactionDescriptions(): Promise<TransactionDescriptionSuggestion[]> {
+  const { data, error } = await supabase
+    .from('transactions')
+    .select('description, category_id, created_at, date')
+    .not('description', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(500);
+
+  if (error) throw new Error(error.message);
+  if (!data) return [];
+
+  const map = new Map<string, TransactionDescriptionSuggestion>();
+
+  for (const row of data) {
+    const rawDesc = row.description?.trim();
+    if (!rawDesc) continue;
+    const key = rawDesc.toLowerCase();
+
+    const existing = map.get(key);
+    if (existing) {
+      existing.count += 1;
+    } else {
+      map.set(key, {
+        description: rawDesc,
+        categoryId: row.category_id ?? null,
+        count: 1,
+        lastUsedAt: row.created_at || row.date || '',
+      });
+    }
+  }
+
+  return Array.from(map.values());
 }
 
 export async function createTransaction(input: CreateTransactionInput) {

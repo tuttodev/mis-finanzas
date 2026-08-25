@@ -158,6 +158,13 @@ export type EditableTransaction = Transaction & {
   budgetCycleEndedAt: string | null;
 };
 
+export type TransactionDescriptionSuggestion = {
+  description: string;
+  categoryId: string | null;
+  count: number;
+  lastUsedAt: string;
+};
+
 export type Budget = {
   id: string;
   name: string;

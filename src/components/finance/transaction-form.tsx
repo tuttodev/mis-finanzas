@@ -21,11 +21,13 @@ import {
   fetchExpenseCategories,
   fetchPlanItem,
   fetchTags,
+  fetchTransactionDescriptions,
   setPlanItemPaid,
   updateTransaction,
 } from '@/services/finance';
-import type { AccountType, EditableTransaction, TransactionType } from '@/types/finance';
+import type { AccountType, EditableTransaction, TransactionDescriptionSuggestion, TransactionType } from '@/types/finance';
 import { CategoryIcon } from './category-icon';
+import { DescriptionAutocomplete } from './description-autocomplete';
 import { TagBadge } from './tag-badge';
 
 const TYPE_ICONS: Record<AccountType, typeof PiggyBank> = {
@@ -108,6 +110,11 @@ export function TransactionForm({
     queryFn: fetchTags,
   });
 
+  const descriptionsQuery = useQuery({
+    queryKey: ['transaction-descriptions'],
+    queryFn: fetchTransactionDescriptions,
+  });
+
   const planItemQuery = useQuery({
     queryKey: ['plan-item', planItemId],
     queryFn: () => fetchPlanItem(planItemId!),
@@ -146,6 +153,23 @@ export function TransactionForm({
     categoriesQuery.data?.filter((category) =>
       category.transactionType === (type === 'Gasto' ? 'expense' : 'income'),
     ) ?? [];
+  const categoriesMap = useMemo(
+    () => new Map(categoriesQuery.data?.map((cat) => [cat.id, cat]) ?? []),
+    [categoriesQuery.data],
+  );
+
+  const handleSelectSuggestion = (suggestion: TransactionDescriptionSuggestion) => {
+    if (suggestion.categoryId) {
+      const suggestedCategory = categoriesMap.get(suggestion.categoryId);
+      const expectedType = type === 'Gasto' ? 'expense' : 'income';
+      if (suggestedCategory && suggestedCategory.transactionType === expectedType) {
+        if (!selectedCategoryId) {
+          setSelectedCategoryId(suggestion.categoryId);
+        }
+      }
+    }
+  };
+
   const customCategories =
     availableCategories.filter((category) => !category.isSystem);
   const systemCategories =
@@ -310,13 +334,19 @@ export function TransactionForm({
           <div className="mt-4 space-y-3">
             <div>
               <Label htmlFor="description">Descripción</Label>
-              <Input
-                id="description"
-                className="mt-1 h-10"
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                placeholder="Mercado de la semana"
-              />
+              <div className="mt-1">
+                <DescriptionAutocomplete
+                  id="description"
+                  className="h-10"
+                  value={description}
+                  onChange={setDescription}
+                  onSelectSuggestion={handleSelectSuggestion}
+                  suggestions={descriptionsQuery.data ?? []}
+                  categoriesMap={categoriesMap}
+                  placeholder="Mercado de la semana"
+                  disabled={isSavingsInterest}
+                />
+              </div>
             </div>
             <div className="rounded-xl bg-primary/5 p-3">
               <div className="flex items-center gap-2">
