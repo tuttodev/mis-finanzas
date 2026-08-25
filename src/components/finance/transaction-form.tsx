@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Banknote, Calendar, Check, ChevronDown, CreditCard, PiggyBank, RotateCcw, Tag, Tags } from 'lucide-react';
+import { Banknote, Calendar, Check, ChevronDown, CreditCard, Loader2, PiggyBank, Plus, RotateCcw, Tag, Tags, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { CurrencyInput } from '@/components/ui/currency-input';
@@ -14,6 +14,7 @@ import { PageHeader } from '@/components/layout/page-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCOP, formatCOPInput, parseCurrencyInput, todayIsoDate } from '@/lib/formatters';
 import {
+  createExpenseCategory,
   createTransaction,
   fetchAccountsOverview,
   fetchBudgetProgressList,
@@ -81,6 +82,9 @@ export function TransactionForm({
     transaction?.tags.map((tag) => tag.id) ?? [],
   );
   const [isTagsOpen, setIsTagsOpen] = useState(false);
+  const [isCategoryOpen, setIsCategoryOpen] = useState(false);
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
   const [loadedPlanItemId, setLoadedPlanItemId] = useState<string | null>(null);
 
   const accountsQuery = useQuery({
@@ -209,6 +213,23 @@ export function TransactionForm({
             : 'Ingreso registrado',
       );
       router.back();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const createCategoryMutation = useMutation({
+    mutationFn: () =>
+      createExpenseCategory({
+        name: newCategoryName,
+        transactionType: isExpense ? 'expense' : 'income',
+      }),
+    onSuccess: async (createdCategory) => {
+      await queryClient.invalidateQueries({ queryKey: ['expense-categories'] });
+      setSelectedCategoryId(createdCategory.id);
+      setNewCategoryName('');
+      setIsCreatingCategory(false);
+      setIsCategoryOpen(false);
+      toast.success('Categoría creada');
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -394,40 +415,154 @@ export function TransactionForm({
               <p className="text-sm text-expense">No se pudieron cargar las categorías.</p>
             ) : (
               <div className="relative">
-                <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-primary">
-                  {selectedCategory ? (
-                    <CategoryIcon slug={selectedCategory.slug} className="h-5 w-5" />
-                  ) : (
-                    <Tag className="h-5 w-5" />
-                  )}
-                </span>
-                <select
+                <button
                   id="category"
-                  value={effectiveCategoryId}
-                  onChange={(event) => setSelectedCategoryId(event.target.value)}
-                  className="h-12 w-full appearance-none rounded-xl border border-input bg-input/30 pr-10 pl-11 text-sm font-semibold outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                  type="button"
+                  aria-haspopup="listbox"
+                  aria-expanded={isCategoryOpen}
+                  onClick={() => {
+                    setIsCategoryOpen((open) => !open);
+                    setIsCreatingCategory(false);
+                    setNewCategoryName('');
+                  }}
+                  className="flex h-12 w-full items-center gap-2 rounded-xl border border-input bg-input/30 px-3 text-left outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                 >
-                  <option value="">
-                    {isExpense ? 'Selecciona una categoría' : 'Sin categoría'}
-                  </option>
-                  {customCategories.length > 0 && (
-                    <optgroup label="Tus categorías">
-                      {customCategories.map((category) => (
-                        <option key={category.id} value={category.id}>
-                          {category.name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                  <optgroup label="Predeterminadas">
-                    {systemCategories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                </select>
-                <ChevronDown className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <span className="shrink-0 text-primary">
+                    {selectedCategory ? (
+                      <CategoryIcon slug={selectedCategory.slug} className="h-5 w-5" />
+                    ) : (
+                      <Tag className="h-5 w-5" />
+                    )}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+                    {selectedCategory
+                      ? selectedCategory.name
+                      : isExpense
+                        ? 'Selecciona una categoría'
+                        : 'Sin categoría'}
+                  </span>
+                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </button>
+
+                {isCategoryOpen && (
+                  <div className="absolute top-[calc(100%+0.5rem)] z-20 max-h-64 w-full overflow-y-auto rounded-xl border border-border bg-card p-2 shadow-xl">
+                    {isCreatingCategory ? (
+                      <div className="p-2">
+                        <div className="mb-2 flex items-center justify-between">
+                          <p className="text-xs font-semibold text-muted-foreground">
+                            Nueva categoría de {isExpense ? 'gasto' : 'ingreso'}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsCreatingCategory(false);
+                              setNewCategoryName('');
+                            }}
+                            className="rounded-md p-1 text-muted-foreground hover:text-foreground"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                        <input
+                          type="text"
+                          value={newCategoryName}
+                          onChange={(event) => setNewCategoryName(event.target.value)}
+                          placeholder="Nombre de la categoría"
+                          maxLength={60}
+                          autoFocus
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' && newCategoryName.trim()) {
+                              createCategoryMutation.mutate();
+                            }
+                          }}
+                          className="h-10 w-full rounded-lg border border-input bg-input/30 px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
+                        />
+                        <button
+                          type="button"
+                          disabled={!newCategoryName.trim() || createCategoryMutation.isPending}
+                          onClick={() => createCategoryMutation.mutate()}
+                          className="mt-2 flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-primary text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                        >
+                          {createCategoryMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Plus className="h-4 w-4" />
+                          )}
+                          {createCategoryMutation.isPending ? 'Creando...' : 'Crear categoría'}
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        {customCategories.length > 0 && (
+                          <div>
+                            <p className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                              Tus categorías
+                            </p>
+                            {customCategories.map((category) => {
+                              const selected = effectiveCategoryId === category.id;
+                              return (
+                                <button
+                                  key={category.id}
+                                  type="button"
+                                  role="option"
+                                  aria-selected={selected}
+                                  onClick={() => {
+                                    setSelectedCategoryId(category.id);
+                                    setIsCategoryOpen(false);
+                                  }}
+                                  className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                                    selected
+                                      ? 'bg-primary/10 font-semibold text-primary'
+                                      : 'hover:bg-secondary'
+                                  }`}
+                                >
+                                  <CategoryIcon slug={category.slug} className="h-4 w-4 shrink-0" />
+                                  <span className="truncate">{category.name}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                        <div>
+                          <p className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            Predeterminadas
+                          </p>
+                          {systemCategories.map((category) => {
+                            const selected = effectiveCategoryId === category.id;
+                            return (
+                              <button
+                                key={category.id}
+                                type="button"
+                                role="option"
+                                aria-selected={selected}
+                                onClick={() => {
+                                  setSelectedCategoryId(category.id);
+                                  setIsCategoryOpen(false);
+                                }}
+                                className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                                  selected
+                                    ? 'bg-primary/10 font-semibold text-primary'
+                                    : 'hover:bg-secondary'
+                                }`}
+                              >
+                                <CategoryIcon slug={category.slug} className="h-4 w-4 shrink-0" />
+                                <span className="truncate">{category.name}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setIsCreatingCategory(true)}
+                          className="mt-2 flex w-full items-center gap-2 rounded-lg border-t border-border px-3 pt-3 text-sm font-semibold text-primary hover:underline"
+                        >
+                          <Plus className="h-4 w-4" />
+                          Crear nueva categoría
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
