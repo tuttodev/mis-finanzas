@@ -292,6 +292,13 @@ export type CreateAccountInput = {
   type: AccountType;
 };
 
+export type AdjustAccountBalanceInput = {
+  account: Account;
+  targetBalance: number;
+  date: string;
+  description?: string;
+};
+
 export type CreateExpenseCategoryInput = {
   name: string;
   transactionType: 'expense' | 'income';

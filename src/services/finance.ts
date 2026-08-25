@@ -4,6 +4,7 @@ import type {
   Account,
   AccountDTO,
   AccountType,
+  AdjustAccountBalanceInput,
   Budget,
   BudgetCycle,
   BudgetCycleDTO,
@@ -331,6 +332,67 @@ export async function createAccount(input: CreateAccountInput): Promise<Account>
     .single();
 
   return mapAccount(ensure(data as AccountDTO | null, error));
+}
+
+export async function adjustAccountBalance(input: AdjustAccountBalanceInput): Promise<Transaction> {
+  const normalizedTarget = roundCurrencyAmount(input.targetBalance);
+  const currentBalance = roundCurrencyAmount(input.account.currentBalance);
+  const difference = roundCurrencyAmount(normalizedTarget - currentBalance);
+
+  if (difference === 0) {
+    throw new Error('El saldo ingresado es igual al saldo actual');
+  }
+
+  const description = input.description?.trim() || 'Ajuste de saldo';
+
+  if (difference > 0) {
+    const payload: InsertTransactionDTO = {
+      account_id: input.account.id,
+      date: input.date,
+      description,
+      amount: difference,
+      budget_cycle_id: null,
+      category_id: null,
+      is_planned: false,
+    };
+
+    const { data, error } = await supabase
+      .from('transactions')
+      .insert(payload)
+      .select('*')
+      .single();
+
+    const transaction = ensure(data as TransactionDTO | null, error);
+    return mapTransaction(transaction, new Map(), []);
+  } else {
+    const categories = await fetchExpenseCategories();
+    const expenseCategory =
+      categories.find((c) => c.slug === 'other' && c.transactionType === 'expense') ||
+      categories.find((c) => c.transactionType === 'expense');
+
+    if (!expenseCategory) {
+      throw new Error('No se encontró una categoría de gastos para el ajuste');
+    }
+
+    const payload: InsertTransactionDTO = {
+      account_id: input.account.id,
+      date: input.date,
+      description,
+      amount: difference,
+      category_id: expenseCategory.id,
+      budget_cycle_id: null,
+      is_planned: false,
+    };
+
+    const { data, error } = await supabase
+      .from('transactions')
+      .insert(payload)
+      .select('*')
+      .single();
+
+    const transaction = ensure(data as TransactionDTO | null, error);
+    return mapTransaction(transaction, new Map(), []);
+  }
 }
 
 export async function fetchAccountTransactions(accountId: string): Promise<Transaction[]> {

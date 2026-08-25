@@ -22,6 +22,7 @@ import type { Transaction } from '@/types/finance';
 type TransactionExportDialogProps = {
   accountName: string;
   transactions: Transaction[];
+  className?: string;
 };
 
 const CSV_HEADERS = [
@@ -80,6 +81,7 @@ function buildTransactionsCsv(accountName: string, transactions: Transaction[]) 
 export function TransactionExportDialog({
   accountName,
   transactions,
+  className,
 }: TransactionExportDialogProps) {
   const [open, setOpen] = useState(false);
   const [fromDate, setFromDate] = useState('');
@@ -124,13 +126,13 @@ export function TransactionExportDialog({
   return (
     <>
       <Button
-        className="col-span-2"
+        className={className}
         size="lg"
         variant="outline"
         onClick={handleOpen}
       >
         <Download className="h-4 w-4" />
-        Descargar transacciones
+        Exportar
       </Button>
 
       <AlertDialog open={open} onOpenChange={setOpen}>
