@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight, Copy, FileText, GitMerge, Plus } from 'lucide-react';
 import { toast } from 'sonner';
@@ -37,7 +37,6 @@ import {
 import type { MonthlyPlanSummary, PlanItem } from '@/types/finance';
 
 function PlanPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const monthKey = searchParams.get('month') ?? currentMonthKey();
@@ -101,7 +100,7 @@ function PlanPage() {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   function goToMonth(delta: number) {
-    router.push(`/plan?month=${shiftMonthKey(monthKey, delta)}`);
+    window.history.pushState(null, '', `/plan?month=${shiftMonthKey(monthKey, delta)}`);
   }
 
   const plan = planQuery.data;
