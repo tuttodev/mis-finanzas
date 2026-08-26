@@ -304,22 +304,21 @@ async function fetchSpentAmount(cycleId: string) {
 }
 
 export async function fetchAccountsOverview(): Promise<Account[]> {
-  const [accountsResult, transactionsResult] = await Promise.all([
+  const [accountsResult, balancesResult] = await Promise.all([
     supabase.from('accounts').select('*').order('name'),
-    supabase.from('transactions').select('account_id, amount'),
+    supabase.from('account_balances').select('account_id, balance'),
   ]);
 
   const accountDtos = ensure(accountsResult.data as AccountDTO[] | null, accountsResult.error);
-  const txRows = ensure(
-    transactionsResult.data as Array<{ account_id: string; amount: number }> | null,
-    transactionsResult.error,
+  const balanceRows = ensure(
+    balancesResult.data as Array<{ account_id: string; balance: number }> | null,
+    balancesResult.error,
   );
 
-  // Calculate balance per account directly from transactions
+  // Use balances computed in the database (avoids the 1000-row client-side limit)
   const balancesMap = new Map<string, number>();
-  for (const row of txRows) {
-    const prev = balancesMap.get(row.account_id) ?? 0;
-    balancesMap.set(row.account_id, prev + Number(row.amount));
+  for (const row of balanceRows) {
+    balancesMap.set(row.account_id, Number(row.balance));
   }
 
   return accountDtos.map((dto) => {
