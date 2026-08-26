@@ -4,7 +4,7 @@ import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, Copy, FileText, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Copy, FileText, GitMerge, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   DndContext,
@@ -18,6 +18,7 @@ import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-ki
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ColillaImportDialog } from '@/components/finance/colilla-import-dialog';
+import { MergePreviousPlanDialog } from '@/components/finance/merge-previous-plan-dialog';
 import { PayrollDocumentList } from '@/components/finance/payroll-document-list';
 import { PlanItemRow } from '@/components/finance/plan-item-row';
 import { EmptyState } from '@/components/empty-state';
@@ -42,6 +43,7 @@ function PlanPage() {
   const monthKey = searchParams.get('month') ?? currentMonthKey();
 
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const [isMergeOpen, setIsMergeOpen] = useState(false);
 
   const planQuery = useQuery({
     queryKey: ['plan', monthKey],
@@ -51,7 +53,9 @@ function PlanPage() {
   const previousPlanQuery = useQuery({
     queryKey: ['plan-previous', monthKey],
     queryFn: () => fetchPreviousPlanSummary(monthKey),
-    enabled: planQuery.data === null,
+    // Always fetch so it's available both when plan is empty (duplicate button)
+    // and when plan exists (merge/import button).
+    enabled: !planQuery.isLoading,
   });
 
   const payrollDocumentsQuery = useQuery({
@@ -271,13 +275,25 @@ function PlanPage() {
               <h2 className="text-sm font-semibold text-muted-foreground">
                 Partidas · {formatCOP(plan.expenseTotal)}
               </h2>
-              <Link
-                href={`/plan-item-form?planId=${plan.plan.id}&kind=expense`}
-                className="flex items-center gap-1 text-xs font-semibold text-primary"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Agregar
-              </Link>
+              <div className="flex items-center gap-2">
+                {previousPlanQuery.data && previousPlanQuery.data.items.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setIsMergeOpen(true)}
+                    className="flex items-center gap-1 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    <GitMerge className="h-3.5 w-3.5" />
+                    <span className="hidden min-[400px]:inline">Importar anterior</span>
+                  </button>
+                )}
+                <Link
+                  href={`/plan-item-form?planId=${plan.plan.id}&kind=expense`}
+                  className="flex items-center gap-1 text-xs font-semibold text-primary"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Agregar
+                </Link>
+              </div>
             </div>
             {expenseItems.length ? (
               <DndContext
@@ -318,6 +334,18 @@ function PlanPage() {
                   queryKey: ['payroll-documents', plan.plan.id],
                 });
               }}
+            />
+          )}
+
+          {/* Merge from previous month modal */}
+          {plan && previousPlanQuery.data && (
+            <MergePreviousPlanDialog
+              open={isMergeOpen}
+              onOpenChange={setIsMergeOpen}
+              targetPlanId={plan.plan.id}
+              monthKey={monthKey}
+              previousPlan={previousPlanQuery.data}
+              currentItems={plan.items}
             />
           )}
         </div>

@@ -1338,6 +1338,62 @@ export async function duplicatePreviousPlan(monthKey: string): Promise<MonthlyPl
   return summarizePlan(plan, items);
 }
 
+/**
+ * Imports selected items from the previous month's plan into an existing plan.
+ * Items that already exist in the target plan (matched by name + kind, case-insensitive)
+ * are skipped so there are no duplicates.
+ * Returns the newly inserted PlanItems.
+ */
+export async function mergeFromPreviousPlan(
+  targetPlanId: string,
+  monthKey: string,
+  selectedItemIds: string[],
+): Promise<PlanItem[]> {
+  if (!selectedItemIds.length) return [];
+
+  const previous = await fetchPreviousPlanSummary(monthKey);
+  if (!previous) throw new Error('No hay un plan anterior para importar');
+
+  const existingItems = await fetchPlanItems(targetPlanId);
+  const existingKeys = new Set(
+    existingItems.map((i) => `${i.kind}::${i.name.trim().toLowerCase()}`),
+  );
+
+  const toInsert = previous.items.filter(
+    (item) =>
+      selectedItemIds.includes(item.id) &&
+      !existingKeys.has(`${item.kind}::${item.name.trim().toLowerCase()}`),
+  );
+
+  if (!toInsert.length) return [];
+
+  const inserted: PlanItem[] = [];
+  await Promise.all(
+    toInsert.map(async (item) => {
+      const { data: insertedItem, error: itemError } = await supabase
+        .from('plan_items')
+        .insert({
+          plan_id: targetPlanId,
+          name: item.name,
+          kind: item.kind,
+          planned_amount: item.plannedAmount,
+          note: item.note,
+          budget_id: item.budgetId,
+          category_id: item.categoryId,
+          sort_order: item.sortOrder,
+        })
+        .select('*')
+        .single();
+      const createdItem = ensure(insertedItem as PlanItemDTO | null, itemError);
+      await syncPlanItemTags(createdItem.id, item.tagIds);
+      const tagIdsByPlanItem = await fetchPlanItemTagsMap([createdItem.id]);
+      inserted.push(mapPlanItem(createdItem, tagIdsByPlanItem.get(createdItem.id)));
+    }),
+  );
+
+  return inserted;
+}
+
 export async function fetchPlanItem(itemId: string): Promise<PlanItem> {
   const { data, error } = await supabase.from('plan_items').select('*').eq('id', itemId).single();
   const planItem = ensure(data as PlanItemDTO | null, error);
