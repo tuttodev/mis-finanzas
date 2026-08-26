@@ -188,16 +188,11 @@ async function fetchTransactionTagsMap(transactionIds: string[]) {
   const tagsByTransaction = new Map<string, Tag[]>();
   if (!transactionIds.length) return tagsByTransaction;
 
-  const [{ data: linksData, error: linksError }, { data: tagsData, error: tagsError }] =
-    await Promise.all([
-      supabase
-        .from('transaction_tags')
-        .select('transaction_id, tag_id')
-        .in('transaction_id', transactionIds),
-      supabase.from('tags').select('*').order('name'),
-    ]);
-
-  const links = ensure(linksData as TransactionTagDTO[] | null, linksError);
+  // Fetch tags lookup table once
+  const { data: tagsData, error: tagsError } = await supabase
+    .from('tags')
+    .select('*')
+    .order('name');
   const tags = ensure(tagsData as TagDTO[] | null, tagsError);
   const tagsById = new Map(
     tags.map((tag) => [
@@ -206,7 +201,20 @@ async function fetchTransactionTagsMap(transactionIds: string[]) {
     ]),
   );
 
-  for (const link of links) {
+  // Batch the .in() queries to avoid exceeding URL length limits (400 Bad Request)
+  const BATCH_SIZE = 50;
+  const allLinks: TransactionTagDTO[] = [];
+  for (let i = 0; i < transactionIds.length; i += BATCH_SIZE) {
+    const batch = transactionIds.slice(i, i + BATCH_SIZE);
+    const { data: linksData, error: linksError } = await supabase
+      .from('transaction_tags')
+      .select('transaction_id, tag_id')
+      .in('transaction_id', batch);
+    const links = ensure(linksData as TransactionTagDTO[] | null, linksError);
+    allLinks.push(...links);
+  }
+
+  for (const link of allLinks) {
     const tag = tagsById.get(link.tag_id);
     if (!tag) continue;
     const transactionTags = tagsByTransaction.get(link.transaction_id) ?? [];
@@ -216,6 +224,7 @@ async function fetchTransactionTagsMap(transactionIds: string[]) {
 
   return tagsByTransaction;
 }
+
 
 async function syncTransactionTags(transactionId: string, tagIds: string[]) {
   const selectedTagIds = Array.from(new Set(tagIds));
@@ -295,22 +304,27 @@ async function fetchSpentAmount(cycleId: string) {
 }
 
 export async function fetchAccountsOverview(): Promise<Account[]> {
-  const [accountsResult, balancesResult] = await Promise.all([
+  const [accountsResult, transactionsResult] = await Promise.all([
     supabase.from('accounts').select('*').order('name'),
-    supabase.from('account_balances').select('account_id, balance'),
+    supabase.from('transactions').select('account_id, amount'),
   ]);
 
   const accountDtos = ensure(accountsResult.data as AccountDTO[] | null, accountsResult.error);
-  const balanceDtos = ensure(
-    balancesResult.data as Array<{ account_id: string; balance: number }> | null,
-    balancesResult.error,
-  );
-  const balancesMap = new Map<string, number>(
-    balanceDtos.map((row) => [row.account_id, roundCurrencyAmount(Number(row.balance))]),
+  const txRows = ensure(
+    transactionsResult.data as Array<{ account_id: string; amount: number }> | null,
+    transactionsResult.error,
   );
 
+  // Calculate balance per account directly from transactions
+  const balancesMap = new Map<string, number>();
+  for (const row of txRows) {
+    const prev = balancesMap.get(row.account_id) ?? 0;
+    balancesMap.set(row.account_id, prev + Number(row.amount));
+  }
+
   return accountDtos.map((dto) => {
-    const currentBalance = balancesMap.get(dto.id) ?? 0;
+    const rawBalance = balancesMap.get(dto.id) ?? 0;
+    const currentBalance = roundCurrencyAmount(rawBalance);
     return mapAccount(dto, currentBalance);
   });
 }
@@ -952,7 +966,6 @@ export async function fetchDashboardData(): Promise<DashboardData> {
   ]);
 
   const transactions = ensure(txResult.data as TransactionDTO[] | null, txResult.error);
-  const transactionTags = await fetchTransactionTagsMap(transactions.map((transaction) => transaction.id));
   const accountNames = new Map(accounts.map((account) => [account.id, account.name]));
   const totalBalance = accounts.reduce((sum, account) => sum + account.currentBalance, 0);
 
@@ -1019,6 +1032,11 @@ export async function fetchDashboardData(): Promise<DashboardData> {
     point.value = Math.max(0, point.value);
   });
 
+  // Only fetch tags for the 8 recent transactions shown in the dashboard
+  // (avoids a 400 Bad Request from a URL that's too long when passing all IDs)
+  const recentDtos = transactions.slice(0, 8);
+  const transactionTags = await fetchTransactionTagsMap(recentDtos.map((tx) => tx.id));
+
   const currentMonth = cashflow[cashflow.length - 1];
   const categorySpending: CategorySpending[] = Array.from(categoryTotals, ([label, value]) => ({
     label,
@@ -1026,7 +1044,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
   }))
     .filter((item) => item.value > 0)
     .sort((a, b) => b.value - a.value);
-  const recentTransactions: TransactionWithAccount[] = transactions.slice(0, 8).map((dto) => ({
+  const recentTransactions: TransactionWithAccount[] = recentDtos.map((dto) => ({
     ...mapTransaction(dto, categories, transactionTags.get(dto.id)),
     accountName: accountNames.get(dto.account_id) ?? 'Cuenta desconocida',
   }));
