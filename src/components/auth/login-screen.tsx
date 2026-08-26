@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Wallet } from 'lucide-react';
+import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,11 +31,9 @@ export function LoginScreen() {
     <div className="flex min-h-dvh items-center justify-center px-6 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-3 text-center">
-          <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/15 text-primary">
-            <Wallet className="size-6" />
-          </div>
+          <Image src="/logo.png" alt="Jireh Finanzas" width={64} height={64} className="object-contain" priority />
           <div>
-            <h1 className="font-display text-2xl font-semibold">Mis Finanzas</h1>
+            <h1 className="font-display text-2xl font-semibold">Jireh Finanzas</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               Inicia sesión para continuar
             </p>

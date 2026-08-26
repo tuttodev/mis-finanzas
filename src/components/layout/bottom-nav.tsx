@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { CalendarCheck, Home, Landmark, PieChart, Plus, Tag, Tags } from 'lucide-react';
 
@@ -59,9 +60,10 @@ export function BottomNav() {
 
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-50 hidden w-60 flex-col border-r border-border bg-sidebar md:flex">
-        <div className="px-5 py-6">
+        <div className="flex items-center gap-2 px-5 py-6">
+          <Image src="/logo.png" alt="Jireh Finanzas" width={28} height={28} className="object-contain" />
           <h1 className="font-display text-lg font-bold">
-            Mis <span className="text-primary">Finanzas</span>
+            Jireh <span className="text-primary">Finanzas</span>
           </h1>
         </div>
         <nav className="flex flex-col gap-1 px-3">

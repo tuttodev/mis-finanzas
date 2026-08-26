@@ -2,8 +2,8 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Mis Finanzas',
-    short_name: 'Finanzas',
+    name: 'Jireh Finanzas',
+    short_name: 'Jireh',
     description: 'Gestiona tus finanzas personales: cuentas, gastos y presupuestos.',
     start_url: '/',
     display: 'standalone',

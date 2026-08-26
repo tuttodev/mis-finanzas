@@ -23,12 +23,12 @@ const sora = Sora({
 });
 
 export const metadata: Metadata = {
-  title: "Mis Finanzas",
+  title: "Jireh Finanzas",
   description: "Gestiona tus finanzas personales",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Mis Finanzas",
+    title: "Jireh Finanzas",
   },
 };
 
