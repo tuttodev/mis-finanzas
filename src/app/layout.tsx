@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Sora } from "next/font/google";
 import { Toaster } from "sonner";
 import { QueryProvider } from "@/providers/query-provider";
 import { AuthProvider } from "@/providers/auth-provider";
+import { PrivacyProvider } from "@/providers/privacy-provider";
 import { AppShell } from "@/components/layout/app-shell";
 import { ServiceWorkerRegister } from "@/components/pwa/sw-register";
 import "./globals.css";
@@ -53,7 +54,9 @@ export default function RootLayout({
       <body className="h-full font-sans">
         <QueryProvider>
           <AuthProvider>
-            <AppShell>{children}</AppShell>
+            <PrivacyProvider>
+              <AppShell>{children}</AppShell>
+            </PrivacyProvider>
           </AuthProvider>
           <Toaster position="top-center" richColors theme="dark" />
         </QueryProvider>

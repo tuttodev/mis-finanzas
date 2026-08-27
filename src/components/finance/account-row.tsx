@@ -9,7 +9,7 @@ const TYPE_ICONS: Record<AccountType, typeof PiggyBank> = {
   Efectivo: Banknote,
 };
 
-export function AccountRow({ account }: { account: Account }) {
+export function AccountRow({ account, hidden }: { account: Account; hidden?: boolean }) {
   const Icon = TYPE_ICONS[account.type] ?? Banknote;
 
   return (
@@ -30,7 +30,7 @@ export function AccountRow({ account }: { account: Account }) {
             account.currentBalance < 0 ? 'text-expense' : 'text-foreground'
           }`}
         >
-          {formatCOP(account.currentBalance)}
+          {hidden ? '••••••' : formatCOP(account.currentBalance)}
         </span>
       </div>
     </Link>

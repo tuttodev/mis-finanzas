@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { Plus } from 'lucide-react';
+import { Eye, EyeOff, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AccountRow } from '@/components/finance/account-row';
@@ -11,12 +11,15 @@ import { ErrorState } from '@/components/error-state';
 import { PageHeader } from '@/components/layout/page-header';
 import { formatCOP } from '@/lib/formatters';
 import { fetchAccountsOverview } from '@/services/finance';
+import { usePrivacy } from '@/providers/privacy-provider';
 
 export default function AccountsPage() {
   const accountsQuery = useQuery({
     queryKey: ['accounts'],
     queryFn: fetchAccountsOverview,
   });
+
+  const { hidden, toggle } = usePrivacy();
 
   const total =
     accountsQuery.data?.reduce((sum, account) => sum + account.currentBalance, 0) ?? 0;
@@ -27,10 +30,19 @@ export default function AccountsPage() {
         title="Mis Cuentas"
         subtitle="Tus saldos y movimientos actuales"
         action={
-          <Button nativeButton={false} render={<Link href="/account-form" />}>
-            <Plus className="h-4 w-4" />
-            Nueva
-          </Button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggle}
+              aria-label={hidden ? 'Mostrar valores' : 'Ocultar valores'}
+              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              {hidden ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
+            </button>
+            <Button nativeButton={false} render={<Link href="/account-form" />}>
+              <Plus className="h-4 w-4" />
+              Nueva
+            </Button>
+          </div>
         }
       />
 
@@ -48,14 +60,14 @@ export default function AccountsPage() {
           <div className="rounded-2xl border border-border bg-card p-5">
             <p className="text-sm text-muted-foreground">Patrimonio total</p>
             <p className="tabular mt-1 font-display text-3xl font-bold">
-              {formatCOP(total)}
+              {hidden ? '••••••' : formatCOP(total)}
             </p>
           </div>
 
           <div className="rounded-2xl border border-border bg-card px-4 py-2">
             <div className="divide-y divide-border">
               {accountsQuery.data.map((account) => (
-                <AccountRow key={account.id} account={account} />
+                <AccountRow key={account.id} account={account} hidden={hidden} />
               ))}
             </div>
           </div>

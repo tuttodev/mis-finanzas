@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowDownRight, ArrowUpRight } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Eye, EyeOff } from 'lucide-react';
+import { usePrivacy } from '@/providers/privacy-provider';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorState } from '@/components/error-state';
 import { EmptyState } from '@/components/empty-state';
@@ -42,6 +43,8 @@ export default function DashboardPage() {
     queryFn: fetchBudgetProgressList,
   });
 
+  const { hidden, toggle } = usePrivacy();
+
   if (dashboardQuery.isLoading) {
     return (
       <div className="mx-auto max-w-2xl space-y-4 p-4">
@@ -77,21 +80,30 @@ export default function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4 p-4">
-      <header className="px-1 pt-2">
-        <p className="text-sm text-muted-foreground">
-          {(() => {
-            const label = todayFormatter.format(new Date());
-            return label.charAt(0).toUpperCase() + label.slice(1);
-          })()}
-        </p>
-        <h1 className="text-2xl font-bold">Resumen</h1>
+      <header className="flex items-start justify-between px-1 pt-2">
+        <div>
+          <p className="text-sm text-muted-foreground">
+            {(() => {
+              const label = todayFormatter.format(new Date());
+              return label.charAt(0).toUpperCase() + label.slice(1);
+            })()}
+          </p>
+          <h1 className="text-2xl font-bold">Resumen</h1>
+        </div>
+        <button
+          onClick={toggle}
+          aria-label={hidden ? 'Mostrar valores' : 'Ocultar valores'}
+          className="mt-1 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          {hidden ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
+        </button>
       </header>
 
       {/* Hero: total balance */}
       <section className="rounded-2xl border border-border bg-card p-5">
         <p className="text-sm text-muted-foreground">Balance total</p>
         <p className="tabular mt-1 bg-gradient-to-r from-primary to-foreground bg-clip-text font-display text-4xl font-bold text-transparent">
-          {formatCOP(data.totalBalance)}
+          {hidden ? '••••••' : formatCOP(data.totalBalance)}
         </p>
 
         <div className="mt-4 grid grid-cols-2 gap-3">
@@ -101,7 +113,7 @@ export default function DashboardPage() {
               Ingresos del mes
             </p>
             <p className="tabular mt-1 font-display text-lg font-semibold text-income">
-              {formatCOP(data.monthIncome)}
+              {hidden ? '••••••' : formatCOP(data.monthIncome)}
             </p>
           </div>
           <div className="rounded-xl bg-secondary/60 p-3">
@@ -110,7 +122,7 @@ export default function DashboardPage() {
               Gastos del mes
             </p>
             <p className="tabular mt-1 font-display text-lg font-semibold text-expense">
-              {formatCOP(data.monthExpense)}
+              {hidden ? '••••••' : formatCOP(data.monthExpense)}
             </p>
           </div>
         </div>
@@ -213,8 +225,12 @@ export default function DashboardPage() {
                     tx.amount < 0 ? 'text-expense' : 'text-income'
                   }`}
                 >
-                  {tx.amount >= 0 ? '+' : '−'}
-                  {formatCOP(Math.abs(tx.amount))}
+                  {hidden ? '••••••' : (
+                    <>
+                      {tx.amount >= 0 ? '+' : '−'}
+                      {formatCOP(Math.abs(tx.amount))}
+                    </>
+                  )}
                 </span>
               </Link>
             ))}
