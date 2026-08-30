@@ -66,7 +66,7 @@ export function PlanItemRow({ item, onTogglePaid, togglePending }: PlanItemRowPr
       )}
 
       <Link
-        href={`/plan-item-form?planId=${item.planId}&id=${item.id}`}
+        href={`/app/plan-item-form?planId=${item.planId}&id=${item.id}`}
         className="flex min-w-0 flex-1 items-center justify-between gap-3 rounded-xl px-1 py-1.5 transition-colors hover:bg-secondary/50"
       >
         <div className="flex min-w-0 flex-col gap-0.5">
@@ -105,7 +105,7 @@ export function PlanItemRow({ item, onTogglePaid, togglePending }: PlanItemRowPr
 
       {item.kind === 'expense' && (
         <Link
-          href={`/transaction/new?planItemId=${item.id}`}
+          href={`/app/transaction/new?planItemId=${item.id}`}
           aria-label={`Agregar gasto a ${item.name}`}
           title="Agregar gasto"
           className="flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/10"

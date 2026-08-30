@@ -25,6 +25,7 @@ import {
 } from '@/services/finance';
 import type { AccountType, EditableTransaction } from '@/types/finance';
 import { CategoryBadge } from './category-badge';
+import { captureAnalytics } from '@/lib/analytics';
 
 const TYPE_ICONS: Record<AccountType, typeof PiggyBank> = {
   Ahorros: PiggyBank,
@@ -101,9 +102,10 @@ export function RefundForm({ originalTransaction, refund }: RefundFormProps) {
       return refund ? updateRefund(refund.id, input) : createRefund(input);
     },
     onSuccess: async () => {
+      captureAnalytics(isEditing ? 'refund_updated' : 'refund_created');
       await queryClient.invalidateQueries();
       toast.success(isEditing ? 'Reembolso actualizado' : 'Reembolso registrado');
-      router.replace(`/account/${selectedAccountId}`);
+      router.replace(`/app/account/${selectedAccountId}`);
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -113,7 +115,7 @@ export function RefundForm({ originalTransaction, refund }: RefundFormProps) {
       <PageHeader
         title={isEditing ? 'Editar reembolso' : 'Registrar reembolso'}
         subtitle="El dinero entrará a la cuenta elegida y reducirá el gasto del presupuesto."
-        backHref={refund ? `/account/${refund.accountId}` : `/transaction/${originalTransaction.id}/edit`}
+        backHref={refund ? `/app/account/${refund.accountId}` : `/app/transaction/${originalTransaction.id}/edit`}
       />
 
       <div className="space-y-4">

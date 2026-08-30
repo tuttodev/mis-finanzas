@@ -1,29 +1,41 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ArrowRight, Check, Download, HandHeart, Loader2, Mail, Menu, Target, WalletCards, X } from 'lucide-react';
 import { FcGoogle } from 'react-icons/fc';
 import { supabase } from '@/lib/supabase';
+import { captureAnalytics } from '@/lib/analytics';
 import { Button } from '@/components/ui/button';
 
 export function WelcomeScreen() {
+  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  async function handleGoogleSignIn() {
+  useEffect(() => {
+    void supabase.auth.getSession().then(({ data }) => {
+      if (data.session) router.replace('/app');
+    });
+  }, [router]);
+
+  async function handleGoogleSignIn(entrypoint: 'header' | 'hero' | 'mobile_menu') {
+    captureAnalytics('auth_started', { provider: 'google', entrypoint });
     setGoogleSubmitting(true);
     setError(null);
 
     const { error: signInError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin,
+        redirectTo: `${window.location.origin}/app`,
       },
     });
 
     if (signInError) {
+      captureAnalytics('auth_failed', { provider: 'google' });
       setError('No se pudo iniciar sesión con Google. Inténtalo de nuevo.');
       setGoogleSubmitting(false);
     }
@@ -51,6 +63,12 @@ export function WelcomeScreen() {
             <nav className="hidden items-center justify-center gap-7 lg:flex" aria-label="Información sobre Jireh Finanzas">
               <Link
                 href="/sobre-jireh"
+                onClick={() =>
+                  captureAnalytics('public_navigation_selected', {
+                    destination: '/sobre-jireh',
+                    surface: 'desktop',
+                  })
+                }
                 className="inline-flex whitespace-nowrap items-center gap-2 text-sm font-semibold text-primary underline-offset-4 transition-colors hover:text-primary/80 hover:underline"
               >
                 Conoce por qué nació Jireh Finanzas
@@ -58,56 +76,115 @@ export function WelcomeScreen() {
               </Link>
               <Link
                 href="/fundador"
+                onClick={() =>
+                  captureAnalytics('public_navigation_selected', {
+                    destination: '/fundador',
+                    surface: 'desktop',
+                  })
+                }
                 className="inline-flex whitespace-nowrap items-center gap-2 text-sm font-semibold text-primary underline-offset-4 transition-colors hover:text-primary/80 hover:underline"
               >
                 Conoce a nuestro fundador
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Link>
             </nav>
-            <div className="flex items-center justify-end gap-2.5">
+            <div className="flex items-center justify-end">
               <button
                 type="button"
-                onClick={handleGoogleSignIn}
+                onClick={() => handleGoogleSignIn('header')}
                 disabled={googleSubmitting}
-                className="shrink-0 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+                className="hidden shrink-0 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-50 lg:inline-flex"
               >
                 Iniciar sesión
               </button>
-              <details className="group relative lg:hidden">
-                <summary
-                  aria-label="Abrir menú de navegación"
-                  className="grid size-9 cursor-pointer list-none place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden"
-                >
-                  <Menu className="size-5 group-open:hidden" aria-hidden="true" />
-                  <X className="hidden size-5 group-open:block" aria-hidden="true" />
-                </summary>
-                <nav
-                  id="public-navigation"
-                  className="absolute top-[calc(100%+0.75rem)] right-0 hidden w-72 gap-1 rounded-2xl border border-border bg-card p-2 shadow-xl shadow-black/20 group-open:grid"
-                  aria-label="Información sobre Jireh Finanzas"
-                >
-                  <Link
-                    href="/sobre-jireh"
-                    className="flex items-center justify-between gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    Conoce por qué nació Jireh Finanzas
-                    <ArrowRight className="size-4 shrink-0" aria-hidden="true" />
-                  </Link>
-                  <Link
-                    href="/fundador"
-                    className="flex items-center justify-between gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    Conoce a nuestro fundador
-                    <ArrowRight className="size-4 shrink-0" aria-hidden="true" />
-                  </Link>
-                </nav>
-              </details>
+              <button
+                type="button"
+                aria-label="Abrir menú de navegación"
+                aria-expanded={mobileMenuOpen}
+                aria-controls="mobile-public-navigation"
+                onClick={() => {
+                  captureAnalytics('public_menu_opened');
+                  setMobileMenuOpen(true);
+                }}
+                className="grid size-9 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:hidden"
+              >
+                <Menu className="size-5" aria-hidden="true" />
+              </button>
             </div>
           </div>
         </header>
 
+        {mobileMenuOpen && (
+          <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="Menú de navegación">
+            <button
+              type="button"
+              aria-label="Cerrar menú"
+              onClick={() => setMobileMenuOpen(false)}
+              className="absolute inset-0 bg-background/70 backdrop-blur-sm"
+            />
+            <aside className="absolute inset-y-0 right-0 flex w-full flex-col bg-background px-5 pt-[calc(env(safe-area-inset-top)+1.25rem)] pb-[calc(env(safe-area-inset-bottom)+1.25rem)] shadow-2xl shadow-black/40 animate-in slide-in-from-right duration-300 sm:max-w-md sm:border-l sm:border-border sm:px-8">
+              <div className="flex items-center justify-between">
+                <span className="font-display text-lg font-semibold">Menú</span>
+                <button
+                  type="button"
+                  aria-label="Cerrar menú de navegación"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="grid size-10 place-items-center rounded-xl text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <X className="size-5" aria-hidden="true" />
+                </button>
+              </div>
+
+              <nav id="mobile-public-navigation" className="mt-10 grid gap-2" aria-label="Información sobre Jireh Finanzas">
+                <Link
+                  href="/sobre-jireh"
+                  onClick={() => {
+                    captureAnalytics('public_navigation_selected', {
+                      destination: '/sobre-jireh',
+                      surface: 'mobile',
+                    });
+                    setMobileMenuOpen(false);
+                  }}
+                  className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-4 text-base font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  Conoce por qué nació Jireh Finanzas
+                  <ArrowRight className="size-5 shrink-0" aria-hidden="true" />
+                </Link>
+                <Link
+                  href="/fundador"
+                  onClick={() => {
+                    captureAnalytics('public_navigation_selected', {
+                      destination: '/fundador',
+                      surface: 'mobile',
+                    });
+                    setMobileMenuOpen(false);
+                  }}
+                  className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-4 text-base font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  Conoce a nuestro fundador
+                  <ArrowRight className="size-5 shrink-0" aria-hidden="true" />
+                </Link>
+              </nav>
+
+              <div className="mt-auto border-t border-border pt-6">
+                <Button
+                  type="button"
+                  size="lg"
+                  className="h-12 w-full rounded-xl text-base font-semibold"
+                  disabled={googleSubmitting}
+                  onClick={() => handleGoogleSignIn('mobile_menu')}
+                >
+                  {googleSubmitting ? <Loader2 className="size-4 animate-spin" /> : <FcGoogle className="size-5" />}
+                  {googleSubmitting ? 'Conectando…' : 'Iniciar sesión con Google'}
+                </Button>
+                <p className="mt-3 text-center text-xs text-muted-foreground">Empieza gratis con tu cuenta de Google.</p>
+              </div>
+            </aside>
+          </div>
+        )}
+
         <section className="grid flex-1 items-center gap-12 py-10 sm:py-16 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
-          <div className="max-w-xl">
+          <div className="min-w-0 max-w-xl">
             <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary">
               <span className="h-1.5 w-1.5 rounded-full bg-primary" />
               Finanzas personales de la mano de Dios
@@ -122,9 +199,9 @@ export function WelcomeScreen() {
               <Button
                 type="button"
                 size="lg"
-                className="h-12 w-full gap-2 rounded-xl text-base font-semibold shadow-lg shadow-primary/10"
+                className="h-auto min-h-12 w-full gap-2 whitespace-normal rounded-xl px-4 py-2 text-sm font-semibold shadow-lg shadow-primary/10 sm:h-12 sm:whitespace-nowrap sm:text-base"
                 disabled={googleSubmitting}
-                onClick={handleGoogleSignIn}
+                onClick={() => handleGoogleSignIn('hero')}
               >
                 {googleSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -133,7 +210,9 @@ export function WelcomeScreen() {
                     <FcGoogle className="size-full" />
                   </span>
                 )}
-                {googleSubmitting ? 'Conectando…' : 'Registrarme o iniciar sesión con Google'}
+                <span className="min-w-0 text-center leading-5">
+                  {googleSubmitting ? 'Conectando…' : 'Registrarme o iniciar sesión con Google'}
+                </span>
                 {!googleSubmitting && <ArrowRight className="ml-0.5 h-4 w-4" />}
               </Button>
               <p className="mt-3 text-center text-xs text-muted-foreground">Empieza gratis con tu cuenta de Google.</p>
@@ -230,11 +309,14 @@ export function WelcomeScreen() {
               <ol className="mt-4 space-y-3 text-sm text-muted-foreground">
                 <li className="flex gap-3">
                   <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary/15 text-xs font-semibold text-primary">1</span>
-                  Abre el menú de los tres puntos (⋮) en Chrome.
+                  <span className="min-w-0">Abre el menú de los tres puntos (⋮) en Chrome.</span>
                 </li>
                 <li className="flex gap-3">
                   <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary/15 text-xs font-semibold text-primary">2</span>
-                  Toca <strong className="font-medium text-foreground">Instalar app</strong> o <strong className="font-medium text-foreground">Agregar a pantalla principal</strong>.
+                  <span className="min-w-0">
+                    Toca <strong className="font-medium text-foreground">Instalar app</strong> o{' '}
+                    <strong className="font-medium text-foreground">Agregar a pantalla principal</strong>.
+                  </span>
                 </li>
               </ol>
             </article>
@@ -244,11 +326,14 @@ export function WelcomeScreen() {
               <ol className="mt-4 space-y-3 text-sm text-muted-foreground">
                 <li className="flex gap-3">
                   <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary/15 text-xs font-semibold text-primary">1</span>
-                  Toca el botón Compartir de Safari.
+                  <span className="min-w-0">Toca el botón Compartir de Safari.</span>
                 </li>
                 <li className="flex gap-3">
                   <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary/15 text-xs font-semibold text-primary">2</span>
-                  Elige <strong className="font-medium text-foreground">Agregar a pantalla de inicio</strong> y confirma con <strong className="font-medium text-foreground">Agregar</strong>.
+                  <span className="min-w-0">
+                    Elige <strong className="font-medium text-foreground">Agregar a pantalla de inicio</strong> y confirma con{' '}
+                    <strong className="font-medium text-foreground">Agregar</strong>.
+                  </span>
                 </li>
               </ol>
             </article>
@@ -265,6 +350,7 @@ export function WelcomeScreen() {
               href="https://wa.me/573209645371?text=Hola%2C%20necesito%20soporte%20t%C3%A9cnico."
               target="_blank"
               rel="noreferrer"
+              onClick={() => captureAnalytics('support_contact_clicked', { channel: 'whatsapp' })}
               className="inline-flex items-center gap-2 text-primary transition-colors hover:text-primary/80"
             >
               <svg
@@ -279,6 +365,7 @@ export function WelcomeScreen() {
             </a>
             <a
               href="mailto:soportejirehfinanzas@gmail.com"
+              onClick={() => captureAnalytics('support_contact_clicked', { channel: 'email' })}
               className="inline-flex items-center gap-2 text-primary transition-colors hover:text-primary/80"
             >
               <Mail className="size-4 text-[#EA4335]" aria-hidden="true" />

@@ -143,7 +143,7 @@ export default function AccountDetailPage({
 
   return (
     <div className="mx-auto max-w-2xl p-4">
-      <PageHeader title={account.name} subtitle={`${account.type} · ${account.currency}`} backHref="/accounts" />
+      <PageHeader title={account.name} subtitle={`${account.type} · ${account.currency}`} backHref="/app/accounts" />
 
       <div className="space-y-4">
         <div className="rounded-2xl border border-border bg-card p-5">
@@ -185,7 +185,7 @@ export default function AccountDetailPage({
                 nativeButton={false}
                 render={
                   <Link
-                    href={`/transaction/new?accountId=${account.id}&preset=savings-interest`}
+                    href={`/app/transaction/new?accountId=${account.id}&preset=savings-interest`}
                   />
                 }
               >
@@ -197,7 +197,7 @@ export default function AccountDetailPage({
               size="lg"
               variant={account.type === 'Ahorros' ? 'outline' : 'default'}
               nativeButton={false}
-              render={<Link href={`/transaction/new?accountId=${account.id}`} />}
+              render={<Link href={`/app/transaction/new?accountId=${account.id}`} />}
             >
               <Plus className="h-4 w-4" />
               Nueva transacción
@@ -206,7 +206,7 @@ export default function AccountDetailPage({
               size="lg"
               variant="outline"
               nativeButton={false}
-              render={<Link href={`/transfer/new?accountId=${account.id}`} />}
+              render={<Link href={`/app/transfer/new?accountId=${account.id}`} />}
             >
               <ArrowLeftRight className="h-4 w-4" />
               Transferir
@@ -238,7 +238,7 @@ export default function AccountDetailPage({
                             </div>
                           ) : (
                             <Link
-                              href={`/transaction/${transaction.id}/edit`}
+                              href={`/app/transaction/${transaction.id}/edit`}
                               aria-label={`Editar ${transaction.description}`}
                               className="flex min-w-0 flex-1 items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             >

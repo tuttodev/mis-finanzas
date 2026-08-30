@@ -69,7 +69,7 @@ export default function TagsPage() {
         title="Etiquetas"
         subtitle="Añade contexto a tus gastos e ingresos"
         action={
-          <Button nativeButton={false} render={<Link href="/tag-form" />}>
+          <Button nativeButton={false} render={<Link href="/app/tag-form" />}>
             <Plus className="h-4 w-4" />
             Nueva
           </Button>

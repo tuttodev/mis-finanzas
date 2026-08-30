@@ -13,6 +13,7 @@ import { PageHeader } from '@/components/layout/page-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency, parseCurrencyInput, todayIsoDate } from '@/lib/formatters';
 import { createTransfer, fetchAccountsOverview } from '@/services/finance';
+import { captureAnalytics } from '@/lib/analytics';
 import type { Account, AccountType } from '@/types/finance';
 
 const TYPE_ICONS: Record<AccountType, typeof PiggyBank> = {
@@ -127,6 +128,7 @@ export function TransferForm({ initialFromAccountId = '' }: TransferFormProps) {
       });
     },
     onSuccess: async () => {
+      captureAnalytics('transfer_created', { currency: transferCurrency });
       await queryClient.invalidateQueries();
       toast.success('Transferencia registrada');
       router.back();
@@ -143,7 +145,7 @@ export function TransferForm({ initialFromAccountId = '' }: TransferFormProps) {
     <div className="mx-auto max-w-2xl p-4">
       <PageHeader
         title="Transferir entre cuentas"
-        backHref={initialFromAccountId ? `/account/${initialFromAccountId}` : '/accounts'}
+        backHref={initialFromAccountId ? `/app/account/${initialFromAccountId}` : '/app/accounts'}
       />
 
       <div className="space-y-4">

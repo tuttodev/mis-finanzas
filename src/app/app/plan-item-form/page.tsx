@@ -23,6 +23,7 @@ import {
   updatePlanItem,
 } from '@/services/finance';
 import type { PlanItemKind } from '@/types/finance';
+import { captureAnalytics } from '@/lib/analytics';
 
 function PlanItemForm() {
   const router = useRouter();
@@ -117,6 +118,11 @@ function PlanItemForm() {
       }
     },
     onSuccess: async () => {
+      captureAnalytics(itemId ? 'plan_item_updated' : 'plan_item_created', {
+        item_kind: currentKind,
+        has_category: Boolean(selectedCategoryId),
+        has_tags: selectedTagIds.length > 0,
+      });
       await invalidatePlanQueries();
       toast.success(
         itemId
@@ -175,7 +181,7 @@ function PlanItemForm() {
 
   return (
     <div className="mx-auto max-w-2xl p-4">
-      <PageHeader title={pageTitle} backHref="/plan" />
+      <PageHeader title={pageTitle} backHref="/app/plan" />
 
       <div className="rounded-2xl border border-border bg-card p-5">
         <div className="space-y-4">

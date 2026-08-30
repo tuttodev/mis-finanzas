@@ -13,7 +13,7 @@ export function BudgetProgressRow({ progress }: { progress: BudgetProgress }) {
 
   return (
     <Link
-      href={`/budget/${progress.budget.id}`}
+      href={`/app/budget/${progress.budget.id}`}
       className="flex flex-col gap-2 rounded-xl px-1 py-2.5 transition-colors hover:bg-secondary/50"
     >
       <div className="flex items-center justify-between gap-3">

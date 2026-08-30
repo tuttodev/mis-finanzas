@@ -1,10 +1,8 @@
 import type { Metadata, Viewport } from "next";
+import { GoogleAnalytics } from "@next/third-parties/google";
 import { Geist, Geist_Mono, Sora } from "next/font/google";
 import { Toaster } from "sonner";
 import { QueryProvider } from "@/providers/query-provider";
-import { AuthProvider } from "@/providers/auth-provider";
-import { PrivacyProvider } from "@/providers/privacy-provider";
-import { AppShell } from "@/components/layout/app-shell";
 import { ServiceWorkerRegister } from "@/components/pwa/sw-register";
 import { PageViewTracker } from "@/components/analytics/page-view-tracker";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
@@ -79,6 +77,7 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const googleAnalyticsId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
   const structuredData = {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
@@ -109,15 +108,12 @@ export default function RootLayout({
         />
         <QueryProvider>
           <PageViewTracker />
-          <AuthProvider>
-            <PrivacyProvider>
-              <AppShell>{children}</AppShell>
-            </PrivacyProvider>
-          </AuthProvider>
+          {children}
           <Toaster position="top-center" richColors theme="dark" />
         </QueryProvider>
         <ServiceWorkerRegister />
       </body>
+      {googleAnalyticsId ? <GoogleAnalytics gaId={googleAnalyticsId} /> : null}
     </html>
   );
 }

@@ -118,10 +118,12 @@ export default function FounderPage() {
           href={whatsappUrl}
           target="_blank"
           rel="noreferrer"
-          className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#25D366] px-5 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+          aria-label="Abrir WhatsApp: +57 320 964 5371"
+          className="mt-5 inline-flex w-full max-w-sm items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-3 text-sm font-semibold whitespace-nowrap text-white transition-opacity hover:opacity-90 sm:w-auto sm:max-w-none sm:px-5"
         >
           <FaWhatsapp className="h-5 w-5" aria-hidden="true" />
-          WhatsApp · +57 320 964 5371
+          <span className="sm:hidden">Abrir WhatsApp</span>
+          <span className="hidden sm:inline">WhatsApp · +57 320 964 5371</span>
         </a>
       </section>
     </div>

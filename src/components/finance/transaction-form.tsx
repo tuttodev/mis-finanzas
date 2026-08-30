@@ -29,6 +29,7 @@ import type { AccountType, EditableTransaction, TransactionDescriptionSuggestion
 import { CategoryIcon } from './category-icon';
 import { DescriptionAutocomplete } from './description-autocomplete';
 import { TagBadge } from './tag-badge';
+import { captureAnalytics } from '@/lib/analytics';
 
 const TYPE_ICONS: Record<AccountType, typeof PiggyBank> = {
   Ahorros: PiggyBank,
@@ -233,6 +234,13 @@ export function TransactionForm({
       });
     },
     onSuccess: async () => {
+      captureAnalytics(isEditing ? 'transaction_updated' : 'transaction_created', {
+        type: type === 'Gasto' ? 'expense' : 'income',
+        has_category: Boolean(effectiveCategoryId),
+        has_tags: selectedTagIds.length > 0,
+        is_planned: Boolean(isPlanned),
+        currency: selectedCurrency,
+      });
       await queryClient.invalidateQueries();
       toast.success(
         isEditing
@@ -253,6 +261,9 @@ export function TransactionForm({
         transactionType: isExpense ? 'expense' : 'income',
       }),
     onSuccess: async (createdCategory) => {
+      captureAnalytics('category_created', {
+        transaction_type: isExpense ? 'expense' : 'income',
+      });
       await queryClient.invalidateQueries({ queryKey: ['expense-categories'] });
       setSelectedCategoryId(createdCategory.id);
       setNewCategoryName('');
@@ -283,10 +294,10 @@ export function TransactionForm({
         }
         backHref={
           transaction
-            ? `/account/${transaction.accountId}`
+            ? `/app/account/${transaction.accountId}`
             : isSavingsInterest && initialAccountId
-              ? `/account/${initialAccountId}`
-              : '/'
+              ? `/app/account/${initialAccountId}`
+              : '/app'
         }
       />
 
@@ -647,7 +658,7 @@ export function TransactionForm({
           <div className="mb-1 flex items-center justify-between gap-3">
             <Label htmlFor="tags">Etiquetas</Label>
             <Link
-              href="/tag-form"
+              href="/app/tag-form"
               className="text-xs font-medium text-primary underline-offset-2 hover:underline"
               onClick={() => setIsTagsOpen(false)}
             >
@@ -728,7 +739,7 @@ export function TransactionForm({
                     </p>
                   )}
                   <Link
-                    href="/tag-form"
+                    href="/app/tag-form"
                     onClick={() => setIsTagsOpen(false)}
                     className="mt-2 flex items-center gap-2 rounded-lg border-t border-border px-3 pt-3 text-sm font-semibold text-primary hover:underline"
                   >
@@ -823,7 +834,7 @@ export function TransactionForm({
               size="lg"
               variant="outline"
               nativeButton={false}
-              render={<Link href={`/transaction/${transaction.id}/refund`} />}
+              render={<Link href={`/app/transaction/${transaction.id}/refund`} />}
             >
               <RotateCcw className="h-4 w-4" />
               Registrar reembolso

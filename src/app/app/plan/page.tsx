@@ -35,6 +35,7 @@ import {
   setPlanItemPaid,
 } from '@/services/finance';
 import type { MonthlyPlanSummary, PlanItem } from '@/types/finance';
+import { captureAnalytics } from '@/lib/analytics';
 
 function PlanPage() {
   const searchParams = useSearchParams();
@@ -66,6 +67,7 @@ function PlanPage() {
   const createBlankMutation = useMutation({
     mutationFn: () => createBlankPlan(monthKey),
     onSuccess: async () => {
+      captureAnalytics('plan_created', { source: 'blank' });
       await queryClient.invalidateQueries({ queryKey: ['plan', monthKey] });
       toast.success('Plan creado');
     },
@@ -75,6 +77,7 @@ function PlanPage() {
   const duplicateMutation = useMutation({
     mutationFn: () => duplicatePreviousPlan(monthKey),
     onSuccess: async () => {
+      captureAnalytics('plan_duplicated');
       await queryClient.invalidateQueries({ queryKey: ['plan', monthKey] });
       toast.success('Plan duplicado del mes anterior');
     },
@@ -83,7 +86,8 @@ function PlanPage() {
 
   const togglePaidMutation = useMutation({
     mutationFn: (item: PlanItem) => setPlanItemPaid(item.id, !item.isPaid),
-    onSuccess: async () => {
+    onSuccess: async (_data, item) => {
+      captureAnalytics('plan_item_payment_status_changed', { is_paid: !item.isPaid });
       await queryClient.invalidateQueries({ queryKey: ['plan', monthKey] });
     },
     onError: (error: Error) => toast.error(error.message),
@@ -100,7 +104,7 @@ function PlanPage() {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   function goToMonth(delta: number) {
-    window.history.pushState(null, '', `/plan?month=${shiftMonthKey(monthKey, delta)}`);
+    window.history.pushState(null, '', `/app/plan?month=${shiftMonthKey(monthKey, delta)}`);
   }
 
   const plan = planQuery.data;
@@ -160,10 +164,10 @@ function PlanPage() {
       ) : plan ? (
         <div className="space-y-3">
           {/* Top Summary Cards */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-2xl border border-border bg-card p-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="min-w-0 rounded-2xl border border-border bg-card p-4">
               <p className="text-xs text-muted-foreground">Ingresos disponibles</p>
-              <p className="tabular mt-1 text-xl font-bold">{formatCOP(plan.incomeTotal)}</p>
+              <p className="tabular mt-1 text-xl leading-tight font-bold">{formatCOP(plan.incomeTotal)}</p>
               {plan.deductionsTotal > 0 && (
                 <p className="mt-1 text-[11px] text-muted-foreground">
                   <span className="text-income">+{formatCOP(plan.incomeGross)}</span>
@@ -173,7 +177,7 @@ function PlanPage() {
               )}
             </div>
             <div
-              className={`rounded-2xl p-4 ${
+              className={`min-w-0 rounded-2xl p-4 ${
                 plan.leftover < 0 ? 'bg-expense/10' : 'bg-income/10'
               }`}
             >
@@ -181,7 +185,7 @@ function PlanPage() {
                 {plan.leftover < 0 ? 'Te faltan' : 'Te sobran'}
               </p>
               <p
-                className={`tabular mt-1 text-xl font-bold ${
+                className={`tabular mt-1 text-xl leading-tight font-bold ${
                   plan.leftover < 0 ? 'text-expense' : 'text-income'
                 }`}
               >
@@ -213,7 +217,7 @@ function PlanPage() {
                   <span className="min-[400px]:hidden">PDF</span>
                 </Button>
                 <Link
-                  href={`/plan-item-form?planId=${plan.plan.id}&kind=income`}
+                  href={`/app/plan-item-form?planId=${plan.plan.id}&kind=income`}
                   className="flex h-8 items-center gap-1 rounded-lg bg-primary/10 px-2.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/20"
                 >
                   <Plus className="h-3.5 w-3.5" />
@@ -286,7 +290,7 @@ function PlanPage() {
                   </button>
                 )}
                 <Link
-                  href={`/plan-item-form?planId=${plan.plan.id}&kind=expense`}
+                  href={`/app/plan-item-form?planId=${plan.plan.id}&kind=expense`}
                   className="flex items-center gap-1 text-xs font-semibold text-primary"
                 >
                   <Plus className="h-3.5 w-3.5" />

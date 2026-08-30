@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { createFeedback } from '@/services/finance';
 import { usePathname } from 'next/navigation';
+import { analyticsPage, captureAnalytics } from '@/lib/analytics';
 
 export function FeedbackDialog() {
   const pathname = usePathname();
@@ -21,6 +22,7 @@ export function FeedbackDialog() {
     try {
       setIsSubmitting(true);
       await createFeedback({ message, pagePath: pathname });
+      captureAnalytics('feedback_submitted', { page: analyticsPage(pathname) });
       setMessage('');
       setOpen(false);
       toast.success('¡Gracias! Tu feedback nos ayuda a mejorar Jireh Finanzas.');
@@ -35,7 +37,10 @@ export function FeedbackDialog() {
     <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          captureAnalytics('feedback_opened', { surface: 'mobile' });
+          setOpen(true);
+        }}
         aria-label="Enviar feedback"
         title="Enviar feedback"
         className="fixed bottom-[calc(env(safe-area-inset-bottom)+5rem)] left-4 z-40 flex h-12 w-12 items-center justify-center rounded-full border border-border bg-card text-primary shadow-lg transition-transform active:scale-95 md:hidden"
@@ -45,7 +50,10 @@ export function FeedbackDialog() {
 
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          captureAnalytics('feedback_opened', { surface: 'desktop' });
+          setOpen(true);
+        }}
         className="fixed bottom-16 left-3 z-50 hidden w-[calc(15rem-1.5rem)] items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary/50 hover:text-foreground md:flex"
       >
         <MessageSquare className="h-4 w-4" />

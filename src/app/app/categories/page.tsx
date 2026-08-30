@@ -90,7 +90,7 @@ export default function CategoriesPage() {
         title="Categorías"
         subtitle="Organiza tus gastos e ingresos a tu manera"
         action={
-          <Button nativeButton={false} render={<Link href="/category-form" />}>
+          <Button nativeButton={false} render={<Link href="/app/category-form" />}>
             <Plus className="h-4 w-4" />
             Nueva
           </Button>

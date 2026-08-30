@@ -59,7 +59,7 @@ export default function BudgetDetailPage({
     onSuccess: async () => {
       await queryClient.invalidateQueries();
       toast.success('Presupuesto eliminado');
-      router.replace('/budgets');
+      router.replace('/app/budgets');
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -98,7 +98,7 @@ export default function BudgetDetailPage({
 
   return (
     <div className="mx-auto max-w-2xl p-4">
-      <PageHeader title={progress.budget.name} backHref="/budgets" />
+      <PageHeader title={progress.budget.name} backHref="/app/budgets" />
 
       <div className="space-y-4">
         {/* Current cycle */}
@@ -138,7 +138,7 @@ export default function BudgetDetailPage({
             <Button
               variant="outline"
               nativeButton={false}
-              render={<Link href={`/budget-form?id=${progress.budget.id}`} />}
+              render={<Link href={`/app/budget-form?id=${progress.budget.id}`} />}
             >
               <Pencil className="h-4 w-4" />
               Editar
@@ -174,7 +174,7 @@ export default function BudgetDetailPage({
                   <BudgetMovementRow
                     key={movement.id}
                     movement={movement}
-                    href={`/transaction/${movement.id}/edit`}
+                    href={`/app/transaction/${movement.id}/edit`}
                   />
                 ))}
               </div>

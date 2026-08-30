@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PageHeader } from '@/components/layout/page-header';
 import { createAccount } from '@/services/finance';
+import { captureAnalytics } from '@/lib/analytics';
 import type { AccountType, Currency } from '@/types/finance';
 
 const ACCOUNT_TYPES: Array<{
@@ -32,17 +33,18 @@ export default function AccountFormPage() {
   const mutation = useMutation({
     mutationFn: () => createAccount({ name, type, currency }),
     onSuccess: async () => {
+      captureAnalytics('account_created', { account_type: type, currency });
       await queryClient.invalidateQueries({ queryKey: ['accounts'] });
       await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       toast.success('Cuenta creada');
-      router.push('/accounts');
+      router.push('/app/accounts');
     },
     onError: (error: Error) => toast.error(error.message),
   });
 
   return (
     <div className="mx-auto max-w-2xl p-4">
-      <PageHeader title="Nueva cuenta" backHref="/accounts" />
+      <PageHeader title="Nueva cuenta" backHref="/app/accounts" />
 
       <form
         className="rounded-2xl border border-border bg-card p-5"

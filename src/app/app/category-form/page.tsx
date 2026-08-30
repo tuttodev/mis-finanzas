@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PageHeader } from '@/components/layout/page-header';
 import { createExpenseCategory } from '@/services/finance';
+import { captureAnalytics } from '@/lib/analytics';
 
 export default function CategoryFormPage() {
   const router = useRouter();
@@ -20,17 +21,18 @@ export default function CategoryFormPage() {
   const mutation = useMutation({
     mutationFn: () => createExpenseCategory({ name, transactionType }),
     onSuccess: async () => {
+      captureAnalytics('category_created', { transaction_type: transactionType });
       await queryClient.invalidateQueries({ queryKey: ['expense-categories'] });
       await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       toast.success('Categoría creada');
-      router.push('/categories');
+      router.push('/app/categories');
     },
     onError: (error: Error) => toast.error(error.message),
   });
 
   return (
     <div className="mx-auto max-w-2xl p-4">
-      <PageHeader title="Nueva categoría" backHref="/categories" />
+      <PageHeader title="Nueva categoría" backHref="/app/categories" />
 
       <form
         className="rounded-2xl border border-border bg-card p-5"

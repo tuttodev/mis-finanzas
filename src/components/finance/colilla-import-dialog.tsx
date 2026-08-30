@@ -29,6 +29,7 @@ import type {
   ParsedColillaItem,
   ParsedColillaSummary,
 } from '@/types/finance';
+import { captureAnalytics } from '@/lib/analytics';
 
 type ColillaImportDialogProps = {
   open: boolean;
@@ -86,6 +87,7 @@ export function ColillaImportDialog({
     setFileName(selectedFile.name);
     setIsParsing(true);
     setParseError(null);
+    captureAnalytics('colilla_import_started', { file_type: 'pdf' });
 
     const formData = new FormData();
     formData.append('file', selectedFile);
@@ -131,6 +133,7 @@ export function ColillaImportDialog({
       setDevengos(json.data.devengos.map((d) => ({ ...d, selected: true })));
       setDeducciones(json.data.deducciones.map((d) => ({ ...d, selected: true })));
     } catch (error) {
+      captureAnalytics('colilla_import_failed', { stage: 'parse' });
       const message = error instanceof Error ? error.message : 'Error procesando el PDF';
       setParseError(message);
       toast.error(message);
@@ -159,6 +162,7 @@ export function ColillaImportDialog({
       return uploadPayrollDocument(planId, selectedFile);
     },
     onSuccess: () => {
+      captureAnalytics('colilla_document_saved', { file_type: 'pdf' });
       toast.success('Colilla guardada sin importar ingresos ni deducciones');
       handleClose();
       onSuccess?.();
@@ -198,6 +202,11 @@ export function ColillaImportDialog({
       }
     },
     onSuccess: async () => {
+      captureAnalytics('colilla_import_completed', {
+        import_mode: importMode,
+        income_item_count: selectedDevengos.length,
+        deduction_item_count: selectedDeducciones.length,
+      });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['plan', monthKey] }),
         queryClient.invalidateQueries({ queryKey: ['plan-previous'] }),

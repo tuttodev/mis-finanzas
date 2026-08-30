@@ -17,6 +17,7 @@ import {
 import { formatCOP } from '@/lib/formatters';
 import { mergeFromPreviousPlan } from '@/services/finance';
 import type { MonthlyPlanSummary, PlanItem, PlanItemKind } from '@/types/finance';
+import { captureAnalytics } from '@/lib/analytics';
 
 interface MergePreviousPlanDialogProps {
   open: boolean;
@@ -63,6 +64,7 @@ export function MergePreviousPlanDialog({
     mutationFn: () =>
       mergeFromPreviousPlan(targetPlanId, monthKey, Array.from(selected)),
     onSuccess: async (inserted) => {
+      captureAnalytics('plan_items_merged', { item_count: inserted.length });
       await queryClient.invalidateQueries({ queryKey: ['plan', monthKey] });
       const n = inserted.length;
       toast.success(

@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { PageHeader } from '@/components/layout/page-header';
 import { TagBadge } from '@/components/finance/tag-badge';
 import { createTag } from '@/services/finance';
+import { captureAnalytics } from '@/lib/analytics';
 
 export default function TagFormPage() {
   const router = useRouter();
@@ -20,16 +21,17 @@ export default function TagFormPage() {
   const mutation = useMutation({
     mutationFn: () => createTag({ name }),
     onSuccess: async () => {
+      captureAnalytics('tag_created');
       await queryClient.invalidateQueries({ queryKey: ['tags'] });
       toast.success('Etiqueta creada');
-      router.push('/tags');
+      router.push('/app/tags');
     },
     onError: (error: Error) => toast.error(error.message),
   });
 
   return (
     <div className="mx-auto max-w-2xl p-4">
-      <PageHeader title="Nueva etiqueta" backHref="/tags" />
+      <PageHeader title="Nueva etiqueta" backHref="/app/tags" />
 
       <form
         className="rounded-2xl border border-border bg-card p-5"

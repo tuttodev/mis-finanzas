@@ -32,7 +32,7 @@ export default function BudgetsPage() {
         title="Presupuestos"
         subtitle="Controla el gasto y revisa tus ciclos"
         action={
-          <Button nativeButton={false} render={<Link href="/budget-form" />}>
+          <Button nativeButton={false} render={<Link href="/app/budget-form" />}>
             <Plus className="h-4 w-4" />
             Nuevo
           </Button>

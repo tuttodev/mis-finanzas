@@ -8,7 +8,7 @@ export function BudgetSnapshotRow({ snapshot }: { snapshot: BudgetSnapshot }) {
 
   return (
     <Link
-      href={`/budget-cycle/${snapshot.id}`}
+      href={`/app/budget-cycle/${snapshot.id}`}
       className="flex items-center gap-3 rounded-xl px-1 py-2.5 transition-colors hover:bg-secondary/50"
     >
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">

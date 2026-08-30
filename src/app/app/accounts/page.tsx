@@ -44,7 +44,7 @@ export default function AccountsPage() {
             >
               {hidden ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
             </button>
-            <Button nativeButton={false} render={<Link href="/account-form" />}>
+            <Button nativeButton={false} render={<Link href="/app/account-form" />}>
               <Plus className="h-4 w-4" />
               Nueva
             </Button>

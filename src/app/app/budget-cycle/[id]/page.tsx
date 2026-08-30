@@ -48,7 +48,7 @@ export default function BudgetCycleDetailPage({
       <PageHeader
         title="Ciclo cerrado"
         subtitle={`${formatShortDate(snapshot.startedAt)} – ${formatShortDate(snapshot.endedAt)}`}
-        backHref="/budgets"
+        backHref="/app/budgets"
       />
 
       <div className="space-y-4">
@@ -85,7 +85,7 @@ export default function BudgetCycleDetailPage({
                   <BudgetMovementRow
                     key={movement.id}
                     movement={movement}
-                    href={`/transaction/${movement.id}/edit`}
+                    href={`/app/transaction/${movement.id}/edit`}
                   />
                 ))}
               </div>

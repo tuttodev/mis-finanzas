@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { PageHeader } from '@/components/layout/page-header';
 import { formatCOPInput, parseCurrencyInput, todayIsoDate } from '@/lib/formatters';
 import { createBudget, fetchBudgetProgressList, updateBudget } from '@/services/finance';
+import { captureAnalytics } from '@/lib/analytics';
 
 function BudgetForm() {
   const router = useRouter();
@@ -59,6 +60,7 @@ function BudgetForm() {
       }
     },
     onSuccess: async () => {
+      captureAnalytics(id ? 'budget_updated' : 'budget_created');
       await queryClient.invalidateQueries();
       toast.success(id ? 'Presupuesto actualizado' : 'Presupuesto creado');
       router.back();
@@ -70,7 +72,7 @@ function BudgetForm() {
     <div className="mx-auto max-w-2xl p-4">
       <PageHeader
         title={id ? 'Editar presupuesto' : 'Nuevo presupuesto'}
-        backHref="/budgets"
+        backHref="/app/budgets"
       />
 
       <div className="rounded-2xl border border-border bg-card p-5">
