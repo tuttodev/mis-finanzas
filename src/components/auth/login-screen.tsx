@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
+import { Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +13,24 @@ export function LoginScreen() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [googleSubmitting, setGoogleSubmitting] = useState(false);
+
+  async function handleGoogleSignIn() {
+    setGoogleSubmitting(true);
+    setError(null);
+
+    const { error: signInError } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin,
+      },
+    });
+
+    if (signInError) {
+      setError('No se pudo iniciar sesión con Google. Inténtalo de nuevo.');
+      setGoogleSubmitting(false);
+    }
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -39,37 +58,63 @@ export function LoginScreen() {
             </p>
           </div>
         </div>
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-4 rounded-2xl border border-border bg-card p-6"
-        >
-          <div className="space-y-2">
-            <Label htmlFor="email">Correo</Label>
-            <Input
-              id="email"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Contraseña</Label>
-            <Input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button type="submit" size="lg" className="w-full" disabled={submitting}>
-            {submitting ? 'Ingresando…' : 'Ingresar'}
+        <div className="rounded-2xl border border-border bg-card p-6">
+          <Button
+            type="button"
+            size="lg"
+            variant="outline"
+            className="w-full"
+            disabled={googleSubmitting || submitting}
+            onClick={handleGoogleSignIn}
+          >
+            {googleSubmitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <span aria-hidden className="text-base font-semibold">G</span>
+            )}
+            {googleSubmitting ? 'Conectando…' : 'Continuar con Google'}
           </Button>
-        </form>
+
+          <div className="my-5 flex items-center gap-3" aria-hidden>
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-xs text-muted-foreground">o usa tu acceso actual</span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Correo</Label>
+              <Input
+                id="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Contraseña</Label>
+              <Input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <Button
+              type="submit"
+              size="lg"
+              className="w-full"
+              disabled={submitting || googleSubmitting}
+            >
+              {submitting ? 'Ingresando…' : 'Ingresar'}
+            </Button>
+          </form>
+        </div>
       </div>
     </div>
   );

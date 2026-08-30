@@ -1538,7 +1538,11 @@ export async function replacePayrollPlanItems(
 const PAYROLL_DOCUMENT_BUCKET = 'payroll-documents';
 
 export async function uploadPayrollDocument(planId: string, file: File): Promise<PayrollDocument> {
-  const storagePath = `${planId}/${crypto.randomUUID()}.pdf`;
+  const { data: sessionData } = await supabase.auth.getSession();
+  const userId = sessionData.session?.user.id;
+  if (!userId) throw new Error('Tu sesión venció. Inicia sesión nuevamente.');
+
+  const storagePath = `${userId}/${planId}/${crypto.randomUUID()}.pdf`;
   const storage = supabase.storage.from(PAYROLL_DOCUMENT_BUCKET);
 
   const { error: uploadError } = await storage.upload(storagePath, file, {

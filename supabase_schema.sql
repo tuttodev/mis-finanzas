@@ -1,4 +1,7 @@
--- Schema for the mis-finanzas app. Run in the Supabase SQL Editor.
+-- Historical bootstrap snapshot only. Do not run this file against production:
+-- its original single-user access policies are intentionally preserved for
+-- history. The authoritative, secure schema is in supabase/migrations/, ending
+-- with secure_multi_user_data and fix_database_advisors.
 
 create table accounts (
   id uuid primary key default gen_random_uuid(),

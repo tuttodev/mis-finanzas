@@ -1,11 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 import { extractTextFromPdf, parseColillaText } from '@/lib/pdf-parser';
 import type { ParseColillaResponse } from '@/types/finance';
 
 export const runtime = 'nodejs';
 
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+function createServerSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { auth: { persistSession: false, autoRefreshToken: false } },
+  );
+}
+
 export async function POST(req: NextRequest): Promise<NextResponse<ParseColillaResponse>> {
   try {
+    const contentLength = Number(req.headers.get('content-length') ?? 0);
+    if (contentLength > MAX_FILE_SIZE + 1024 * 1024) {
+      return NextResponse.json(
+        { success: false, error: 'La solicitud supera el tamaño permitido.' },
+        { status: 413 },
+      );
+    }
+
+    const authorization = req.headers.get('authorization');
+    const accessToken = authorization?.startsWith('Bearer ')
+      ? authorization.slice('Bearer '.length)
+      : null;
+
+    if (!accessToken) {
+      return NextResponse.json(
+        { success: false, error: 'Debes iniciar sesión para procesar documentos.' },
+        { status: 401 },
+      );
+    }
+
+    const { data: userData, error: userError } = await createServerSupabaseClient()
+      .auth.getUser(accessToken);
+    if (userError || !userData.user) {
+      return NextResponse.json(
+        { success: false, error: 'La sesión no es válida o venció.' },
+        { status: 401 },
+      );
+    }
+
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
 
@@ -20,6 +60,13 @@ export async function POST(req: NextRequest): Promise<NextResponse<ParseColillaR
       return NextResponse.json(
         { success: false, error: 'El archivo debe ser un documento PDF.' },
         { status: 400 },
+      );
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        { success: false, error: 'El PDF no puede superar 10 MB.' },
+        { status: 413 },
       );
     }
 

@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { Input } from '@/components/ui/input';
 import { formatCOP, formatCOPInput, parseCurrencyInput } from '@/lib/formatters';
+import { supabase } from '@/lib/supabase';
 import {
   createPlanItemsBatch,
   replacePayrollPlanItems,
@@ -90,8 +91,15 @@ export function ColillaImportDialog({
     formData.append('file', selectedFile);
 
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error('Tu sesión venció. Inicia sesión nuevamente.');
+
       const response = await fetch('/api/parse-colilla', {
         method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
         body: formData,
       });
 

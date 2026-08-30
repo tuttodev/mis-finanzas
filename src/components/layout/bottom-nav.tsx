@@ -3,7 +3,9 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { CalendarCheck, Home, Landmark, PieChart, Plus, Tag, Tags } from 'lucide-react';
+import { CalendarCheck, Home, Landmark, LogOut, PieChart, Plus, Tag, Tags } from 'lucide-react';
+import { toast } from 'sonner';
+import { useAuth } from '@/providers/auth-provider';
 
 const tabs = [
   { href: '/', label: 'Inicio', icon: Home, exact: true },
@@ -21,7 +23,16 @@ function isActive(pathname: string, tab: (typeof tabs)[number]) {
 
 export function BottomNav() {
   const pathname = usePathname();
+  const { session, signOut } = useAuth();
   const showFab = !pathname.startsWith('/transaction') && !pathname.endsWith('-form');
+
+  async function handleSignOut() {
+    try {
+      await signOut();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'No se pudo cerrar la sesión');
+    }
+  }
 
   return (
     <>
@@ -58,6 +69,16 @@ export function BottomNav() {
         </div>
       </nav>
 
+      <button
+        type="button"
+        onClick={handleSignOut}
+        aria-label="Cerrar sesión"
+        title="Cerrar sesión"
+        className="fixed right-3 top-[calc(env(safe-area-inset-top)+0.75rem)] z-50 flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card/95 text-muted-foreground shadow-sm backdrop-blur transition-colors hover:text-foreground md:hidden"
+      >
+        <LogOut className="h-4 w-4" />
+      </button>
+
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-50 hidden w-60 flex-col border-r border-border bg-sidebar md:flex">
         <div className="flex items-center gap-2 px-5 py-6">
@@ -92,6 +113,19 @@ export function BottomNav() {
             Nueva transacción
           </Link>
         </nav>
+        <div className="mt-auto border-t border-border p-3">
+          <p className="truncate px-2 text-xs text-muted-foreground">
+            {session.user.email ?? 'Cuenta conectada'}
+          </p>
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="mt-2 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary/50 hover:text-foreground"
+          >
+            <LogOut className="h-4 w-4" />
+            Cerrar sesión
+          </button>
+        </div>
       </aside>
     </>
   );
