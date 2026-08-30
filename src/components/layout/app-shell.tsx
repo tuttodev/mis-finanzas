@@ -1,6 +1,7 @@
 'use client';
 
 import { BottomNav } from './bottom-nav';
+import { FeedbackDialog } from './feedback-dialog';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
@@ -9,6 +10,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {children}
       </main>
       <BottomNav />
+      <FeedbackDialog />
     </div>
   );
 }

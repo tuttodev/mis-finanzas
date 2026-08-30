@@ -316,6 +316,11 @@ export type CreateTagInput = {
   name: string;
 };
 
+export type CreateFeedbackInput = {
+  message: string;
+  pagePath: string;
+};
+
 export type CreateBudgetInput = {
   name: string;
   limitAmount: number;

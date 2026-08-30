@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import { ArrowRight, Check, Download, Loader2, Target, WalletCards } from 'lucide-react';
+import { ArrowRight, Check, Download, Loader2, Mail, Phone, Target, WalletCards } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 
@@ -198,6 +198,29 @@ export function WelcomeScreen() {
             </article>
           </div>
         </section>
+
+        <footer className="border-t border-border py-6 text-center">
+          <p className="text-sm font-medium">¿Necesitas soporte técnico?</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Estamos aquí para ayudarte con lo que necesites.
+          </p>
+          <div className="mt-4 flex flex-col items-center justify-center gap-3 text-sm sm:flex-row sm:gap-5">
+            <a
+              href="tel:+573209645371"
+              className="inline-flex items-center gap-2 text-primary transition-colors hover:text-primary/80"
+            >
+              <Phone className="size-4" aria-hidden="true" />
+              +57 320 964 5371
+            </a>
+            <a
+              href="mailto:jirehfinanzas@gmail.com"
+              className="inline-flex items-center gap-2 text-primary transition-colors hover:text-primary/80"
+            >
+              <Mail className="size-4" aria-hidden="true" />
+              jirehfinanzas@gmail.com
+            </a>
+          </div>
+        </footer>
       </div>
     </main>
   );

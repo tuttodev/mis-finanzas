@@ -46,7 +46,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [session]);
 
-  if (loading) return null;
-  if (!session || !value) return <WelcomeScreen />;
+  // Render the public welcome page on the server and during hydration. Besides
+  // avoiding a blank first paint, this makes the landing-page content available
+  // to crawlers before the browser checks for an existing session.
+  if (loading || !session || !value) return <WelcomeScreen />;
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

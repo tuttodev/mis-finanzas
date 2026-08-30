@@ -19,6 +19,7 @@ import type {
   CreateAccountInput,
   CreateBudgetInput,
   CreateExpenseCategoryInput,
+  CreateFeedbackInput,
   CreatePlanItemInput,
   CreateRefundInput,
   CreateTransactionInput,
@@ -773,6 +774,21 @@ export async function createTag(input: CreateTagInput): Promise<Tag> {
   }
 
   return mapTag(ensure(data as TagDTO | null, error));
+}
+
+export async function createFeedback(input: CreateFeedbackInput) {
+  const message = input.message.trim();
+  if (message.length < 3) throw new Error('Cuéntanos un poco más para poder ayudarte');
+  if (message.length > 2000) throw new Error('El feedback no puede superar 2.000 caracteres');
+  if (!input.pagePath || input.pagePath.length > 500) {
+    throw new Error('No se pudo identificar la sección de la aplicación');
+  }
+
+  const { error } = await supabase.from('feedback').insert({
+    message,
+    page_path: input.pagePath,
+  });
+  if (error) throw new Error(error.message);
 }
 
 export async function deleteTag(tagId: string) {

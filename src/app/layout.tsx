@@ -6,6 +6,7 @@ import { AuthProvider } from "@/providers/auth-provider";
 import { PrivacyProvider } from "@/providers/privacy-provider";
 import { AppShell } from "@/components/layout/app-shell";
 import { ServiceWorkerRegister } from "@/components/pwa/sw-register";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -24,8 +25,37 @@ const sora = Sora({
 });
 
 export const metadata: Metadata = {
-  title: "Jireh Finanzas",
-  description: "Gestiona tus finanzas personales",
+  metadataBase: new URL(SITE_URL),
+  applicationName: SITE_NAME,
+  title: {
+    default: `${SITE_NAME} | Finanzas personales con propósito`,
+    template: `%s | ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
+  keywords: [
+    'finanzas personales',
+    'presupuesto personal',
+    'control de gastos',
+    'gestión de dinero',
+    'finanzas Colombia',
+  ],
+  alternates: {
+    canonical: '/',
+  },
+  category: 'finance',
+  openGraph: {
+    type: 'website',
+    locale: 'es_CO',
+    siteName: SITE_NAME,
+    title: `${SITE_NAME} | Finanzas personales con propósito`,
+    description: SITE_DESCRIPTION,
+    url: '/',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: `${SITE_NAME} | Finanzas personales con propósito`,
+    description: SITE_DESCRIPTION,
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -46,12 +76,34 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const structuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: SITE_NAME,
+    description: SITE_DESCRIPTION,
+    applicationCategory: 'FinanceApplication',
+    operatingSystem: 'Web',
+    inLanguage: 'es-CO',
+    url: SITE_URL,
+    offers: {
+      '@type': 'Offer',
+      price: '0',
+      priceCurrency: 'COP',
+    },
+  };
+
   return (
     <html
       lang="es"
       className={`dark ${geistSans.variable} ${geistMono.variable} ${sora.variable} h-full antialiased`}
     >
       <body className="h-full font-sans">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(structuredData).replace(/</g, '\\u003c'),
+          }}
+        />
         <QueryProvider>
           <AuthProvider>
             <PrivacyProvider>
