@@ -28,7 +28,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   applicationName: SITE_NAME,
   title: {
-    default: `${SITE_NAME} | Finanzas personales con propósito`,
+    default: `${SITE_NAME} | Finanzas de la mano de Dios`,
     template: `%s | ${SITE_NAME}`,
   },
   description: SITE_DESCRIPTION,
@@ -38,6 +38,8 @@ export const metadata: Metadata = {
     'control de gastos',
     'gestión de dinero',
     'finanzas Colombia',
+    'finanzas cristianas',
+    'Dios provee',
   ],
   alternates: {
     canonical: '/',
@@ -47,13 +49,13 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'es_CO',
     siteName: SITE_NAME,
-    title: `${SITE_NAME} | Finanzas personales con propósito`,
+    title: `${SITE_NAME} | Finanzas de la mano de Dios`,
     description: SITE_DESCRIPTION,
     url: '/',
   },
   twitter: {
     card: 'summary_large_image',
-    title: `${SITE_NAME} | Finanzas personales con propósito`,
+    title: `${SITE_NAME} | Finanzas de la mano de Dios`,
     description: SITE_DESCRIPTION,
   },
   appleWebApp: {

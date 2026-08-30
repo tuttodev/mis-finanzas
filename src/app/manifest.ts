@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'Jireh Finanzas',
     short_name: 'Jireh',
-    description: 'Gestiona tus finanzas personales: cuentas, gastos y presupuestos.',
+    description: 'Organiza tus finanzas personales con sabiduría, gratitud y confianza en que Dios provee.',
     start_url: '/',
     display: 'standalone',
     background_color: '#0b0f17',

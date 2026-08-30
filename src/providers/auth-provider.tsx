@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
+import { usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { WelcomeScreen } from '@/components/auth/login-screen';
 
@@ -19,6 +20,7 @@ export function useAuth() {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -45,6 +47,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
     };
   }, [session]);
+
+  // The story page is intentionally public so it can be read before signing in.
+  if (pathname === '/sobre-jireh') return children;
 
   // Render the public welcome page on the server and during hydration. Besides
   // avoiding a blank first paint, this makes the landing-page content available

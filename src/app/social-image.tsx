@@ -54,10 +54,10 @@ export function createSocialImage() {
 
         <div style={{ display: 'flex', flex: 1, flexDirection: 'column', justifyContent: 'center', maxWidth: '820px' }}>
           <div style={{ color: '#e9ba53', display: 'flex', fontSize: 24, fontWeight: 600, marginBottom: '20px' }}>
-            TUS FINANZAS, CON PROPÓSITO
+            FINANZAS PERSONALES DE LA MANO DE DIOS
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', fontSize: 72, fontWeight: 700, letterSpacing: '-3px', lineHeight: 1.08 }}>
-            Ordena tu dinero. Vive con calma.
+            Dios provee. Administra con sabiduría.
           </div>
         </div>
 
@@ -74,7 +74,7 @@ export function createSocialImage() {
           }}
         >
           <div style={{ background: '#3ecf8e', borderRadius: '50%', display: 'flex', height: '14px', width: '14px' }} />
-          Registra tus movimientos, visualiza tus presupuestos y alcanza tus metas.
+          Administra tus recursos con fe, claridad y gratitud.
         </div>
       </div>
     ),

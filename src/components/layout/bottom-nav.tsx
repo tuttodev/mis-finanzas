@@ -3,7 +3,17 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { CalendarCheck, Home, Landmark, LogOut, PieChart, Plus, Tag, Tags } from 'lucide-react';
+import {
+  CalendarCheck,
+  CircleHelp,
+  Home,
+  Landmark,
+  LogOut,
+  PieChart,
+  Plus,
+  Tag,
+  Tags,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/providers/auth-provider';
 
@@ -14,6 +24,7 @@ const tabs = [
   { href: '/categories', label: 'Categorías', icon: Tags, exact: false, prefix: '/categor' },
   { href: '/tags', label: 'Etiquetas', icon: Tag, exact: false, prefix: '/tag' },
   { href: '/budgets', label: 'Presupuestos', icon: PieChart, exact: false, prefix: '/budget' },
+  { href: '/sobre-jireh', label: 'Jireh', icon: CircleHelp, exact: true, prefix: '/sobre-jireh' },
 ] as const;
 
 function isActive(pathname: string, tab: (typeof tabs)[number]) {

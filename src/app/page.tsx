@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowDownRight, ArrowUpRight, Eye, EyeOff } from 'lucide-react';
+import { ArrowDownRight, ArrowRight, ArrowUpRight, Eye, EyeOff, Heart } from 'lucide-react';
 import { usePrivacy } from '@/providers/privacy-provider';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorState } from '@/components/error-state';
@@ -89,6 +89,7 @@ export default function DashboardPage() {
             })()}
           </p>
           <h1 className="text-2xl font-bold">Resumen</h1>
+          <p className="mt-1 text-xs text-muted-foreground">Un paso a la vez, con fe y sabiduría.</p>
         </div>
         <button
           onClick={toggle}
@@ -98,6 +99,25 @@ export default function DashboardPage() {
           {hidden ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
         </button>
       </header>
+
+      <Link
+        href="/sobre-jireh"
+        className="group flex items-center gap-4 rounded-2xl border border-primary/20 bg-primary/10 p-4 transition-colors hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
+          <Heart className="h-5 w-5" aria-hidden="true" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold">¿Por qué Jireh?</span>
+          <span className="mt-0.5 block text-xs text-muted-foreground">
+            Conoce la historia y el propósito detrás de esta app.
+          </span>
+        </span>
+        <ArrowRight
+          className="h-5 w-5 shrink-0 text-primary transition-transform group-hover:translate-x-0.5"
+          aria-hidden="true"
+        />
+      </Link>
 
       {/* Balances remain separate by currency to avoid implying an exchange rate. */}
       <section className="rounded-2xl border border-border bg-card p-5">
