@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
-import { LoginScreen } from '@/components/auth/login-screen';
+import { WelcomeScreen } from '@/components/auth/login-screen';
 
 type AuthContextValue = {
   session: Session;
@@ -47,6 +47,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [session]);
 
   if (loading) return null;
-  if (!session || !value) return <LoginScreen />;
+  if (!session || !value) return <WelcomeScreen />;
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
