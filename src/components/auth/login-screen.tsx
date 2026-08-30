@@ -140,10 +140,11 @@ export function WelcomeScreen() {
           </div>
         </section>
 
-        <section className="grid gap-3 pb-8 sm:grid-cols-3 sm:pb-10">
+        <section className="grid gap-3 pb-8 sm:grid-cols-2 lg:grid-cols-4 sm:pb-10">
           {[
             'Registra ingresos, gastos y transferencias.',
             'Visualiza tus cuentas y presupuestos en un solo lugar.',
+            'Tus datos son tuyos: descarga tus movimientos en CSV cuando quieras.',
             'Instálala gratis y ábrela desde tu pantalla de inicio.',
           ].map((feature) => (
             <div key={feature} className="flex items-start gap-2.5 rounded-xl border border-border bg-card/50 p-3 text-sm text-muted-foreground">
