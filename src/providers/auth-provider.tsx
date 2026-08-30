@@ -5,6 +5,7 @@ import type { Session } from '@supabase/supabase-js';
 import { usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { WelcomeScreen } from '@/components/auth/login-screen';
+import posthog from 'posthog-js';
 
 type AuthContextValue = {
   session: Session;
@@ -27,12 +28,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
+      if (data.session) posthog.identify(data.session.user.id);
       setLoading(false);
     });
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    } = supabase.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession);
+      if (nextSession) {
+        posthog.identify(nextSession.user.id);
+      } else if (event === 'SIGNED_OUT') {
+        posthog.reset();
+      }
     });
     return () => subscription.unsubscribe();
   }, []);

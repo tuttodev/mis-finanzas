@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowRight, Check, Download, HandHeart, Loader2, Mail, Target, WalletCards } from 'lucide-react';
+import { ArrowRight, Check, Download, HandHeart, Loader2, Mail, Menu, Target, WalletCards, X } from 'lucide-react';
 import { FcGoogle } from 'react-icons/fc';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
@@ -35,26 +35,75 @@ export function WelcomeScreen() {
       <div className="pointer-events-none absolute -top-32 right-[-8rem] -z-10 h-80 w-80 rounded-full bg-primary/10 blur-3xl" />
 
       <div className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col">
-        <header className="flex items-center justify-between py-5 sm:py-7">
-          <div className="flex items-center gap-2.5">
-            <Image
-              src="/logo.png"
-              alt="Jireh Finanzas"
-              width={38}
-              height={38}
-              className="object-contain"
-              priority
-            />
-            <span className="font-display text-lg font-semibold tracking-tight">Jireh Finanzas</span>
+        <header className="relative z-10 py-5 sm:py-7">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:gap-6">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <Image
+                src="/logo.png"
+                alt="Jireh Finanzas"
+                width={38}
+                height={38}
+                className="size-8 object-contain sm:size-[38px]"
+                priority
+              />
+              <span className="truncate font-display text-base font-semibold tracking-tight sm:text-lg">Jireh Finanzas</span>
+            </div>
+            <nav className="hidden items-center justify-center gap-7 lg:flex" aria-label="Información sobre Jireh Finanzas">
+              <Link
+                href="/sobre-jireh"
+                className="inline-flex whitespace-nowrap items-center gap-2 text-sm font-semibold text-primary underline-offset-4 transition-colors hover:text-primary/80 hover:underline"
+              >
+                Conoce por qué nació Jireh Finanzas
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+              <Link
+                href="/fundador"
+                className="inline-flex whitespace-nowrap items-center gap-2 text-sm font-semibold text-primary underline-offset-4 transition-colors hover:text-primary/80 hover:underline"
+              >
+                Conoce a nuestro fundador
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+            </nav>
+            <div className="flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={handleGoogleSignIn}
+                disabled={googleSubmitting}
+                className="shrink-0 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+              >
+                Iniciar sesión
+              </button>
+              <details className="group relative lg:hidden">
+                <summary
+                  aria-label="Abrir menú de navegación"
+                  className="grid size-9 cursor-pointer list-none place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden"
+                >
+                  <Menu className="size-5 group-open:hidden" aria-hidden="true" />
+                  <X className="hidden size-5 group-open:block" aria-hidden="true" />
+                </summary>
+                <nav
+                  id="public-navigation"
+                  className="absolute top-[calc(100%+0.75rem)] right-0 hidden w-72 gap-1 rounded-2xl border border-border bg-card p-2 shadow-xl shadow-black/20 group-open:grid"
+                  aria-label="Información sobre Jireh Finanzas"
+                >
+                  <Link
+                    href="/sobre-jireh"
+                    className="flex items-center justify-between gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    Conoce por qué nació Jireh Finanzas
+                    <ArrowRight className="size-4 shrink-0" aria-hidden="true" />
+                  </Link>
+                  <Link
+                    href="/fundador"
+                    className="flex items-center justify-between gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    Conoce a nuestro fundador
+                    <ArrowRight className="size-4 shrink-0" aria-hidden="true" />
+                  </Link>
+                </nav>
+              </details>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={handleGoogleSignIn}
-            disabled={googleSubmitting}
-            className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
-          >
-            Iniciar sesión
-          </button>
         </header>
 
         <section className="grid flex-1 items-center gap-12 py-10 sm:py-16 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
@@ -69,23 +118,6 @@ export function WelcomeScreen() {
             <p className="mt-6 max-w-lg text-base leading-7 text-muted-foreground sm:text-lg">
               Jireh Finanzas te acompaña a cuidar los recursos que recibes, ordenar tus movimientos y avanzar con fe, gratitud y claridad hacia tus metas.
             </p>
-            <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2">
-              <Link
-                href="/sobre-jireh"
-                className="inline-flex items-center gap-2 text-sm font-semibold text-primary underline-offset-4 transition-colors hover:text-primary/80 hover:underline"
-              >
-                Conoce por qué nació Jireh Finanzas
-                <ArrowRight className="h-4 w-4" aria-hidden="true" />
-              </Link>
-              <Link
-                href="/fundador"
-                className="inline-flex items-center gap-2 text-sm font-semibold text-primary underline-offset-4 transition-colors hover:text-primary/80 hover:underline"
-              >
-                Conoce a nuestro fundador
-                <ArrowRight className="h-4 w-4" aria-hidden="true" />
-              </Link>
-            </div>
-
             <div className="mt-8 max-w-sm">
               <Button
                 type="button"

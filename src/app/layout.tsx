@@ -6,6 +6,7 @@ import { AuthProvider } from "@/providers/auth-provider";
 import { PrivacyProvider } from "@/providers/privacy-provider";
 import { AppShell } from "@/components/layout/app-shell";
 import { ServiceWorkerRegister } from "@/components/pwa/sw-register";
+import { PageViewTracker } from "@/components/analytics/page-view-tracker";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 import "./globals.css";
 
@@ -107,6 +108,7 @@ export default function RootLayout({
           }}
         />
         <QueryProvider>
+          <PageViewTracker />
           <AuthProvider>
             <PrivacyProvider>
               <AppShell>{children}</AppShell>

@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Code2, Heart, MessageCircle, Play, UsersRound } from 'lucide-react';
+import { Code2, Heart, UsersRound } from 'lucide-react';
+import { FaWhatsapp, FaYoutube } from 'react-icons/fa';
 import { SITE_NAME } from '@/lib/site';
 
 export const metadata: Metadata = {
@@ -19,16 +20,10 @@ const whatsappUrl =
 export default function FounderPage() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-7 sm:py-10">
-      <header className="mb-7 flex items-center justify-between px-1 sm:mb-10">
+      <header className="mb-7 px-1 sm:mb-10">
         <Link href="/" className="flex items-center gap-2.5" aria-label="Ir al inicio de Jireh Finanzas">
           <Image src="/logo.png" alt="" width={34} height={34} className="object-contain" priority />
           <span className="font-display text-lg font-semibold tracking-tight">Jireh Finanzas</span>
-        </Link>
-        <Link
-          href="/"
-          className="rounded-lg px-3 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/10"
-        >
-          Ingresar
         </Link>
       </header>
 
@@ -95,7 +90,7 @@ export default function FounderPage() {
             rel="noreferrer"
             className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-primary underline-offset-4 hover:underline"
           >
-            <Play className="h-4 w-4" aria-hidden="true" />
+            <FaYoutube className="h-4 w-4 text-[#ff0000]" aria-hidden="true" />
             Visitar canal tuttodev
           </a>
         </article>
@@ -111,7 +106,7 @@ export default function FounderPage() {
       </section>
 
       <section className="mt-6 rounded-3xl border border-primary/20 bg-primary/10 p-6 text-center sm:p-8" aria-labelledby="contact-title">
-        <MessageCircle className="mx-auto h-6 w-6 text-primary" aria-hidden="true" />
+        <FaWhatsapp className="mx-auto h-7 w-7 text-[#25D366]" aria-hidden="true" />
         <h2 id="contact-title" className="mt-3 font-display text-2xl font-bold tracking-tight">
           ¿Quieres hablar conmigo?
         </h2>
@@ -123,9 +118,9 @@ export default function FounderPage() {
           href={whatsappUrl}
           target="_blank"
           rel="noreferrer"
-          className="mt-5 inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+          className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#25D366] px-5 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90"
         >
-          <MessageCircle className="h-4 w-4" aria-hidden="true" />
+          <FaWhatsapp className="h-5 w-5" aria-hidden="true" />
           WhatsApp · +57 320 964 5371
         </a>
       </section>
