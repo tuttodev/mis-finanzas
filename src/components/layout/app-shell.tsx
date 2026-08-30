@@ -10,7 +10,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {children}
       </main>
       <BottomNav />
-      <FeedbackDialog />
+      <FeedbackDialog surface="mobile" />
     </div>
   );
 }

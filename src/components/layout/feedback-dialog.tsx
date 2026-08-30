@@ -9,7 +9,9 @@ import { createFeedback } from '@/services/finance';
 import { usePathname } from 'next/navigation';
 import { analyticsPage, captureAnalytics } from '@/lib/analytics';
 
-export function FeedbackDialog() {
+type FeedbackSurface = 'mobile' | 'desktop';
+
+export function FeedbackDialog({ surface = 'mobile' }: { surface?: FeedbackSurface }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState('');
@@ -35,30 +37,32 @@ export function FeedbackDialog() {
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
-      <button
-        type="button"
-        onClick={() => {
-          captureAnalytics('feedback_opened', { surface: 'mobile' });
-          setOpen(true);
-        }}
-        aria-label="Enviar feedback"
-        title="Enviar feedback"
-        className="fixed bottom-[calc(env(safe-area-inset-bottom)+5rem)] left-4 z-40 flex h-12 w-12 items-center justify-center rounded-full border border-border bg-card text-primary shadow-lg transition-transform active:scale-95 md:hidden"
-      >
-        <MessageSquare className="h-5 w-5" />
-      </button>
-
-      <button
-        type="button"
-        onClick={() => {
-          captureAnalytics('feedback_opened', { surface: 'desktop' });
-          setOpen(true);
-        }}
-        className="fixed bottom-16 left-3 z-50 hidden w-[calc(15rem-1.5rem)] items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary/50 hover:text-foreground md:flex"
-      >
-        <MessageSquare className="h-4 w-4" />
-        Enviar feedback
-      </button>
+      {surface === 'mobile' ? (
+        <button
+          type="button"
+          onClick={() => {
+            captureAnalytics('feedback_opened', { surface });
+            setOpen(true);
+          }}
+          aria-label="Enviar feedback"
+          title="Enviar feedback"
+          className="fixed bottom-[calc(env(safe-area-inset-bottom)+5rem)] left-4 z-40 flex h-12 w-12 items-center justify-center rounded-full border border-border bg-card text-primary shadow-lg transition-transform active:scale-95 md:hidden"
+        >
+          <MessageSquare className="h-5 w-5" />
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => {
+            captureAnalytics('feedback_opened', { surface });
+            setOpen(true);
+          }}
+          className="hidden w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary/50 hover:text-foreground md:flex"
+        >
+          <MessageSquare className="h-4 w-4" />
+          Enviar feedback
+        </button>
+      )}
 
       <DialogPrimitive.Portal>
         <DialogPrimitive.Backdrop className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm" />

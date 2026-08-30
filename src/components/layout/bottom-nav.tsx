@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/providers/auth-provider';
+import { FeedbackDialog } from './feedback-dialog';
 
 const tabs = [
   { href: '/app', label: 'Inicio', icon: Home, exact: true },
@@ -187,7 +188,10 @@ export function BottomNav() {
             Nueva transacción
           </Link>
         </nav>
-        <div className="mt-auto border-t border-border p-3">
+        <div className="mt-auto px-3 pb-2">
+          <FeedbackDialog surface="desktop" />
+        </div>
+        <div className="border-t border-border p-3">
           <p className="truncate px-2 text-xs text-muted-foreground">
             {session.user.email ?? 'Cuenta conectada'}
           </p>
