@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, Check, Download, HandHeart, Loader2, Mail, Menu, Target, WalletCards, X } from 'lucide-react';
 import { FcGoogle } from 'react-icons/fc';
+import { FaInstagram } from 'react-icons/fa';
 import { supabase } from '@/lib/supabase';
 import { captureAnalytics } from '@/lib/analytics';
 import { Button } from '@/components/ui/button';
@@ -370,6 +371,16 @@ export function WelcomeScreen() {
             >
               <Mail className="size-4 text-[#EA4335]" aria-hidden="true" />
               soportejirehfinanzas@gmail.com
+            </a>
+            <a
+              href="https://www.instagram.com/jirehfinanzas/"
+              target="_blank"
+              rel="noreferrer"
+              onClick={() => captureAnalytics('support_contact_clicked', { channel: 'instagram' })}
+              className="inline-flex items-center gap-2 text-primary transition-colors hover:text-primary/80"
+            >
+              <FaInstagram className="size-4 text-[#E4405F]" aria-hidden="true" />
+              Instagram · @jirehfinanzas
             </a>
           </div>
         </footer>
