@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PageHeader } from '@/components/layout/page-header';
 import { Skeleton } from '@/components/ui/skeleton';
-import { formatCOP, parseCurrencyInput, todayIsoDate } from '@/lib/formatters';
+import { formatCurrency, parseCurrencyInput, todayIsoDate } from '@/lib/formatters';
 import { createTransfer, fetchAccountsOverview } from '@/services/finance';
 import type { Account, AccountType } from '@/types/finance';
 
@@ -59,7 +59,7 @@ function AccountPicker({ accounts, selectedId, disabledId, onSelect }: AccountPi
             <span className="min-w-0">
               <span className="block break-words text-sm font-semibold leading-snug">{account.name}</span>
               <span className="tabular block text-xs text-muted-foreground">
-                {formatCOP(account.currentBalance)}
+                {formatCurrency(account.currentBalance, account.currency)}
               </span>
             </span>
           </button>
@@ -100,6 +100,13 @@ export function TransferForm({ initialFromAccountId = '' }: TransferFormProps) {
     () => accountsQuery.data?.find((account) => account.id === toAccountId) ?? null,
     [accountsQuery.data, toAccountId],
   );
+  const selectableFromAccounts = (accountsQuery.data ?? []).filter(
+    (account) => !toAccount || account.currency === toAccount.currency,
+  );
+  const selectableToAccounts = (accountsQuery.data ?? []).filter(
+    (account) => !fromAccount || account.currency === fromAccount.currency,
+  );
+  const transferCurrency = fromAccount?.currency ?? toAccount?.currency ?? 'COP';
 
   const parsedAmount = parseCurrencyInput(amount);
 
@@ -142,15 +149,16 @@ export function TransferForm({ initialFromAccountId = '' }: TransferFormProps) {
       <div className="space-y-4">
         <div className="rounded-2xl border border-border bg-card p-5">
           <Label htmlFor="amount" className="text-xs text-muted-foreground">
-            Monto en pesos colombianos
+            Monto en {transferCurrency === 'USD' ? 'dólares estadounidenses' : 'pesos colombianos'}
           </Label>
           <CurrencyInput
             id="amount"
             variant="prominent"
+            currency={transferCurrency}
             value={amount}
             onValueChange={setAmount}
             placeholder="0,00"
-            aria-label="Monto en pesos colombianos (COP)"
+            aria-label={`Monto en ${transferCurrency}`}
           />
 
           <div className="mt-4 space-y-3">
@@ -210,10 +218,15 @@ export function TransferForm({ initialFromAccountId = '' }: TransferFormProps) {
                 Cuenta de la que sale el dinero.
               </p>
               <AccountPicker
-                accounts={accountsQuery.data ?? []}
+                accounts={selectableFromAccounts}
                 selectedId={fromAccountId}
                 disabledId={toAccountId}
-                onSelect={setFromAccountId}
+                onSelect={(accountId) => {
+                  setFromAccountId(accountId);
+                  if (toAccount && accountsQuery.data?.find((account) => account.id === accountId)?.currency !== toAccount.currency) {
+                    setToAccountId('');
+                  }
+                }}
               />
             </div>
 
@@ -223,10 +236,15 @@ export function TransferForm({ initialFromAccountId = '' }: TransferFormProps) {
                 Cuenta a la que entra el dinero.
               </p>
               <AccountPicker
-                accounts={accountsQuery.data ?? []}
+                accounts={selectableToAccounts}
                 selectedId={toAccountId}
                 disabledId={fromAccountId}
-                onSelect={setToAccountId}
+                onSelect={(accountId) => {
+                  setToAccountId(accountId);
+                  if (fromAccount && accountsQuery.data?.find((account) => account.id === accountId)?.currency !== fromAccount.currency) {
+                    setFromAccountId('');
+                  }
+                }}
               />
             </div>
           </>

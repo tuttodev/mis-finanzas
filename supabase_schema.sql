@@ -4,6 +4,7 @@ create table accounts (
   id uuid primary key default gen_random_uuid(),
   name text not null check (char_length(trim(name)) between 1 and 80),
   type text not null default 'cash' check (type in ('savings', 'credit', 'cash')),
+  currency text not null default 'COP' check (currency in ('COP', 'USD')),
   created_at timestamptz not null default now()
 );
 
@@ -95,6 +96,36 @@ create index idx_transactions_transfer on transactions (transfer_id) where trans
 create index idx_transactions_related on transactions (related_transaction_id)
 where related_transaction_id is not null;
 create index idx_budget_cycles_budget on budget_cycles (budget_id, started_at desc);
+
+create function enforce_transfer_currency()
+returns trigger
+language plpgsql
+as $$
+declare
+  source_currency text;
+  paired_currency text;
+begin
+  if new.transfer_id is null then return new; end if;
+
+  select currency into source_currency from accounts where id = new.account_id;
+  select accounts.currency into paired_currency
+  from transactions
+  join accounts on accounts.id = transactions.account_id
+  where transactions.transfer_id = new.transfer_id and transactions.id <> new.id
+  limit 1;
+
+  if paired_currency is not null and source_currency <> paired_currency then
+    raise exception 'Transfers must use accounts with the same currency';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger transactions_enforce_transfer_currency
+before insert or update of account_id, transfer_id on transactions
+for each row execute function enforce_transfer_currency();
+
+revoke all on function enforce_transfer_currency() from public;
 
 create table tags (
   id uuid primary key default gen_random_uuid(),

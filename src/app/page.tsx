@@ -15,7 +15,7 @@ import { TransferBadge } from '@/components/finance/transfer-badge';
 import { RefundBadge } from '@/components/finance/refund-badge';
 import { PlanningBadge } from '@/components/finance/planning-badge';
 import { TagBadge } from '@/components/finance/tag-badge';
-import { formatCOP, formatShortDate } from '@/lib/formatters';
+import { formatCOP, formatCurrency, formatShortDate } from '@/lib/formatters';
 import { fetchBudgetProgressList, fetchDashboardData } from '@/services/finance';
 
 const CHART_COLORS = [
@@ -99,18 +99,25 @@ export default function DashboardPage() {
         </button>
       </header>
 
-      {/* Hero: total balance */}
+      {/* Balances remain separate by currency to avoid implying an exchange rate. */}
       <section className="rounded-2xl border border-border bg-card p-5">
-        <p className="text-sm text-muted-foreground">Balance total</p>
-        <p className="tabular mt-1 bg-gradient-to-r from-primary to-foreground bg-clip-text font-display text-4xl font-bold text-transparent">
-          {hidden ? '••••••' : formatCOP(data.totalBalance)}
-        </p>
+        <p className="text-sm text-muted-foreground">Patrimonio por moneda</p>
+        <div className="mt-1 grid gap-2 sm:grid-cols-2">
+          {data.balancesByCurrency.map(({ currency, balance }) => (
+            <div key={currency}>
+              <p className="text-xs font-medium text-muted-foreground">{currency}</p>
+              <p className="tabular bg-gradient-to-r from-primary to-foreground bg-clip-text font-display text-3xl font-bold text-transparent">
+                {hidden ? '••••••' : formatCurrency(balance, currency)}
+              </p>
+            </div>
+          ))}
+        </div>
 
         <div className="mt-4 grid grid-cols-2 gap-3">
           <div className="rounded-xl bg-secondary/60 p-3">
             <p className="flex items-center gap-1 text-xs text-muted-foreground">
               <ArrowUpRight className="h-3.5 w-3.5 text-income" />
-              Ingresos del mes
+              Ingresos del mes · COP
             </p>
             <p className="tabular mt-1 font-display text-lg font-semibold text-income">
               {hidden ? '••••••' : formatCOP(data.monthIncome)}
@@ -119,7 +126,7 @@ export default function DashboardPage() {
           <div className="rounded-xl bg-secondary/60 p-3">
             <p className="flex items-center gap-1 text-xs text-muted-foreground">
               <ArrowDownRight className="h-3.5 w-3.5 text-expense" />
-              Gastos del mes
+              Gastos del mes · COP
             </p>
             <p className="tabular mt-1 font-display text-lg font-semibold text-expense">
               {hidden ? '••••••' : formatCOP(data.monthExpense)}
@@ -131,7 +138,7 @@ export default function DashboardPage() {
       {/* Daily spending trend */}
       <section className="rounded-2xl border border-border bg-card p-5">
         <h2 className="text-base font-semibold">Gasto diario</h2>
-        <p className="mb-3 text-xs text-muted-foreground">Últimos 30 días</p>
+        <p className="mb-3 text-xs text-muted-foreground">Últimos 30 días · COP</p>
         {data.dailySpend.some((d) => d.value > 0) ? (
           <SpendArea data={data.dailySpend} />
         ) : (
@@ -145,7 +152,7 @@ export default function DashboardPage() {
       <section className="rounded-2xl border border-border bg-card p-5">
         <h2 className="text-base font-semibold">Flujo mensual</h2>
         <p className="mb-3 text-xs text-muted-foreground">
-          Ingresos y gastos de los últimos 6 meses
+          Ingresos y gastos de los últimos 6 meses · COP
         </p>
         {data.cashflow.some((m) => m.income > 0 || m.expense > 0) ? (
           <CashflowBars data={data.cashflow} />
@@ -159,7 +166,7 @@ export default function DashboardPage() {
       {/* Spending by category */}
       <section className="rounded-2xl border border-border bg-card p-5">
         <h2 className="text-base font-semibold">Gasto por categoría</h2>
-        <p className="mb-3 text-xs text-muted-foreground">Mes actual</p>
+        <p className="mb-3 text-xs text-muted-foreground">Mes actual · COP</p>
         {categorySlices.length ? (
           <DonutChart data={categorySlices} centerLabel="Total gastado" />
         ) : (
@@ -228,7 +235,7 @@ export default function DashboardPage() {
                   {hidden ? '••••••' : (
                     <>
                       {tx.amount >= 0 ? '+' : '−'}
-                      {formatCOP(Math.abs(tx.amount))}
+                      {formatCurrency(Math.abs(tx.amount), tx.currency)}
                     </>
                   )}
                 </span>

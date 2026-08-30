@@ -141,6 +141,10 @@ export function TransactionForm({
     () => accountsQuery.data?.find((account) => account.id === selectedAccountId) ?? null,
     [accountsQuery.data, selectedAccountId],
   );
+  const selectedCurrency = selectedAccount?.currency ?? 'COP';
+  const originalTransactionCurrency = transaction
+    ? accountsQuery.data?.find((account) => account.id === transaction.accountId)?.currency
+    : null;
   const presetCategoryId =
     categoriesQuery.data?.find((category) => category.slug === 'savings-interest')?.id ?? '';
   const effectiveCategoryId =
@@ -206,11 +210,11 @@ export function TransactionForm({
         description: description.trim(),
         type,
         date,
-        budgetId: isExpense && selectedBudgetId ? selectedBudgetId : null,
+        budgetId: isExpense && selectedCurrency === 'COP' && selectedBudgetId ? selectedBudgetId : null,
         categoryId: effectiveCategoryId || null,
         isPlanned,
         tagIds: selectedTagIds,
-        planItemId: isExpense && planItemId ? planItemId : null,
+        planItemId: isExpense && selectedCurrency === 'COP' && planItemId ? planItemId : null,
       };
 
       if (transaction) {
@@ -319,16 +323,17 @@ export function TransactionForm({
 
         <div className="rounded-2xl border border-border bg-card p-5">
           <Label htmlFor="amount" className="text-xs text-muted-foreground">
-            Monto en pesos colombianos
+            Monto en {selectedCurrency === 'USD' ? 'dólares estadounidenses' : 'pesos colombianos'}
           </Label>
           <CurrencyInput
             id="amount"
             variant="prominent"
             sign={isExpense ? '−' : '+'}
+            currency={selectedCurrency}
             value={amount}
             onValueChange={setAmount}
             placeholder="0,00"
-            aria-label="Monto en pesos colombianos (COP)"
+            aria-label={`Monto en ${selectedCurrency}`}
             className={isExpense ? 'text-expense' : 'text-income'}
           />
 
@@ -392,7 +397,11 @@ export function TransactionForm({
           ) : (
             <div className={isSavingsInterest ? '' : 'grid grid-cols-2 gap-2'}>
               {accountsQuery.data
-                ?.filter((account) => !isSavingsInterest || account.id === initialAccountId)
+                ?.filter(
+                  (account) =>
+                    (!isSavingsInterest || account.id === initialAccountId)
+                    && (!originalTransactionCurrency || account.currency === originalTransactionCurrency),
+                )
                 .map((account) => {
                   const Icon = TYPE_ICONS[account.type] ?? Banknote;
                   const active = selectedAccountId === account.id;
@@ -401,7 +410,10 @@ export function TransactionForm({
                       key={account.id}
                       type="button"
                       onClick={() => {
-                        if (!isSavingsInterest) setSelectedAccountId(account.id);
+                        if (!isSavingsInterest) {
+                          setSelectedAccountId(account.id);
+                          if (account.currency !== 'COP') setSelectedBudgetId('');
+                        }
                       }}
                       disabled={isSavingsInterest}
                       className={`flex items-center gap-2.5 rounded-xl border p-3 text-left transition-colors ${
@@ -420,7 +432,7 @@ export function TransactionForm({
                           {account.name}
                         </span>
                         <span className="block text-xs text-muted-foreground">
-                          {account.type}
+                          {account.type} · {account.currency}
                         </span>
                       </span>
                     </button>
@@ -729,7 +741,7 @@ export function TransactionForm({
           )}
         </div>
 
-        {isExpense && (
+        {isExpense && selectedCurrency === 'COP' && (
           <div className="rounded-2xl border border-border bg-card p-5">
             <h3 className="mb-1 text-sm font-semibold">Presupuesto</h3>
             <p className="mb-3 text-xs text-muted-foreground">

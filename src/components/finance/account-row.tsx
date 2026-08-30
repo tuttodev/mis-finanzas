@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Banknote, CreditCard, PiggyBank } from 'lucide-react';
-import { formatCOP } from '@/lib/formatters';
+import { formatCurrency } from '@/lib/formatters';
 import type { Account, AccountType } from '@/types/finance';
 
 const TYPE_ICONS: Record<AccountType, typeof PiggyBank> = {
@@ -30,7 +30,7 @@ export function AccountRow({ account, hidden }: { account: Account; hidden?: boo
             account.currentBalance < 0 ? 'text-expense' : 'text-foreground'
           }`}
         >
-          {hidden ? '••••••' : formatCOP(account.currentBalance)}
+          {hidden ? '••••••' : formatCurrency(account.currentBalance, account.currency)}
         </span>
       </div>
     </Link>

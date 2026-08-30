@@ -1,9 +1,19 @@
-export const copFormatter = new Intl.NumberFormat('es-CO', {
-  style: 'currency',
-  currency: 'COP',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
+import type { Currency } from '@/types/finance';
+
+const currencyFormatters: Record<Currency, Intl.NumberFormat> = {
+  COP: new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }),
+  USD: new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }),
+};
 
 export const shortDateFormatter = new Intl.DateTimeFormat('es-CO', {
   day: 'numeric',
@@ -27,7 +37,11 @@ export const longDateFormatter = new Intl.DateTimeFormat('es-CO', {
 });
 
 export function formatCOP(value: number) {
-  return copFormatter.format(value);
+  return formatCurrency(value, 'COP');
+}
+
+export function formatCurrency(value: number, currency: Currency) {
+  return currencyFormatters[currency].format(value);
 }
 
 export function formatCOPInput(value: string | number) {

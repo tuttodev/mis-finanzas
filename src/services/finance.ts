@@ -4,6 +4,7 @@ import type {
   Account,
   AccountDTO,
   AccountType,
+  Currency,
   AdjustAccountBalanceInput,
   Budget,
   BudgetCycle,
@@ -96,6 +97,7 @@ function mapAccount(
     id: dto.id,
     name: dto.name,
     type,
+    currency: dto.currency,
     currentBalance,
     debtAmount: type === 'Crédito' ? Math.max(0, creditLimit - currentBalance) : 0,
   };
@@ -336,6 +338,7 @@ export async function createAccount(input: CreateAccountInput): Promise<Account>
   const payload: InsertAccountDTO = {
     name,
     type: mapAccountTypeToDatabase(input.type),
+    currency: input.currency,
   };
 
   const { data, error } = await supabase
@@ -471,6 +474,12 @@ export async function createTransaction(input: CreateTransactionInput) {
   if (input.type === 'Gasto' && !input.categoryId) {
     throw new Error('Selecciona una categoría');
   }
+  if (input.account.currency !== 'COP' && input.budgetId) {
+    throw new Error('Los movimientos en USD no se pueden asignar a presupuestos en COP');
+  }
+  if (input.account.currency !== 'COP' && input.planItemId) {
+    throw new Error('Los movimientos en USD no se pueden vincular a partidas planeadas en COP');
+  }
 
   let budgetCycleId: string | null = null;
   if (input.type === 'Gasto' && input.budgetId) {
@@ -593,6 +602,9 @@ export async function createTransfer(input: CreateTransferInput) {
   if (input.fromAccount.id === input.toAccount.id) {
     throw new Error('Selecciona cuentas diferentes');
   }
+  if (input.fromAccount.currency !== input.toAccount.currency) {
+    throw new Error('Las transferencias solo están disponibles entre cuentas de la misma moneda');
+  }
 
   const transferId = crypto.randomUUID();
   const payload: InsertTransactionDTO[] = [
@@ -662,6 +674,12 @@ export async function updateTransaction(
   if (normalizedAmount <= 0) throw new Error('Ingresa un monto válido');
   if (input.type === 'Gasto' && !input.categoryId) {
     throw new Error('Selecciona una categoría');
+  }
+  if (input.account.currency !== 'COP' && input.budgetId) {
+    throw new Error('Los movimientos en USD no se pueden asignar a presupuestos en COP');
+  }
+  if (input.account.currency !== 'COP' && input.planItemId) {
+    throw new Error('Los movimientos en USD no se pueden vincular a partidas planeadas en COP');
   }
 
   let budgetCycleId: string | null = null;
@@ -966,7 +984,15 @@ export async function fetchDashboardData(): Promise<DashboardData> {
 
   const transactions = ensure(txResult.data as TransactionDTO[] | null, txResult.error);
   const accountNames = new Map(accounts.map((account) => [account.id, account.name]));
-  const totalBalance = accounts.reduce((sum, account) => sum + account.currentBalance, 0);
+  const accountsById = new Map(accounts.map((account) => [account.id, account]));
+  const balancesByCurrency = (['COP', 'USD'] as Currency[])
+    .map((currency) => ({
+      currency,
+      balance: accounts
+        .filter((account) => account.currency === currency)
+        .reduce((sum, account) => sum + account.currentBalance, 0),
+    }))
+    .filter(({ currency }) => accounts.some((account) => account.currency === currency));
 
   const cashflow: MonthlyCashflow[] = [];
   const monthIndex = new Map<string, number>();
@@ -994,6 +1020,9 @@ export async function fetchDashboardData(): Promise<DashboardData> {
   const categoryTotals = new Map<string, number>();
 
   for (const tx of transactions) {
+    // Budgets and dashboard charts are denominated in COP. USD is tracked in its
+    // own account balance and is intentionally never mixed into these metrics.
+    if (accountsById.get(tx.account_id)?.currency !== 'COP') continue;
     // Transfers move money between own accounts; they are not income nor expense
     if (tx.transfer_id) continue;
 
@@ -1046,10 +1075,11 @@ export async function fetchDashboardData(): Promise<DashboardData> {
   const recentTransactions: TransactionWithAccount[] = recentDtos.map((dto) => ({
     ...mapTransaction(dto, categories, transactionTags.get(dto.id)),
     accountName: accountNames.get(dto.account_id) ?? 'Cuenta desconocida',
+    currency: accountsById.get(dto.account_id)?.currency ?? 'COP',
   }));
 
   return {
-    totalBalance,
+    balancesByCurrency,
     monthIncome: currentMonth.income,
     monthExpense: currentMonth.expense,
     cashflow,

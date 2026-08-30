@@ -1,5 +1,5 @@
-import { formatCOP, formatShortDate } from '@/lib/formatters';
-import type { Transaction } from '@/types/finance';
+import { formatCurrency, formatShortDate } from '@/lib/formatters';
+import type { Currency, Transaction } from '@/types/finance';
 
 import { CategoryBadge } from './category-badge';
 import { TransferBadge } from './transfer-badge';
@@ -9,11 +9,12 @@ import { TagBadge } from './tag-badge';
 
 type TransactionRowProps = {
   transaction: Transaction;
+  currency?: Currency;
   onClick?: () => void;
   hideDate?: boolean;
 };
 
-export function TransactionRow({ transaction, onClick, hideDate }: TransactionRowProps) {
+export function TransactionRow({ transaction, currency = 'COP', onClick, hideDate }: TransactionRowProps) {
   const hasMeta =
     transaction.categoryName ||
     transaction.tags.length > 0 ||
@@ -45,7 +46,7 @@ export function TransactionRow({ transaction, onClick, hideDate }: TransactionRo
         }`}
       >
         {transaction.amount >= 0 ? '+' : '−'}
-        {formatCOP(Math.abs(transaction.amount))}
+        {formatCurrency(Math.abs(transaction.amount), currency)}
       </span>
     </div>
   );

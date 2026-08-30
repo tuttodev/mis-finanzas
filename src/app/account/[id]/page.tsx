@@ -15,7 +15,7 @@ import { ErrorState } from '@/components/error-state';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { PageHeader } from '@/components/layout/page-header';
 import { SpendArea, type SpendPoint } from '@/components/charts/spend-area';
-import { formatCOP, formatDateGroupLabel } from '@/lib/formatters';
+import { formatCurrency, formatDateGroupLabel } from '@/lib/formatters';
 import {
   deleteTransaction,
   fetchAccountTransactions,
@@ -143,7 +143,7 @@ export default function AccountDetailPage({
 
   return (
     <div className="mx-auto max-w-2xl p-4">
-      <PageHeader title={account.name} subtitle={account.type} backHref="/accounts" />
+      <PageHeader title={account.name} subtitle={`${account.type} · ${account.currency}`} backHref="/accounts" />
 
       <div className="space-y-4">
         <div className="rounded-2xl border border-border bg-card p-5">
@@ -155,7 +155,7 @@ export default function AccountDetailPage({
               account.currentBalance < 0 ? 'text-expense' : 'text-foreground'
             }`}
           >
-            {formatCOP(account.currentBalance)}
+            {formatCurrency(account.currentBalance, account.currency)}
           </p>
 
           {account.type === 'Ahorros' && (
@@ -165,7 +165,7 @@ export default function AccountDetailPage({
                 Intereses ganados
               </span>
               <span className="tabular text-sm font-bold text-income">
-                {formatCOP(interestEarned)}
+                {formatCurrency(interestEarned, account.currency)}
               </span>
             </div>
           )}
@@ -234,7 +234,7 @@ export default function AccountDetailPage({
                         <div key={transaction.id} className="flex items-center gap-2">
                           {transaction.transferId ? (
                             <div className="min-w-0 flex-1">
-                              <TransactionRow transaction={transaction} hideDate />
+                              <TransactionRow transaction={transaction} currency={account.currency} hideDate />
                             </div>
                           ) : (
                             <Link
@@ -243,7 +243,7 @@ export default function AccountDetailPage({
                               className="flex min-w-0 flex-1 items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             >
                               <div className="min-w-0 flex-1">
-                                <TransactionRow transaction={transaction} hideDate />
+                                <TransactionRow transaction={transaction} currency={account.currency} hideDate />
                               </div>
                               <Pencil className="h-4 w-4 shrink-0 text-muted-foreground" />
                             </Link>

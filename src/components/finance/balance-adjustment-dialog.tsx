@@ -18,7 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { formatCOP, formatCOPInput, parseCurrencyInput, roundCurrencyAmount, todayIsoDate } from '@/lib/formatters';
+import { formatCurrency, formatCOPInput, parseCurrencyInput, roundCurrencyAmount, todayIsoDate } from '@/lib/formatters';
 import { adjustAccountBalance } from '@/services/finance';
 import type { Account } from '@/types/finance';
 
@@ -58,7 +58,7 @@ export function BalanceAdjustmentDialog({ account, className }: BalanceAdjustmen
       await queryClient.invalidateQueries();
       toast.success(
         targetNumber !== null
-          ? `Saldo ajustado exitosamente a ${formatCOP(targetNumber)}`
+          ? `Saldo ajustado exitosamente a ${formatCurrency(targetNumber, account.currency)}`
           : 'Saldo ajustado exitosamente',
       );
       setOpen(false);
@@ -104,7 +104,7 @@ export function BalanceAdjustmentDialog({ account, className }: BalanceAdjustmen
             <div className="rounded-xl border border-border bg-secondary/40 p-3.5">
               <p className="text-xs font-medium text-muted-foreground">Saldo registrado en la app</p>
               <p className="tabular mt-0.5 font-display text-xl font-bold">
-                {formatCOP(account.currentBalance)}
+                {formatCurrency(account.currentBalance, account.currency)}
               </p>
             </div>
 
@@ -114,6 +114,7 @@ export function BalanceAdjustmentDialog({ account, className }: BalanceAdjustmen
                 id="target-balance"
                 value={targetValue}
                 onValueChange={setTargetValue}
+                currency={account.currency}
                 placeholder="0"
                 autoFocus
               />
@@ -141,8 +142,8 @@ export function BalanceAdjustmentDialog({ account, className }: BalanceAdjustmen
                     {difference === 0
                       ? 'El saldo ingresado es igual al registrado.'
                       : difference > 0
-                        ? `Diferencia: +${formatCOP(difference)}`
-                        : `Diferencia: -${formatCOP(Math.abs(difference))}`}
+                        ? `Diferencia: +${formatCurrency(difference, account.currency)}`
+                        : `Diferencia: -${formatCurrency(Math.abs(difference), account.currency)}`}
                   </p>
                   <p className="opacity-90">
                     {difference === 0

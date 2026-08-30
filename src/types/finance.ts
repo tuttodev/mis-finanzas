@@ -1,4 +1,5 @@
 export type AccountType = 'Ahorros' | 'Crédito' | 'Efectivo';
+export type Currency = 'COP' | 'USD';
 export type TransactionType = 'Ingreso' | 'Gasto';
 export type TransactionKind = 'regular' | 'refund';
 
@@ -30,12 +31,14 @@ export type AccountDTO = {
   id: string;
   name: string;
   type: string;
+  currency: Currency;
   created_at?: string | null;
 };
 
 export type InsertAccountDTO = {
   name: string;
   type: 'savings' | 'credit' | 'cash';
+  currency: Currency;
 };
 
 export type InsertExpenseCategoryDTO = {
@@ -124,6 +127,7 @@ export type Account = {
   id: string;
   name: string;
   type: AccountType;
+  currency: Currency;
   currentBalance: number;
   debtAmount: number;
 };
@@ -225,6 +229,7 @@ export type BudgetSnapshotDetail = {
 
 export type TransactionWithAccount = Transaction & {
   accountName: string;
+  currency: Currency;
 };
 
 export type MonthlyCashflow = {
@@ -244,7 +249,7 @@ export type CategorySpending = {
 };
 
 export type DashboardData = {
-  totalBalance: number;
+  balancesByCurrency: Array<{ currency: Currency; balance: number }>;
   monthIncome: number;
   monthExpense: number;
   cashflow: MonthlyCashflow[];
@@ -292,6 +297,7 @@ export type UpdateRefundInput = CreateRefundInput;
 export type CreateAccountInput = {
   name: string;
   type: AccountType;
+  currency: Currency;
 };
 
 export type AdjustAccountBalanceInput = {

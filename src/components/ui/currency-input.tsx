@@ -1,6 +1,7 @@
 import * as React from 'react';
 
 import { formatCOPInput } from '@/lib/formatters';
+import type { Currency } from '@/types/finance';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 
@@ -12,12 +13,14 @@ type CurrencyInputProps = Omit<
   onValueChange: (value: string) => void;
   sign?: '+' | '−';
   variant?: 'default' | 'prominent';
+  currency?: Currency;
 };
 
 function CurrencyInput({
   className,
   onValueChange,
   sign,
+  currency = 'COP',
   value,
   variant = 'default',
   ...props
@@ -57,7 +60,7 @@ function CurrencyInput({
           isProminent && 'right-0',
         )}
       >
-        COP
+        {currency}
       </span>
     </div>
   );

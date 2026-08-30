@@ -9,7 +9,7 @@ import { AccountRow } from '@/components/finance/account-row';
 import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';
 import { PageHeader } from '@/components/layout/page-header';
-import { formatCOP } from '@/lib/formatters';
+import { formatCurrency } from '@/lib/formatters';
 import { fetchAccountsOverview } from '@/services/finance';
 import { usePrivacy } from '@/providers/privacy-provider';
 
@@ -21,8 +21,14 @@ export default function AccountsPage() {
 
   const { hidden, toggle } = usePrivacy();
 
-  const total =
-    accountsQuery.data?.reduce((sum, account) => sum + account.currentBalance, 0) ?? 0;
+  const balancesByCurrency = (['COP', 'USD'] as const)
+    .map((currency) => ({
+      currency,
+      balance: accountsQuery.data
+        ?.filter((account) => account.currency === currency)
+        .reduce((sum, account) => sum + account.currentBalance, 0) ?? 0,
+    }))
+    .filter(({ currency }) => accountsQuery.data?.some((account) => account.currency === currency));
 
   return (
     <div className="mx-auto max-w-2xl p-4">
@@ -58,10 +64,17 @@ export default function AccountsPage() {
       ) : accountsQuery.data?.length ? (
         <div className="space-y-3">
           <div className="rounded-2xl border border-border bg-card p-5">
-            <p className="text-sm text-muted-foreground">Patrimonio total</p>
-            <p className="tabular mt-1 font-display text-3xl font-bold">
-              {hidden ? '••••••' : formatCOP(total)}
-            </p>
+            <p className="text-sm text-muted-foreground">Patrimonio por moneda</p>
+            <div className="mt-1 grid gap-2 sm:grid-cols-2">
+              {balancesByCurrency.map(({ currency, balance }) => (
+                <div key={currency}>
+                  <p className="text-xs font-medium text-muted-foreground">{currency}</p>
+                  <p className="tabular font-display text-2xl font-bold">
+                    {hidden ? '••••••' : formatCurrency(balance, currency)}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
 
           <div className="rounded-2xl border border-border bg-card px-4 py-2">

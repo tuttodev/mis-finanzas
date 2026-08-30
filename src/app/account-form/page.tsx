@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PageHeader } from '@/components/layout/page-header';
 import { createAccount } from '@/services/finance';
-import type { AccountType } from '@/types/finance';
+import type { AccountType, Currency } from '@/types/finance';
 
 const ACCOUNT_TYPES: Array<{
   type: AccountType;
@@ -27,9 +27,10 @@ export default function AccountFormPage() {
   const queryClient = useQueryClient();
   const [name, setName] = useState('');
   const [type, setType] = useState<AccountType>('Ahorros');
+  const [currency, setCurrency] = useState<Currency>('COP');
 
   const mutation = useMutation({
-    mutationFn: () => createAccount({ name, type }),
+    mutationFn: () => createAccount({ name, type, currency }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['accounts'] });
       await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
@@ -96,6 +97,34 @@ export default function AccountFormPage() {
                         {option.description}
                       </span>
                     </span>
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend className="text-sm font-medium">Moneda</legend>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {([
+                { code: 'COP', label: 'Pesos colombianos' },
+                { code: 'USD', label: 'Dólares estadounidenses' },
+              ] as const).map((option) => {
+                const active = currency === option.code;
+                return (
+                  <button
+                    key={option.code}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => setCurrency(option.code)}
+                    className={`rounded-xl border p-3 text-left transition-colors ${
+                      active
+                        ? 'border-primary/60 bg-primary/10'
+                        : 'border-border hover:border-muted-foreground/40'
+                    }`}
+                  >
+                    <span className="block text-sm font-semibold">{option.code}</span>
+                    <span className="block text-xs text-muted-foreground">{option.label}</span>
                   </button>
                 );
               })}
