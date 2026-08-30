@@ -13,5 +13,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'yearly',
       priority: 0.6,
     },
+    {
+      url: new URL('/fundador', SITE_URL).toString(),
+      changeFrequency: 'yearly',
+      priority: 0.6,
+    },
   ];
 }

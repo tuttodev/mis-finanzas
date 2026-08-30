@@ -7,7 +7,7 @@ import { FeedbackDialog } from './feedback-dialog';
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
-  if (pathname === '/sobre-jireh') {
+  if (pathname === '/sobre-jireh' || pathname === '/fundador') {
     return <main className="min-h-dvh bg-background">{children}</main>;
   }
 

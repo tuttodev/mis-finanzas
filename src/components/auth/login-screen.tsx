@@ -69,13 +69,22 @@ export function WelcomeScreen() {
             <p className="mt-6 max-w-lg text-base leading-7 text-muted-foreground sm:text-lg">
               Jireh Finanzas te acompaña a cuidar los recursos que recibes, ordenar tus movimientos y avanzar con fe, gratitud y claridad hacia tus metas.
             </p>
-            <Link
-              href="/sobre-jireh"
-              className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-primary underline-offset-4 transition-colors hover:text-primary/80 hover:underline"
-            >
-              Conoce por qué nació Jireh Finanzas
-              <ArrowRight className="h-4 w-4" aria-hidden="true" />
-            </Link>
+            <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2">
+              <Link
+                href="/sobre-jireh"
+                className="inline-flex items-center gap-2 text-sm font-semibold text-primary underline-offset-4 transition-colors hover:text-primary/80 hover:underline"
+              >
+                Conoce por qué nació Jireh Finanzas
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+              <Link
+                href="/fundador"
+                className="inline-flex items-center gap-2 text-sm font-semibold text-primary underline-offset-4 transition-colors hover:text-primary/80 hover:underline"
+              >
+                Conoce a nuestro fundador
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+            </div>
 
             <div className="mt-8 max-w-sm">
               <Button

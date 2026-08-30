@@ -2,14 +2,58 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { BookOpen, Download, HandHeart, Heart, Sparkles, Unlock } from 'lucide-react';
-import { SITE_NAME } from '@/lib/site';
+import { SITE_NAME, SITE_URL } from '@/lib/site';
+
+const pageTitle = '¿Por qué Jireh?';
+const pageDescription =
+  'Conoce qué significa Jireh, “el Señor proveerá”, y el propósito de Jireh Finanzas: organizar tus recursos con fe, sabiduría y libertad.';
 
 export const metadata: Metadata = {
-  title: 'Acerca de Jireh',
-  description:
-    'Conoce el significado de Jireh y el propósito de Jireh Finanzas: administrar con sabiduría los recursos que Dios provee.',
+  title: pageTitle,
+  description: pageDescription,
+  keywords: [
+    'qué significa Jireh',
+    'Jireh significado',
+    'Jehová Jireh',
+    'Dios proveerá',
+    'Génesis 22:14',
+    'finanzas cristianas',
+    'finanzas personales con fe',
+    'administración financiera cristiana',
+    'Jireh Finanzas',
+  ],
   alternates: {
     canonical: '/sobre-jireh',
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+    },
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'es_CO',
+    siteName: SITE_NAME,
+    title: `${pageTitle} | ${SITE_NAME}`,
+    description: pageDescription,
+    url: '/sobre-jireh',
+    images: [
+      {
+        url: '/sobre-jireh/opengraph-image',
+        width: 1200,
+        height: 630,
+        alt: '¿Por qué Jireh? Dios provee; administra con sabiduría.',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: `${pageTitle} | ${SITE_NAME}`,
+    description: pageDescription,
+    images: ['/sobre-jireh/opengraph-image'],
   },
 };
 
@@ -32,18 +76,44 @@ const principles = [
 ];
 
 export default function AboutJirehPage() {
+  const structuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'AboutPage',
+    '@id': `${SITE_URL}/sobre-jireh#webpage`,
+    url: `${SITE_URL}/sobre-jireh`,
+    name: `${pageTitle} | ${SITE_NAME}`,
+    description: pageDescription,
+    inLanguage: 'es-CO',
+    isPartOf: {
+      '@type': 'WebSite',
+      name: SITE_NAME,
+      url: SITE_URL,
+    },
+    about: [
+      {
+        '@type': 'Thing',
+        name: 'Jireh',
+        description: 'Jireh significa “el Señor proveerá” y se relaciona con Génesis 22:14.',
+      },
+      {
+        '@type': 'Thing',
+        name: 'Finanzas personales con fe',
+      },
+    ],
+  };
+
   return (
     <div className="mx-auto max-w-2xl px-4 py-7 sm:py-10">
-      <header className="mb-7 flex items-center justify-between px-1 sm:mb-10">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(structuredData).replace(/</g, '\\u003c'),
+        }}
+      />
+      <header className="mb-7 flex items-center px-1 sm:mb-10">
         <Link href="/" className="flex items-center gap-2.5" aria-label="Ir al inicio de Jireh Finanzas">
           <Image src="/logo.png" alt="" width={34} height={34} className="object-contain" priority />
           <span className="font-display text-lg font-semibold tracking-tight">Jireh Finanzas</span>
-        </Link>
-        <Link
-          href="/"
-          className="rounded-lg px-3 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/10"
-        >
-          Ingresar
         </Link>
       </header>
 
@@ -160,6 +230,23 @@ export default function AboutJirehPage() {
       <blockquote className="mt-6 rounded-2xl border-l-4 border-primary bg-primary/10 px-5 py-4 text-[15px] leading-7 text-foreground">
         “Dios provee; tú administras los recursos que Él te ha dado.”
       </blockquote>
+
+      <section className="mt-6 rounded-3xl border border-border bg-card p-6 sm:p-8" aria-labelledby="founder-title">
+        <p className="text-sm font-semibold text-primary">Las personas detrás de la app</p>
+        <h2 id="founder-title" className="mt-1 text-2xl font-bold">
+          Conoce a nuestro fundador y su familia
+        </h2>
+        <p className="mt-3 text-[15px] leading-7 text-muted-foreground">
+          Te compartimos quiénes somos, el corazón con el que creamos Jireh Finanzas y cómo puedes
+          comunicarte directamente con nosotros.
+        </p>
+        <Link
+          href="/fundador"
+          className="mt-5 inline-flex text-sm font-semibold text-primary underline-offset-4 hover:underline"
+        >
+          Conocer nuestra historia
+        </Link>
+      </section>
     </div>
   );
 }

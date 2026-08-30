@@ -48,8 +48,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [session]);
 
-  // The story page is intentionally public so it can be read before signing in.
-  if (pathname === '/sobre-jireh') return children;
+  // These pages are intentionally public so they can be read before signing in.
+  if (pathname === '/sobre-jireh' || pathname === '/fundador') return children;
 
   // Render the public welcome page on the server and during hydration. Besides
   // avoiding a blank first paint, this makes the landing-page content available
