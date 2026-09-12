@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Label } from '@/components/ui/label';
 import {
   AlertDialog,
@@ -147,22 +147,20 @@ export function TransactionExportDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="export-from-date">Desde</Label>
-              <Input
+              <DatePicker
                 id="export-from-date"
-                type="date"
                 value={fromDate}
                 max={toDate || undefined}
-                onChange={(event) => setFromDate(event.target.value)}
+                onChange={setFromDate}
               />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="export-to-date">Hasta</Label>
-              <Input
+              <DatePicker
                 id="export-to-date"
-                type="date"
                 value={toDate}
                 min={fromDate || undefined}
-                onChange={(event) => setToDate(event.target.value)}
+                onChange={setToDate}
               />
             </div>
           </div>

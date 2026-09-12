@@ -6,7 +6,6 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
   CalendarCheck,
-  CircleHelp,
   Home,
   Landmark,
   LogOut,
@@ -28,7 +27,6 @@ const tabs = [
   { href: '/app/categories', label: 'Categorías', icon: Tags, exact: false, prefix: '/app/categor' },
   { href: '/app/tags', label: 'Etiquetas', icon: Tag, exact: false, prefix: '/app/tag' },
   { href: '/app/budgets', label: 'Presupuestos', icon: PieChart, exact: false, prefix: '/app/budget' },
-  { href: '/sobre-jireh', label: 'Jireh', icon: CircleHelp, exact: true, prefix: '/sobre-jireh' },
 ] as const;
 
 const mobileTabs = tabs.slice(0, 3);

@@ -7,7 +7,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Pencil, RotateCcw, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BudgetMovementRow } from '@/components/finance/budget-movement-row';
@@ -224,12 +224,11 @@ export default function BudgetDetailPage({
       >
         <div className="pt-1">
           <Label htmlFor="restart-date">Inicio del nuevo ciclo</Label>
-          <Input
+          <DatePicker
             id="restart-date"
-            type="date"
             className="mt-1 h-10"
             value={restartDate}
-            onChange={(e) => setRestartDate(e.target.value)}
+            onChange={setRestartDate}
           />
         </div>
       </ConfirmDialog>

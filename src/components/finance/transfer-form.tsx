@@ -7,6 +7,7 @@ import { Banknote, Calendar, CreditCard, PiggyBank } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { CurrencyInput } from '@/components/ui/currency-input';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PageHeader } from '@/components/layout/page-header';
@@ -194,12 +195,11 @@ export function TransferForm({ initialFromAccountId = '' }: TransferFormProps) {
                     {chip.label}
                   </button>
                 ))}
-                <Input
+                <DatePicker
                   id="date"
-                  type="date"
                   className="h-11 flex-1 font-semibold"
                   value={date}
-                  onChange={(event) => setDate(event.target.value)}
+                  onChange={setDate}
                 />
               </div>
             </div>

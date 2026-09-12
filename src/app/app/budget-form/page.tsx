@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { CurrencyInput } from '@/components/ui/currency-input';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PageHeader } from '@/components/layout/page-header';
@@ -102,12 +103,11 @@ function BudgetForm() {
           {!id && (
             <div>
               <Label htmlFor="startedAt">Inicio del ciclo</Label>
-              <Input
+              <DatePicker
                 id="startedAt"
-                type="date"
                 className="mt-1 h-10"
                 value={startedAt}
-                onChange={(e) => setStartedAt(e.target.value)}
+                onChange={setStartedAt}
               />
               <p className="mt-1 text-xs text-muted-foreground">
                 Los gastos cuentan para el presupuesto desde esta fecha.

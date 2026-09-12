@@ -4,12 +4,65 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, Check, Download, HandHeart, Loader2, Mail, Menu, Target, WalletCards, X } from 'lucide-react';
+import {
+  ArrowRight,
+  Check,
+  Download,
+  Landmark,
+  Loader2,
+  Mail,
+  Menu,
+  PiggyBank,
+  ReceiptText,
+  ShieldCheck,
+  Sparkles,
+  Target,
+  TrendingUp,
+  UsersRound,
+  WalletCards,
+  X,
+} from 'lucide-react';
 import { FcGoogle } from 'react-icons/fc';
 import { FaInstagram } from 'react-icons/fa';
 import { supabase } from '@/lib/supabase';
 import { captureAnalytics } from '@/lib/analytics';
 import { Button } from '@/components/ui/button';
+
+const benefits = [
+  {
+    icon: ReceiptText,
+    title: 'Todo gasto tiene su lugar',
+    description: 'Registra movimientos y entiende en qué se va el dinero del hogar.',
+  },
+  {
+    icon: Target,
+    title: 'Presupuestos que sí funcionan',
+    description: 'Define límites claros por categoría y ajusta el plan a tu realidad.',
+  },
+  {
+    icon: PiggyBank,
+    title: 'Metas visibles para todos',
+    description: 'Convierte el ahorro en avances concretos que tu familia puede celebrar.',
+  },
+];
+
+const steps = [
+  {
+    icon: Landmark,
+    title: 'Agrega tus cuentas',
+    description: 'Reúne efectivo, bancos y demás saldos en una sola vista.',
+  },
+  {
+    icon: ReceiptText,
+    title: 'Registra lo que entra y sale',
+    description: 'Clasifica cada movimiento para entender tus hábitos.',
+  },
+  {
+    icon: TrendingUp,
+    title: 'Ajusta y avanza',
+    description: 'Revisa tu presupuesto y enfoca el dinero en lo que importa.',
+  },
+];
 
 export function WelcomeScreen() {
   const router = useRouter();
@@ -42,61 +95,54 @@ export function WelcomeScreen() {
     }
   }
 
-  return (
-    <main className="relative isolate min-h-dvh overflow-hidden px-5 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:px-8">
-      <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[31rem] bg-[radial-gradient(ellipse_at_top,rgba(233,186,83,0.15),transparent_62%)]" />
-      <div className="pointer-events-none absolute -top-32 right-[-8rem] -z-10 h-80 w-80 rounded-full bg-primary/10 blur-3xl" />
+  function trackSection(destination: string) {
+    captureAnalytics('public_navigation_selected', { destination, surface: 'mobile' });
+    setMobileMenuOpen(false);
+  }
 
-      <div className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col">
+  return (
+    <main className="relative isolate min-h-dvh overflow-hidden bg-[#080d19] px-5 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] text-[#f7f8fb] sm:px-8">
+      <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[46rem] bg-[radial-gradient(ellipse_at_top_left,rgba(75,166,255,0.18),transparent_48%),radial-gradient(ellipse_at_top_right,rgba(233,186,83,0.14),transparent_50%)]" />
+      <div className="pointer-events-none absolute left-1/2 top-80 -z-10 h-72 w-72 -translate-x-1/2 rounded-full bg-[#4ba6ff]/10 blur-3xl" />
+
+      <div className="mx-auto flex min-h-dvh w-full max-w-6xl flex-col">
         <header className="relative z-10 py-5 sm:py-7">
-          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:gap-6">
-            <div className="flex min-w-0 items-center gap-2.5">
-              <Image
-                src="/logo.png"
-                alt="Jireh Finanzas"
-                width={38}
-                height={38}
-                className="size-8 object-contain sm:size-[38px]"
-                priority
-              />
+          <div className="flex items-center justify-between gap-6">
+            <Link href="/" className="flex min-w-0 items-center gap-2.5" aria-label="Jireh Finanzas, inicio">
+              <span className="grid size-10 place-items-center rounded-2xl border border-white/10 bg-white/5 shadow-lg shadow-black/20">
+                <Image
+                  src="/logo.png"
+                  alt=""
+                  width={36}
+                  height={36}
+                  className="size-7 object-contain"
+                  priority
+                />
+              </span>
               <span className="truncate font-display text-base font-semibold tracking-tight sm:text-lg">Jireh Finanzas</span>
-            </div>
-            <nav className="hidden items-center justify-center gap-7 lg:flex" aria-label="Información sobre Jireh Finanzas">
-              <Link
-                href="/sobre-jireh"
-                onClick={() =>
-                  captureAnalytics('public_navigation_selected', {
-                    destination: '/sobre-jireh',
-                    surface: 'desktop',
-                  })
-                }
-                className="inline-flex whitespace-nowrap items-center gap-2 text-sm font-semibold text-primary underline-offset-4 transition-colors hover:text-primary/80 hover:underline"
-              >
-                Conoce por qué nació Jireh Finanzas
-                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
+
+            <nav className="hidden items-center gap-8 lg:flex" aria-label="Navegación principal">
+              <Link href="#beneficios" className="text-sm font-medium text-white/60 transition-colors hover:text-white">
+                Lo que puedes hacer
               </Link>
-              <Link
-                href="/fundador"
-                onClick={() =>
-                  captureAnalytics('public_navigation_selected', {
-                    destination: '/fundador',
-                    surface: 'desktop',
-                  })
-                }
-                className="inline-flex whitespace-nowrap items-center gap-2 text-sm font-semibold text-primary underline-offset-4 transition-colors hover:text-primary/80 hover:underline"
-              >
-                Conoce a nuestro fundador
-                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              <Link href="#como-funciona" className="text-sm font-medium text-white/60 transition-colors hover:text-white">
+                Cómo funciona
+              </Link>
+              <Link href="#instalar" className="text-sm font-medium text-white/60 transition-colors hover:text-white">
+                Instalar la app
               </Link>
             </nav>
+
             <div className="flex items-center justify-end">
               <button
                 type="button"
                 onClick={() => handleGoogleSignIn('header')}
                 disabled={googleSubmitting}
-                className="hidden shrink-0 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-50 lg:inline-flex"
+                className="hidden h-10 items-center gap-2 rounded-full border border-white/12 bg-white/5 px-5 text-sm font-semibold transition-colors hover:bg-white/10 disabled:pointer-events-none disabled:opacity-50 lg:inline-flex"
               >
                 Iniciar sesión
+                <ArrowRight className="size-4" aria-hidden="true" />
               </button>
               <button
                 type="button"
@@ -107,7 +153,7 @@ export function WelcomeScreen() {
                   captureAnalytics('public_menu_opened');
                   setMobileMenuOpen(true);
                 }}
-                className="grid size-9 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:hidden"
+                className="grid size-10 place-items-center rounded-xl border border-white/10 bg-white/5 text-white/70 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e9ba53] lg:hidden"
               >
                 <Menu className="size-5" aria-hidden="true" />
               </button>
@@ -121,267 +167,281 @@ export function WelcomeScreen() {
               type="button"
               aria-label="Cerrar menú"
               onClick={() => setMobileMenuOpen(false)}
-              className="absolute inset-0 bg-background/70 backdrop-blur-sm"
+              className="absolute inset-0 bg-[#080d19]/80 backdrop-blur-sm"
             />
-            <aside className="absolute inset-y-0 right-0 flex w-full flex-col bg-background px-5 pt-[calc(env(safe-area-inset-top)+1.25rem)] pb-[calc(env(safe-area-inset-bottom)+1.25rem)] shadow-2xl shadow-black/40 animate-in slide-in-from-right duration-300 sm:max-w-md sm:border-l sm:border-border sm:px-8">
+            <aside className="absolute inset-y-0 right-0 flex w-full flex-col border-l border-white/10 bg-[#0d1423] px-5 pt-[calc(env(safe-area-inset-top)+1.25rem)] pb-[calc(env(safe-area-inset-bottom)+1.25rem)] shadow-2xl shadow-black/50 animate-in slide-in-from-right duration-300 sm:max-w-md sm:px-8">
               <div className="flex items-center justify-between">
-                <span className="font-display text-lg font-semibold">Menú</span>
+                <span className="font-display text-lg font-semibold">Explora Jireh</span>
                 <button
                   type="button"
                   aria-label="Cerrar menú de navegación"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="grid size-10 place-items-center rounded-xl text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="grid size-10 place-items-center rounded-xl text-white/60 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e9ba53]"
                 >
                   <X className="size-5" aria-hidden="true" />
                 </button>
               </div>
 
-              <nav id="mobile-public-navigation" className="mt-10 grid gap-2" aria-label="Información sobre Jireh Finanzas">
-                <Link
-                  href="/sobre-jireh"
-                  onClick={() => {
-                    captureAnalytics('public_navigation_selected', {
-                      destination: '/sobre-jireh',
-                      surface: 'mobile',
-                    });
-                    setMobileMenuOpen(false);
-                  }}
-                  className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-4 text-base font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  Conoce por qué nació Jireh Finanzas
-                  <ArrowRight className="size-5 shrink-0" aria-hidden="true" />
-                </Link>
-                <Link
-                  href="/fundador"
-                  onClick={() => {
-                    captureAnalytics('public_navigation_selected', {
-                      destination: '/fundador',
-                      surface: 'mobile',
-                    });
-                    setMobileMenuOpen(false);
-                  }}
-                  className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-4 text-base font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  Conoce a nuestro fundador
-                  <ArrowRight className="size-5 shrink-0" aria-hidden="true" />
-                </Link>
+              <nav id="mobile-public-navigation" className="mt-10 grid gap-2" aria-label="Navegación principal">
+                {[
+                  ['Lo que puedes hacer', '#beneficios'],
+                  ['Cómo funciona', '#como-funciona'],
+                  ['Instalar la app', '#instalar'],
+                ].map(([label, href]) => (
+                  <Link
+                    key={href}
+                    href={href}
+                    onClick={() => trackSection(href)}
+                    className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-base font-semibold transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e9ba53]"
+                  >
+                    {label}
+                    <ArrowRight className="size-5 shrink-0 text-[#e9ba53]" aria-hidden="true" />
+                  </Link>
+                ))}
               </nav>
 
-              <div className="mt-auto border-t border-border pt-6">
+              <div className="mt-auto border-t border-white/10 pt-6">
                 <Button
                   type="button"
                   size="lg"
-                  className="h-12 w-full rounded-xl text-base font-semibold"
+                  className="h-12 w-full rounded-xl bg-[#e9ba53] text-base font-semibold text-[#171104] hover:bg-[#f4c765]"
                   disabled={googleSubmitting}
                   onClick={() => handleGoogleSignIn('mobile_menu')}
                 >
                   {googleSubmitting ? <Loader2 className="size-4 animate-spin" /> : <FcGoogle className="size-5" />}
-                  {googleSubmitting ? 'Conectando…' : 'Iniciar sesión con Google'}
+                  {googleSubmitting ? 'Conectando…' : 'Continuar con Google'}
                 </Button>
-                <p className="mt-3 text-center text-xs text-muted-foreground">Empieza gratis con tu cuenta de Google.</p>
+                <p className="mt-3 text-center text-xs text-white/45">Gratis para empezar. Sin tarjeta de crédito.</p>
               </div>
             </aside>
           </div>
         )}
 
-        <section className="grid flex-1 items-center gap-12 py-10 sm:py-16 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
-          <div className="min-w-0 max-w-xl">
-            <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-              Finanzas personales de la mano de Dios
+        <section className="grid min-h-[calc(100dvh-6rem)] items-center gap-14 py-12 lg:grid-cols-[1.02fr_0.98fr] lg:gap-20 lg:py-16">
+          <div className="min-w-0 max-w-2xl">
+            <p className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#e9ba53]/25 bg-[#e9ba53]/10 px-3.5 py-2 text-sm font-medium text-[#f3cb75]">
+              <UsersRound className="size-4" aria-hidden="true" />
+              Finanzas claras para hogares reales
             </p>
-            <h1 className="font-display text-4xl font-semibold leading-[1.08] tracking-tight sm:text-5xl lg:text-6xl">
-              Dios provee. <span className="text-primary">Administra con sabiduría.</span>
+            <h1 className="font-display text-[clamp(2.75rem,7vw,5rem)] font-semibold leading-[0.98] tracking-[-0.055em]">
+              El dinero de tu familia,{' '}
+              <span className="bg-gradient-to-r from-[#f1c566] via-[#ffd98a] to-[#78c2ff] bg-clip-text text-transparent">
+                claro y bajo control.
+              </span>
             </h1>
-            <p className="mt-6 max-w-lg text-base leading-7 text-muted-foreground sm:text-lg">
-              Jireh Finanzas te acompaña a cuidar los recursos que recibes, ordenar tus movimientos y avanzar con fe, gratitud y claridad hacia tus metas.
+            <p className="mt-7 max-w-xl text-base leading-7 text-white/58 sm:text-lg sm:leading-8">
+              Organiza cuentas, gastos, presupuestos y metas en un solo lugar. Menos conversaciones difíciles sobre dinero; más decisiones en equipo.
             </p>
-            <div className="mt-8 max-w-sm">
+
+            <div className="mt-9 max-w-md">
               <Button
                 type="button"
                 size="lg"
-                className="h-auto min-h-12 w-full gap-2 whitespace-normal rounded-xl px-4 py-2 text-sm font-semibold shadow-lg shadow-primary/10 sm:h-12 sm:whitespace-nowrap sm:text-base"
+                className="h-13 w-full gap-2 rounded-2xl bg-[#e9ba53] px-5 text-base font-semibold text-[#171104] shadow-xl shadow-[#e9ba53]/10 hover:bg-[#f4c765] sm:w-auto"
                 disabled={googleSubmitting}
                 onClick={() => handleGoogleSignIn('hero')}
               >
                 {googleSubmitting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="size-4 animate-spin" />
                 ) : (
                   <span aria-hidden className="grid size-5 place-items-center rounded-full bg-white p-0.5">
                     <FcGoogle className="size-full" />
                   </span>
                 )}
-                <span className="min-w-0 text-center leading-5">
-                  {googleSubmitting ? 'Conectando…' : 'Registrarme o iniciar sesión con Google'}
-                </span>
-                {!googleSubmitting && <ArrowRight className="ml-0.5 h-4 w-4" />}
+                {googleSubmitting ? 'Conectando…' : 'Empezar gratis con Google'}
+                {!googleSubmitting && <ArrowRight className="size-4" aria-hidden="true" />}
               </Button>
-              <p className="mt-3 text-center text-xs text-muted-foreground">Empieza gratis con tu cuenta de Google.</p>
-              {error && <p className="mt-3 text-center text-sm text-destructive">{error}</p>}
+              <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-white/45">
+                <span className="inline-flex items-center gap-1.5"><Check className="size-3.5 text-[#6ed6ad]" /> Sin tarjeta</span>
+                <span className="inline-flex items-center gap-1.5"><ShieldCheck className="size-3.5 text-[#6ed6ad]" /> Tus datos son tuyos</span>
+              </div>
+              {error && <p className="mt-3 text-sm text-[#ff8d8d]">{error}</p>}
             </div>
           </div>
 
-          <div className="relative mx-auto w-full max-w-md lg:max-w-none">
-            <div className="absolute -inset-5 -z-10 rounded-[2.5rem] bg-primary/10 blur-2xl" />
-            <div className="rounded-3xl border border-border bg-card/90 p-5 shadow-2xl shadow-black/20 backdrop-blur sm:p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Disponible este mes</p>
-                  <p className="mt-1 font-display text-3xl font-semibold">$ 2.450.000</p>
+          <div className="relative mx-auto w-full max-w-xl lg:max-w-none">
+            <div className="absolute -inset-8 -z-10 rounded-[3rem] bg-gradient-to-br from-[#4ba6ff]/15 via-transparent to-[#e9ba53]/15 blur-3xl" />
+            <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-[#101827]/95 p-3 shadow-2xl shadow-black/40 backdrop-blur sm:p-4">
+              <div className="rounded-[1.45rem] border border-white/[0.07] bg-[#0b1120] p-5 sm:p-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm text-white/45">Panorama familiar · Septiembre</p>
+                    <p className="mt-2 font-display text-3xl font-semibold tracking-tight sm:text-4xl">$ 2.450.000</p>
+                    <p className="mt-1 text-xs text-[#6ed6ad]">Disponible para el resto del mes</p>
+                  </div>
+                  <div className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[#4ba6ff]/15 text-[#78c2ff]">
+                    <WalletCards className="size-5" aria-hidden="true" />
+                  </div>
                 </div>
-                <div className="grid size-11 place-items-center rounded-2xl bg-primary/15 text-primary">
-                  <WalletCards className="size-5" />
-                </div>
-              </div>
-              <div className="mt-6 h-28 rounded-2xl border border-border bg-secondary/50 p-4">
-                <div className="flex h-full items-end gap-2">
-                  {[34, 55, 42, 73, 58, 88, 66].map((height, index) => (
-                    <div
-                      key={index}
-                      className="flex-1 rounded-full bg-primary/25 first:bg-primary"
-                      style={{ height: `${height}%` }}
-                    />
+
+                <div className="mt-7 grid grid-cols-7 items-end gap-2" aria-label="Resumen visual del presupuesto semanal">
+                  {[48, 62, 39, 76, 57, 88, 68].map((height, index) => (
+                    <div key={index} className="flex h-24 items-end rounded-full bg-white/[0.04] p-1">
+                      <div
+                        className={`w-full rounded-full ${index === 5 ? 'bg-gradient-to-t from-[#e9ba53] to-[#ffe1a0]' : 'bg-[#4ba6ff]/45'}`}
+                        style={{ height: `${height}%` }}
+                      />
+                    </div>
                   ))}
                 </div>
-              </div>
-              <div className="mt-5 grid grid-cols-2 gap-3">
-                <div className="rounded-2xl bg-secondary/70 p-3.5">
-                  <p className="text-xs text-muted-foreground">Ingresos</p>
-                  <p className="mt-1 font-display text-base font-semibold text-income">+ $ 3.200.000</p>
-                </div>
-                <div className="rounded-2xl bg-secondary/70 p-3.5">
-                  <p className="text-xs text-muted-foreground">Gastos</p>
-                  <p className="mt-1 font-display text-base font-semibold text-foreground">$ 750.000</p>
-                </div>
-              </div>
-              <div className="mt-5 flex items-center gap-3 rounded-2xl border border-primary/15 bg-primary/10 p-3.5">
-                <div className="grid size-9 place-items-center rounded-xl bg-primary/20 text-primary">
-                  <Target className="size-4" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-3 text-xs">
-                    <span className="font-medium">Fondo de emergencia</span>
-                    <span className="text-primary">68%</span>
+
+                <div className="mt-6 grid grid-cols-2 gap-3">
+                  <div className="rounded-2xl border border-white/[0.06] bg-white/[0.035] p-4">
+                    <p className="text-xs text-white/45">Ingresos</p>
+                    <p className="mt-1.5 font-display text-base font-semibold text-[#6ed6ad]">+ $ 4.200.000</p>
                   </div>
-                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-background/70">
-                    <div className="h-full w-[68%] rounded-full bg-primary" />
+                  <div className="rounded-2xl border border-white/[0.06] bg-white/[0.035] p-4">
+                    <p className="text-xs text-white/45">Gastos</p>
+                    <p className="mt-1.5 font-display text-base font-semibold">$ 1.750.000</p>
+                  </div>
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-[#e9ba53]/15 bg-[#e9ba53]/[0.07] p-4">
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="inline-flex items-center gap-2 font-medium"><Target className="size-4 text-[#e9ba53]" /> Fondo de emergencia</span>
+                    <span className="font-semibold text-[#f1c566]">68%</span>
+                  </div>
+                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-black/25">
+                    <div className="h-full w-[68%] rounded-full bg-gradient-to-r from-[#e9ba53] to-[#ffd989]" />
                   </div>
                 </div>
               </div>
-              <div className="mt-3 flex items-center gap-2 text-xs leading-5 text-muted-foreground">
-                <HandHeart className="size-4 shrink-0 text-primary" />
-                Planifica con responsabilidad y confía en que Dios abre camino.
+
+              <div className="grid grid-cols-3 gap-2 px-2 pb-1 pt-3 text-center text-[11px] text-white/40 sm:text-xs">
+                <span>Un solo panorama</span>
+                <span>Decisiones simples</span>
+                <span>Metas en familia</span>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="grid gap-3 pb-8 sm:grid-cols-2 lg:grid-cols-4 sm:pb-10">
-          {[
-            'Ordena tus recursos con sabiduría y gratitud.',
-            'Visualiza tus cuentas y presupuestos en un solo lugar.',
-            'Avanza con fe hacia cada meta que Dios pone en tu corazón.',
-            'Tus datos son tuyos: llévalos contigo cuando quieras.',
-          ].map((feature) => (
-            <div key={feature} className="flex items-start gap-2.5 rounded-xl border border-border bg-card/50 p-3 text-sm text-muted-foreground">
-              <Check className="mt-0.5 size-4 shrink-0 text-primary" />
-              <span>{feature}</span>
+        <section id="beneficios" className="scroll-mt-24 border-t border-white/10 py-20 sm:py-24">
+          <div className="max-w-2xl">
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#78c2ff]">Menos enredos, más claridad</p>
+            <h2 className="mt-4 font-display text-3xl font-semibold tracking-tight sm:text-5xl">Una vista honesta de la vida financiera de tu hogar.</h2>
+            <p className="mt-5 text-base leading-7 text-white/55 sm:text-lg">Jireh convierte números dispersos en información que puedes entender y usar.</p>
+          </div>
+
+          <div className="mt-10 grid gap-4 lg:grid-cols-3">
+            {benefits.map(({ icon: Icon, title, description }, index) => (
+              <article key={title} className="group rounded-3xl border border-white/10 bg-white/[0.035] p-6 transition-colors hover:bg-white/[0.06] sm:p-7">
+                <div className="flex items-center justify-between">
+                  <div className={`grid size-11 place-items-center rounded-2xl ${index === 1 ? 'bg-[#e9ba53]/15 text-[#f1c566]' : index === 2 ? 'bg-[#6ed6ad]/15 text-[#6ed6ad]' : 'bg-[#4ba6ff]/15 text-[#78c2ff]'}`}>
+                    <Icon className="size-5" aria-hidden="true" />
+                  </div>
+                  <span className="font-mono text-xs text-white/25">0{index + 1}</span>
+                </div>
+                <h3 className="mt-7 font-display text-xl font-semibold">{title}</h3>
+                <p className="mt-3 text-sm leading-6 text-white/50 sm:text-base">{description}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section id="como-funciona" className="scroll-mt-24 py-10 sm:py-16">
+          <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.025] p-6 sm:p-10 lg:p-12">
+            <div className="grid gap-12 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
+              <div>
+                <p className="inline-flex items-center gap-2 text-sm font-semibold text-[#f1c566]"><Sparkles className="size-4" /> Simple desde el primer día</p>
+                <h2 className="mt-4 font-display text-3xl font-semibold tracking-tight sm:text-4xl">Tres pasos para empezar a decidir mejor.</h2>
+                <p className="mt-4 leading-7 text-white/50">No necesitas saber de contabilidad. Solo trae tus números; Jireh te ayuda a ponerlos en orden.</p>
+              </div>
+              <ol className="grid gap-3">
+                {steps.map(({ icon: StepIcon, title, description }, index) => (
+                  <li key={title} className="flex gap-4 rounded-2xl border border-white/[0.07] bg-[#0b1120]/60 p-4 sm:items-center sm:p-5">
+                    <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-white/[0.06] text-[#78c2ff]"><StepIcon className="size-5" aria-hidden="true" /></div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold"><span className="mr-2 text-[#e9ba53]">{index + 1}.</span>{title}</p>
+                      <p className="mt-1 text-sm leading-6 text-white/45">{description}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
             </div>
-          ))}
-        </section>
-
-        <section className="mb-8 rounded-3xl border border-border bg-card/70 p-5 sm:mb-10 sm:p-7">
-          <div className="max-w-xl">
-            <p className="inline-flex items-center gap-2 text-sm font-medium text-primary">
-              <Download className="size-4" />
-              Llévala contigo
-            </p>
-            <h2 className="mt-2 font-display text-2xl font-semibold tracking-tight sm:text-3xl">
-              Lleva Jireh Finanzas contigo, donde vayas.
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground sm:text-base">
-              No necesitas ir a una tienda: añádela a la pantalla de inicio y ábrela cuando quieras, como cualquier otra app.
-            </p>
-          </div>
-
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
-            <article className="rounded-2xl border border-border bg-secondary/40 p-4">
-              <h3 className="font-semibold">Android · Chrome</h3>
-              <ol className="mt-4 space-y-3 text-sm text-muted-foreground">
-                <li className="flex gap-3">
-                  <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary/15 text-xs font-semibold text-primary">1</span>
-                  <span className="min-w-0">Abre el menú de los tres puntos (⋮) en Chrome.</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary/15 text-xs font-semibold text-primary">2</span>
-                  <span className="min-w-0">
-                    Toca <strong className="font-medium text-foreground">Instalar app</strong> o{' '}
-                    <strong className="font-medium text-foreground">Agregar a pantalla principal</strong>.
-                  </span>
-                </li>
-              </ol>
-            </article>
-
-            <article className="rounded-2xl border border-border bg-secondary/40 p-4">
-              <h3 className="font-semibold">iPhone o iPad · Safari</h3>
-              <ol className="mt-4 space-y-3 text-sm text-muted-foreground">
-                <li className="flex gap-3">
-                  <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary/15 text-xs font-semibold text-primary">1</span>
-                  <span className="min-w-0">Toca el botón Compartir de Safari.</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary/15 text-xs font-semibold text-primary">2</span>
-                  <span className="min-w-0">
-                    Elige <strong className="font-medium text-foreground">Agregar a pantalla de inicio</strong> y confirma con{' '}
-                    <strong className="font-medium text-foreground">Agregar</strong>.
-                  </span>
-                </li>
-              </ol>
-            </article>
           </div>
         </section>
 
-        <footer className="border-t border-border py-6 text-center">
-          <p className="text-sm font-medium">¿Necesitas soporte técnico?</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Estamos aquí para ayudarte con lo que necesites.
-          </p>
-          <div className="mt-4 flex flex-col items-center justify-center gap-3 text-sm sm:flex-row sm:gap-5">
-            <a
-              href="https://wa.me/573209645371?text=Hola%2C%20necesito%20soporte%20t%C3%A9cnico."
-              target="_blank"
-              rel="noreferrer"
-              onClick={() => captureAnalytics('support_contact_clicked', { channel: 'whatsapp' })}
-              className="inline-flex items-center gap-2 text-primary transition-colors hover:text-primary/80"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-                className="size-4"
-                fill="#25D366"
-              >
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
-              </svg>
-              WhatsApp · +57 320 964 5371
-            </a>
-            <a
-              href="mailto:soportejirehfinanzas@gmail.com"
-              onClick={() => captureAnalytics('support_contact_clicked', { channel: 'email' })}
-              className="inline-flex items-center gap-2 text-primary transition-colors hover:text-primary/80"
-            >
-              <Mail className="size-4 text-[#EA4335]" aria-hidden="true" />
-              soportejirehfinanzas@gmail.com
-            </a>
-            <a
-              href="https://www.instagram.com/jirehfinanzas/"
-              target="_blank"
-              rel="noreferrer"
-              onClick={() => captureAnalytics('support_contact_clicked', { channel: 'instagram' })}
-              className="inline-flex items-center gap-2 text-primary transition-colors hover:text-primary/80"
-            >
-              <FaInstagram className="size-4 text-[#E4405F]" aria-hidden="true" />
-              Instagram · @jirehfinanzas
-            </a>
+        <section id="instalar" className="scroll-mt-24 py-20 sm:py-24">
+          <div className="grid gap-10 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
+            <div className="max-w-lg">
+              <p className="inline-flex items-center gap-2 text-sm font-semibold text-[#78c2ff]"><Download className="size-4" /> Siempre a la mano</p>
+              <h2 className="mt-4 font-display text-3xl font-semibold tracking-tight sm:text-4xl">Úsala como una app, sin ir a una tienda.</h2>
+              <p className="mt-4 leading-7 text-white/50">Agrégala a tu pantalla de inicio y abre tus finanzas cuando las necesites.</p>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <article className="rounded-3xl border border-white/10 bg-white/[0.035] p-6">
+                <h3 className="font-display text-lg font-semibold">Android · Chrome</h3>
+                <ol className="mt-5 space-y-4 text-sm leading-6 text-white/50">
+                  <li className="flex gap-3"><span className="font-semibold text-[#e9ba53]">01</span><span>Abre el menú de tres puntos (⋮).</span></li>
+                  <li className="flex gap-3"><span className="font-semibold text-[#e9ba53]">02</span><span>Toca <strong className="font-medium text-white/80">Instalar app</strong> o <strong className="font-medium text-white/80">Agregar a pantalla principal</strong>.</span></li>
+                </ol>
+              </article>
+              <article className="rounded-3xl border border-white/10 bg-white/[0.035] p-6">
+                <h3 className="font-display text-lg font-semibold">iPhone o iPad · Safari</h3>
+                <ol className="mt-5 space-y-4 text-sm leading-6 text-white/50">
+                  <li className="flex gap-3"><span className="font-semibold text-[#78c2ff]">01</span><span>Toca el botón Compartir de Safari.</span></li>
+                  <li className="flex gap-3"><span className="font-semibold text-[#78c2ff]">02</span><span>Elige <strong className="font-medium text-white/80">Agregar a pantalla de inicio</strong> y confirma.</span></li>
+                </ol>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section className="mb-16 overflow-hidden rounded-[2rem] border border-[#e9ba53]/20 bg-[#e9ba53] p-7 text-[#171104] sm:p-10 lg:flex lg:items-center lg:justify-between lg:gap-10">
+          <div className="max-w-2xl">
+            <p className="text-sm font-semibold uppercase tracking-[0.16em] opacity-60">Tu próximo mes puede sentirse distinto</p>
+            <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight sm:text-4xl">Empieza a organizar las finanzas de tu hogar hoy.</h2>
+          </div>
+          <Button
+            type="button"
+            size="lg"
+            className="mt-7 h-12 w-full shrink-0 rounded-xl bg-[#111827] px-6 text-base font-semibold text-white hover:bg-[#1f2937] lg:mt-0 lg:w-auto"
+            disabled={googleSubmitting}
+            onClick={() => handleGoogleSignIn('hero')}
+          >
+            {googleSubmitting ? <Loader2 className="size-4 animate-spin" /> : <FcGoogle className="size-5" />}
+            {googleSubmitting ? 'Conectando…' : 'Empezar con Google'}
+          </Button>
+        </section>
+
+        <footer className="border-t border-white/10 py-8">
+          <div className="flex flex-col gap-6 text-sm sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="font-display font-semibold">Jireh Finanzas</p>
+              <p className="mt-1 text-white/40">Claridad financiera para cada familia.</p>
+            </div>
+            <div className="flex flex-col gap-3 text-white/55 sm:items-end">
+              <p className="text-xs uppercase tracking-[0.14em] text-white/30">¿Necesitas ayuda?</p>
+              <div className="flex flex-wrap gap-x-5 gap-y-3">
+                <a
+                  href="https://wa.me/573209645371?text=Hola%2C%20necesito%20soporte%20t%C3%A9cnico."
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => captureAnalytics('support_contact_clicked', { channel: 'whatsapp' })}
+                  className="transition-colors hover:text-white"
+                >
+                  WhatsApp
+                </a>
+                <a
+                  href="mailto:soportejirehfinanzas@gmail.com"
+                  onClick={() => captureAnalytics('support_contact_clicked', { channel: 'email' })}
+                  className="inline-flex items-center gap-1.5 transition-colors hover:text-white"
+                >
+                  <Mail className="size-3.5" aria-hidden="true" /> Email
+                </a>
+                <a
+                  href="https://www.instagram.com/jirehfinanzas/"
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => captureAnalytics('support_contact_clicked', { channel: 'instagram' })}
+                  className="inline-flex items-center gap-1.5 transition-colors hover:text-white"
+                >
+                  <FaInstagram className="size-3.5" aria-hidden="true" /> Instagram
+                </a>
+              </div>
+            </div>
           </div>
         </footer>
       </div>

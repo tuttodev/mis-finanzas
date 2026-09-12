@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { CurrencyInput } from '@/components/ui/currency-input';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -194,12 +195,11 @@ export function RefundForm({ originalTransaction, refund }: RefundFormProps) {
                     {chip.label}
                   </button>
                 ))}
-                <Input
+                <DatePicker
                   id="refund-date"
-                  type="date"
                   className="h-11 flex-1 font-semibold"
                   value={date}
-                  onChange={(event) => setDate(event.target.value)}
+                  onChange={setDate}
                 />
               </div>
             </div>

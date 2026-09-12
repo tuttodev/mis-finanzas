@@ -8,7 +8,7 @@ import { Banknote, Calendar, Check, ChevronDown, CreditCard, Loader2, PiggyBank,
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { CurrencyInput } from '@/components/ui/currency-input';
-import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Label } from '@/components/ui/label';
 import { PageHeader } from '@/components/layout/page-header';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -385,12 +385,11 @@ export function TransactionForm({
                     {chip.label}
                   </button>
                 ))}
-                <Input
+                <DatePicker
                   id="date"
-                  type="date"
                   className="h-11 flex-1 font-semibold"
                   value={date}
-                  onChange={(event) => setDate(event.target.value)}
+                  onChange={setDate}
                 />
               </div>
             </div>

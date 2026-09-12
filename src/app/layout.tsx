@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   applicationName: SITE_NAME,
   title: {
-    default: `${SITE_NAME} | Finanzas de la mano de Dios`,
+    default: `${SITE_NAME} | Finanzas claras para tu familia`,
     template: `%s | ${SITE_NAME}`,
   },
   description: SITE_DESCRIPTION,
@@ -37,8 +37,8 @@ export const metadata: Metadata = {
     'control de gastos',
     'gestión de dinero',
     'finanzas Colombia',
-    'finanzas cristianas',
-    'Dios provee',
+    'finanzas familiares',
+    'presupuesto familiar',
   ],
   alternates: {
     canonical: '/',
@@ -48,13 +48,13 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'es_CO',
     siteName: SITE_NAME,
-    title: `${SITE_NAME} | Finanzas de la mano de Dios`,
+    title: `${SITE_NAME} | Finanzas claras para tu familia`,
     description: SITE_DESCRIPTION,
     url: '/',
   },
   twitter: {
     card: 'summary_large_image',
-    title: `${SITE_NAME} | Finanzas de la mano de Dios`,
+    title: `${SITE_NAME} | Finanzas claras para tu familia`,
     description: SITE_DESCRIPTION,
   },
   appleWebApp: {
