@@ -3,40 +3,59 @@ import test from 'node:test';
 import { getGroupPlannedAmount, summarizePlan } from '../plan-summary.ts';
 
 const plan = { id: 'plan', month: '2026-09', payday: null };
+const sections = [
+  { id: 'required', planId: plan.id, name: 'Obligatorios', sortOrder: 10 },
+  { id: 'optional', planId: plan.id, name: 'Opcionales', sortOrder: 20 },
+];
 
-function item(id, kind, amount, parentItemId = null) {
+function item(id, kind, amount, parentItemId = null, sectionId = null) {
   return {
-    id, planId: plan.id, name: id, kind, plannedAmount: amount, parentItemId,
+    id, planId: plan.id, name: id, kind, plannedAmount: amount, parentItemId, sectionId,
     actualAmount: null, note: null, isPaid: false, budgetId: null, categoryId: null,
     tagIds: [], sortOrder: 0,
   };
 }
 
-test('grouping expense items changes presentation without changing the remaining balance', () => {
+test('section totals include group children once and reconcile with the whole plan', () => {
   const income = item('salary', 'income', 1000);
   const deduction = item('health', 'deduction', 50);
-  const unrelated = item('rent', 'expense', 500);
-  const first = item('icloud', 'expense', 100);
-  const second = item('netflix', 'expense', 200);
-  const before = summarizePlan(plan, [income, deduction, unrelated, first, second]);
+  const required = item('rent', 'expense', 500, null, 'required');
+  const group = item('tc-nu', 'group', 0, null, 'optional');
+  const first = item('icloud', 'expense', 100, group.id);
+  const second = item('netflix', 'expense', 200, group.id);
+  const unassigned = item('other', 'expense', 50);
+  const summary = summarizePlan(plan, [income, deduction, required, group, first, second, unassigned], sections);
 
-  const group = item('tc-nu', 'group', 0);
-  const grouped = summarizePlan(plan, [income, deduction, unrelated, group, { ...first, parentItemId: group.id }, { ...second, parentItemId: group.id }]);
-
-  assert.equal(getGroupPlannedAmount(grouped.items, group.id), 300);
-  assert.equal(grouped.expenseTotal, 800);
-  assert.equal(grouped.leftover, 150);
-  assert.equal(grouped.expenseTotal, before.expenseTotal);
-  assert.equal(grouped.leftover, before.leftover);
+  assert.equal(getGroupPlannedAmount(summary.items, group.id), 300);
+  assert.equal(summary.sectionTotals.required, 500);
+  assert.equal(summary.sectionTotals.optional, 300);
+  assert.equal(summary.unassignedTotal, 50);
+  assert.equal(summary.expenseTotal, 850);
+  assert.equal(summary.leftover, 100);
+  assert.equal(Object.values(summary.sectionTotals).reduce((sum, amount) => sum + amount, 0) + summary.unassignedTotal, summary.expenseTotal);
 });
 
-test('removing a child from a group updates the parent amount and preserves the plan total', () => {
-  const group = item('tc-nu', 'group', 0);
+test('moving a group changes its section total without changing the leftover', () => {
+  const group = item('tc-nu', 'group', 0, null, 'required');
   const first = item('icloud', 'expense', 100, group.id);
-  const second = item('netflix', 'expense', 200);
-  const summary = summarizePlan(plan, [group, first, second]);
+  const second = item('netflix', 'expense', 200, group.id);
+  const before = summarizePlan(plan, [group, first, second], sections);
+  const after = summarizePlan(plan, [{ ...group, sectionId: 'optional' }, first, second], sections);
+
+  assert.equal(before.sectionTotals.required, 300);
+  assert.equal(after.sectionTotals.optional, 300);
+  assert.equal(after.expenseTotal, before.expenseTotal);
+  assert.equal(after.leftover, before.leftover);
+});
+
+test('moving one child out of a group updates both section totals once', () => {
+  const group = item('tc-nu', 'group', 0, null, 'required');
+  const first = item('icloud', 'expense', 100, group.id);
+  const second = item('netflix', 'expense', 200, null, 'optional');
+  const summary = summarizePlan(plan, [group, first, second], sections);
 
   assert.equal(getGroupPlannedAmount(summary.items, group.id), 100);
+  assert.equal(summary.sectionTotals.required, 100);
+  assert.equal(summary.sectionTotals.optional, 200);
   assert.equal(summary.expenseTotal, 300);
-  assert.equal(summary.leftover, -300);
 });

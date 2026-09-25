@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatCOP } from '@/lib/formatters';
 import { deletePlanGroup, savePlanGroup } from '@/services/finance';
-import type { PlanItem } from '@/types/finance';
+import type { PlanItem, PlanSection } from '@/types/finance';
 
 type PlanGroupDialogProps = {
   open: boolean;
@@ -16,12 +16,15 @@ type PlanGroupDialogProps = {
   planId: string;
   monthKey: string;
   items: PlanItem[];
+  sections: PlanSection[];
+  initialSectionId?: string | null;
   group?: PlanItem | null;
 };
 
-export function PlanGroupDialog({ open, onOpenChange, planId, monthKey, items, group }: PlanGroupDialogProps) {
+export function PlanGroupDialog({ open, onOpenChange, planId, monthKey, items, sections, initialSectionId, group }: PlanGroupDialogProps) {
   const queryClient = useQueryClient();
   const [name, setName] = useState(group?.name ?? '');
+  const [sectionId, setSectionId] = useState(group?.sectionId ?? initialSectionId ?? '');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() =>
     new Set(items.filter((item) => item.parentItemId === group?.id && item.kind === 'expense').map((item) => item.id)),
   );
@@ -31,7 +34,7 @@ export function PlanGroupDialog({ open, onOpenChange, planId, monthKey, items, g
   );
 
   const saveMutation = useMutation({
-    mutationFn: () => savePlanGroup(planId, name, Array.from(selectedIds), group?.id),
+    mutationFn: () => savePlanGroup(planId, name, Array.from(selectedIds), sectionId || null, group?.id),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['plan', monthKey] });
       await queryClient.invalidateQueries({ queryKey: ['plan-previous'] });
@@ -83,6 +86,19 @@ export function PlanGroupDialog({ open, onOpenChange, planId, monthKey, items, g
             placeholder="TC NU"
             disabled={pending}
           />
+          <div>
+            <label htmlFor="plan-group-section" className="mb-1.5 block text-sm font-medium">Sección</label>
+            <select
+              id="plan-group-section"
+              value={sectionId}
+              onChange={(event) => setSectionId(event.target.value)}
+              disabled={pending}
+              className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
+            >
+              <option value="">Sin sección</option>
+              {sections.map((section) => <option key={section.id} value={section.id}>{section.name}</option>)}
+            </select>
+          </div>
           <p className="text-xs font-semibold text-muted-foreground">Subpartidas</p>
           <div className="max-h-[40vh] overflow-y-auto rounded-xl border border-border">
             {availableItems.length ? availableItems.map((item) => (

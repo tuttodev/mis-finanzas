@@ -5,16 +5,20 @@ import { Circle, CircleCheck, GripVertical, Plus } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { formatCOP } from '@/lib/formatters';
-import type { PlanItem } from '@/types/finance';
+import type { PlanItem, PlanSection } from '@/types/finance';
 
 type PlanItemRowProps = {
   item: PlanItem;
   onTogglePaid: (item: PlanItem) => void;
   togglePending?: boolean;
   sortable?: boolean;
+  sections?: PlanSection[];
+  effectiveSectionId?: string | null;
+  onMoveSection?: (item: PlanItem, sectionId: string | null) => void;
+  movePending?: boolean;
 };
 
-export function PlanItemRow({ item, onTogglePaid, togglePending, sortable = true }: PlanItemRowProps) {
+export function PlanItemRow({ item, onTogglePaid, togglePending, sortable = true, sections, effectiveSectionId, onMoveSection, movePending }: PlanItemRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
     disabled: !sortable,
@@ -104,6 +108,20 @@ export function PlanItemRow({ item, onTogglePaid, togglePending, sortable = true
           )}
         </div>
       </Link>
+
+      {item.kind === 'expense' && onMoveSection && sections && (
+        <select
+          aria-label={`Mover ${item.name} a sección`}
+          title="Mover a sección"
+          value={effectiveSectionId ?? ''}
+          onChange={(event) => onMoveSection(item, event.target.value || null)}
+          disabled={movePending}
+          className="max-w-24 shrink-0 rounded-lg border border-border bg-background px-1 py-1.5 text-xs text-muted-foreground"
+        >
+          <option value="">Sin sección</option>
+          {sections.map((section) => <option key={section.id} value={section.id}>{section.name}</option>)}
+        </select>
+      )}
 
       {item.kind === 'expense' && (
         <Link

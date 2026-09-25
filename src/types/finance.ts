@@ -330,6 +330,20 @@ export type CreateBudgetInput = {
 export type PlanItemKind = 'income' | 'expense' | 'deduction';
 export type PlanItemType = PlanItemKind | 'group';
 
+export type PlanSectionDTO = {
+  id: string;
+  plan_id: string;
+  name: string;
+  sort_order: number;
+};
+
+export type PlanSection = {
+  id: string;
+  planId: string;
+  name: string;
+  sortOrder: number;
+};
+
 export type MonthlyPlanDTO = {
   id: string;
   month: string;
@@ -344,6 +358,7 @@ export type PlanItemDTO = {
   kind: PlanItemType;
   planned_amount: number;
   parent_item_id: string | null;
+  section_id: string | null;
   note: string | null;
   is_paid: boolean;
   budget_id: string | null;
@@ -362,6 +377,7 @@ export type InsertPlanItemDTO = {
   name: string;
   kind: PlanItemKind;
   planned_amount: number;
+  section_id?: string | null;
   note: string | null;
   budget_id?: string | null;
   category_id?: string | null;
@@ -372,6 +388,8 @@ export type UpdatePlanItemDTO = {
   name: string;
   kind?: PlanItemKind;
   planned_amount: number;
+  parent_item_id?: string | null;
+  section_id?: string | null;
   note: string | null;
   budget_id?: string | null;
   category_id?: string | null;
@@ -390,6 +408,7 @@ export type PlanItem = {
   kind: PlanItemType;
   plannedAmount: number;
   parentItemId: string | null;
+  sectionId: string | null;
   /** Sum of amounts of all transactions linked to this plan item (absolute value). */
   actualAmount: number | null;
   note: string | null;
@@ -403,6 +422,9 @@ export type PlanItem = {
 export type MonthlyPlanSummary = {
   plan: MonthlyPlan;
   items: PlanItem[];
+  sections: PlanSection[];
+  sectionTotals: Record<string, number>;
+  unassignedTotal: number;
   incomeGross: number;
   deductionsTotal: number;
   incomeTotal: number;
@@ -415,6 +437,7 @@ export type CreatePlanItemInput = {
   name: string;
   kind: PlanItemKind;
   plannedAmount: number;
+  sectionId?: string | null;
   note?: string;
   budgetId?: string | null;
   categoryId?: string | null;
@@ -425,6 +448,7 @@ export type UpdatePlanItemInput = {
   name: string;
   kind?: PlanItemKind;
   plannedAmount: number;
+  sectionId?: string | null;
   note?: string;
   budgetId?: string | null;
   categoryId?: string | null;

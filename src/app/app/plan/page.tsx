@@ -22,6 +22,7 @@ import { MergePreviousPlanDialog } from '@/components/finance/merge-previous-pla
 import { PayrollDocumentList } from '@/components/finance/payroll-document-list';
 import { PlanItemRow } from '@/components/finance/plan-item-row';
 import { PlanGroupDialog } from '@/components/finance/plan-group-dialog';
+import { PlanSectionDialog } from '@/components/finance/plan-section-dialog';
 import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';
 import { PageHeader } from '@/components/layout/page-header';
@@ -33,6 +34,7 @@ import {
   fetchMonthlyPlan,
   fetchPayrollDocuments,
   fetchPreviousPlanSummary,
+  movePlanItemToSection,
   reorderPlanItems,
   setPlanItemPaid,
 } from '@/services/finance';
@@ -48,6 +50,9 @@ function PlanPage() {
   const [isMergeOpen, setIsMergeOpen] = useState(false);
   const [isGroupOpen, setIsGroupOpen] = useState(false);
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+  const [groupSectionId, setGroupSectionId] = useState<string | null>(null);
+  const [isSectionOpen, setIsSectionOpen] = useState(false);
+  const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(new Set());
 
   const planQuery = useQuery({
@@ -98,6 +103,15 @@ function PlanPage() {
     onError: (error: Error) => toast.error(error.message),
   });
 
+  const moveSectionMutation = useMutation({
+    mutationFn: ({ itemId, sectionId }: { itemId: string; sectionId: string | null }) => movePlanItemToSection(itemId, sectionId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['plan', monthKey] });
+      toast.success('Partida movida');
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   const reorderMutation = useMutation({
     mutationFn: (updates: { id: string; sortOrder: number }[]) => reorderPlanItems(updates),
     onError: (error: Error) => {
@@ -121,13 +135,14 @@ function PlanPage() {
   const expenseTopLevel = [...ungroupedExpenseItems, ...groupItems].sort(
     (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name),
   );
+  const sectionCards = plan ? [...plan.sections.map((section) => ({ id: section.id, name: section.name, total: plan.sectionTotals[section.id] ?? 0 })), { id: '', name: 'Sin sección', total: plan.unassignedTotal }] : [];
 
-  function handleDragEnd(section: 'payroll' | 'expense') {
+  function handleDragEnd(section: 'payroll' | 'expense', sectionId = '') {
     return (event: DragEndEvent) => {
       const { active, over } = event;
       if (!over || active.id === over.id) return;
 
-      const items = section === 'payroll' ? payrollItems : ungroupedExpenseItems;
+      const items = section === 'payroll' ? payrollItems : ungroupedExpenseItems.filter((item) => (item.sectionId ?? '') === sectionId);
       const oldIndex = items.findIndex((item) => item.id === active.id);
       const newIndex = items.findIndex((item) => item.id === over.id);
       if (oldIndex === -1 || newIndex === -1) return;
@@ -280,128 +295,92 @@ function PlanPage() {
           </div>
 
           {/* Monthly Expense Allocations Section */}
-          <div className="rounded-2xl border border-border bg-card px-3 py-2">
-            <div className="flex items-center justify-between px-1 py-1.5">
-              <h2 className="text-sm font-semibold text-muted-foreground">
-                Partidas · {formatCOP(plan.expenseTotal)}
-              </h2>
-              <div className="flex items-center gap-2">
-                {previousPlanQuery.data && previousPlanQuery.data.items.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setIsMergeOpen(true)}
-                    className="flex items-center gap-1 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    <GitMerge className="h-3.5 w-3.5" />
-                    <span className="hidden min-[400px]:inline">Importar anterior</span>
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => { setEditingGroupId(null); setIsGroupOpen(true); }}
-                  className="flex items-center gap-1 text-xs font-semibold text-primary"
-                >
-                  <Layers3 className="h-3.5 w-3.5" />
-                  Agrupar
-                </button>
-                <Link
-                  href={`/app/plan-item-form?planId=${plan.plan.id}&kind=expense`}
-                  className="flex items-center gap-1 text-xs font-semibold text-primary"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Agregar
-                </Link>
-              </div>
+          <div className="flex items-center justify-between gap-3 px-1 pt-2">
+            <div>
+              <h2 className="text-sm font-semibold text-foreground">Partidas</h2>
+              <p className="text-xs text-muted-foreground">Total: {formatCOP(plan.expenseTotal)}</p>
             </div>
-            {expenseTopLevel.length ? (
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd('expense')}
-              >
-                <SortableContext
-                  items={ungroupedExpenseItems.map((item) => item.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <div className="divide-y divide-border">
-                    {expenseTopLevel.map((item) => {
-                      if (item.kind !== 'group') {
-                        return (
-                          <PlanItemRow
-                            key={item.id}
-                            item={item}
-                            onTogglePaid={(selected) => togglePaidMutation.mutate(selected)}
-                            togglePending={togglePaidMutation.isPending}
-                          />
-                        );
-                      }
-
-                      const children = expenseItems
-                        .filter((child) => child.parentItemId === item.id)
-                        .sort((a, b) => a.sortOrder - b.sortOrder);
-                      const amount = getGroupPlannedAmount(children, item.id);
-                      const collapsed = collapsedGroupIds.has(item.id);
-                      return (
-                        <div key={item.id}>
-                          <div className="flex items-center gap-2 py-2">
-                            <button
-                              type="button"
-                              aria-label={`${collapsed ? 'Expandir' : 'Colapsar'} ${item.name}`}
-                              aria-expanded={!collapsed}
-                              onClick={() => setCollapsedGroupIds((current) => {
-                                const next = new Set(current);
-                                if (next.has(item.id)) next.delete(item.id);
-                                else next.add(item.id);
-                                return next;
-                              })}
-                              className="flex min-w-0 flex-1 items-center gap-2 rounded-xl px-1 py-1.5 text-left hover:bg-secondary/50"
-                            >
-                              {collapsed ? <ChevronRight className="h-4 w-4 shrink-0 text-primary" /> : <ChevronDown className="h-4 w-4 shrink-0 text-primary" />}
-                              <span className="min-w-0 flex-1 truncate text-[15px] font-semibold">{item.name}</span>
-                              <span className="tabular shrink-0 text-[15px] font-semibold">{formatCOP(amount)}</span>
-                            </button>
-                            <button
-                              type="button"
-                              aria-label={`Editar grupo ${item.name}`}
-                              onClick={() => { setEditingGroupId(item.id); setIsGroupOpen(true); }}
-                              className="shrink-0 rounded-lg p-2 text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </button>
-                          </div>
-                          {!collapsed && children.length > 0 && (
-                            <div className="ml-5 divide-y divide-border border-l border-border pl-2">
-                              {children.map((child) => (
-                                <PlanItemRow
-                                  key={child.id}
-                                  item={child}
-                                  sortable={false}
-                                  onTogglePaid={(selected) => togglePaidMutation.mutate(selected)}
-                                  togglePending={togglePaidMutation.isPending}
-                                />
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </SortableContext>
-              </DndContext>
-            ) : (
-              <p className="px-1 py-2 text-sm text-muted-foreground">Sin partidas registradas.</p>
-            )}
+            <div className="flex items-center gap-3">
+              {previousPlanQuery.data && previousPlanQuery.data.items.length > 0 && (
+                <button type="button" onClick={() => setIsMergeOpen(true)} className="flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground">
+                  <GitMerge className="h-3.5 w-3.5" /> Importar anterior
+                </button>
+              )}
+              <Button variant="outline" size="sm" className="h-8 gap-1 px-2 text-xs" onClick={() => { setEditingSectionId(null); setIsSectionOpen(true); }}>
+                <Plus className="h-3.5 w-3.5" /> Sección
+              </Button>
+            </div>
           </div>
 
-          {isGroupOpen && <PlanGroupDialog
-            key={editingGroupId ?? 'new'}
-            open={isGroupOpen}
-            onOpenChange={setIsGroupOpen}
-            planId={plan.plan.id}
-            monthKey={monthKey}
-            items={plan.items}
-            group={groupItems.find((item) => item.id === editingGroupId)}
-          />}
+          {sectionCards.map((section) => {
+            const sectionItems = expenseTopLevel.filter((item) => (item.sectionId ?? '') === section.id);
+            const sectionUngroupedItems = ungroupedExpenseItems.filter((item) => (item.sectionId ?? '') === section.id);
+            return (
+              <div key={section.id || 'unassigned'} className="rounded-2xl border border-border bg-card px-3 py-2">
+                <div className="flex flex-wrap items-center justify-between gap-2 px-1 py-1.5">
+                  <div className="min-w-0">
+                    <h3 className="truncate text-sm font-semibold">{section.name}</h3>
+                    <p className="tabular text-xs font-semibold text-primary">{formatCOP(section.total)}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {section.id && (
+                      <button type="button" aria-label={`Editar sección ${section.name}`} onClick={() => { setEditingSectionId(section.id); setIsSectionOpen(true); }} className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary/50 hover:text-foreground">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    <button type="button" onClick={() => { setEditingGroupId(null); setGroupSectionId(section.id || null); setIsGroupOpen(true); }} className="flex items-center gap-1 text-xs font-semibold text-primary">
+                      <Layers3 className="h-3.5 w-3.5" /> Agrupar
+                    </button>
+                    <Link href={`/app/plan-item-form?planId=${plan.plan.id}&kind=expense&sectionId=${encodeURIComponent(section.id)}`} className="flex items-center gap-1 text-xs font-semibold text-primary">
+                      <Plus className="h-3.5 w-3.5" /> Agregar
+                    </Link>
+                  </div>
+                </div>
+                {sectionItems.length ? (
+                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd('expense', section.id)}>
+                    <SortableContext items={sectionUngroupedItems.map((item) => item.id)} strategy={verticalListSortingStrategy}>
+                      <div className="divide-y divide-border">
+                        {sectionItems.map((item) => {
+                          if (item.kind !== 'group') {
+                            return <PlanItemRow key={item.id} item={item} sections={plan.sections} effectiveSectionId={item.sectionId} onMoveSection={(selected, sectionId) => moveSectionMutation.mutate({ itemId: selected.id, sectionId })} movePending={moveSectionMutation.isPending} onTogglePaid={(selected) => togglePaidMutation.mutate(selected)} togglePending={togglePaidMutation.isPending} />;
+                          }
+                          const children = expenseItems.filter((child) => child.parentItemId === item.id).sort((a, b) => a.sortOrder - b.sortOrder);
+                          const amount = getGroupPlannedAmount(children, item.id);
+                          const collapsed = collapsedGroupIds.has(item.id);
+                          return (
+                            <div key={item.id}>
+                              <div className="flex items-center gap-2 py-2">
+                                <button type="button" aria-label={`${collapsed ? 'Expandir' : 'Colapsar'} ${item.name}`} aria-expanded={!collapsed} onClick={() => setCollapsedGroupIds((current) => { const next = new Set(current); if (next.has(item.id)) next.delete(item.id); else next.add(item.id); return next; })} className="flex min-w-0 flex-1 items-center gap-2 rounded-xl px-1 py-1.5 text-left hover:bg-secondary/50">
+                                  {collapsed ? <ChevronRight className="h-4 w-4 shrink-0 text-primary" /> : <ChevronDown className="h-4 w-4 shrink-0 text-primary" />}
+                                  <span className="min-w-0 flex-1 truncate text-[15px] font-semibold">{item.name}</span>
+                                  <span className="tabular shrink-0 text-[15px] font-semibold">{formatCOP(amount)}</span>
+                                </button>
+                                <select aria-label={`Mover grupo ${item.name} a sección`} title="Mover grupo a sección" value={item.sectionId ?? ''} onChange={(event) => moveSectionMutation.mutate({ itemId: item.id, sectionId: event.target.value || null })} disabled={moveSectionMutation.isPending} className="max-w-24 shrink-0 rounded-lg border border-border bg-background px-1 py-1.5 text-xs text-muted-foreground">
+                                  <option value="">Sin sección</option>
+                                  {plan.sections.map((target) => <option key={target.id} value={target.id}>{target.name}</option>)}
+                                </select>
+                                <button type="button" aria-label={`Editar grupo ${item.name}`} onClick={() => { setEditingGroupId(item.id); setGroupSectionId(item.sectionId); setIsGroupOpen(true); }} className="shrink-0 rounded-lg p-2 text-muted-foreground hover:bg-secondary/50 hover:text-foreground">
+                                  <Pencil className="h-4 w-4" />
+                                </button>
+                              </div>
+                              {!collapsed && children.length > 0 && (
+                                <div className="ml-5 divide-y divide-border border-l border-border pl-2">
+                                  {children.map((child) => <PlanItemRow key={child.id} item={child} sortable={false} sections={plan.sections} effectiveSectionId={item.sectionId} onMoveSection={(selected, sectionId) => moveSectionMutation.mutate({ itemId: selected.id, sectionId })} movePending={moveSectionMutation.isPending} onTogglePaid={(selected) => togglePaidMutation.mutate(selected)} togglePending={togglePaidMutation.isPending} />)}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </SortableContext>
+                  </DndContext>
+                ) : <p className="px-1 py-2 text-sm text-muted-foreground">Sin partidas registradas.</p>}
+              </div>
+            );
+          })}
+
+          {isSectionOpen && <PlanSectionDialog key={editingSectionId ?? 'new'} open={isSectionOpen} onOpenChange={setIsSectionOpen} planId={plan.plan.id} monthKey={monthKey} section={plan.sections.find((section) => section.id === editingSectionId)} />}
+          {isGroupOpen && <PlanGroupDialog key={editingGroupId ?? 'new'} open={isGroupOpen} onOpenChange={setIsGroupOpen} planId={plan.plan.id} monthKey={monthKey} items={plan.items} sections={plan.sections} initialSectionId={groupSectionId} group={groupItems.find((item) => item.id === editingGroupId)} />}
 
           {/* PDF Colilla Import Modal */}
           {plan && (

@@ -19,6 +19,7 @@ import {
   deletePlanItem,
   fetchExpenseCategories,
   fetchPlanItem,
+  fetchPlanSections,
   fetchTags,
   updatePlanItem,
 } from '@/services/finance';
@@ -45,6 +46,7 @@ function PlanItemForm() {
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
+  const [selectedSectionId, setSelectedSectionId] = useState(searchParams.get('sectionId') ?? '');
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [isTagsOpen, setIsTagsOpen] = useState(false);
   const [loadedItemId, setLoadedItemId] = useState<string | null>(null);
@@ -57,6 +59,7 @@ function PlanItemForm() {
     setAmount(formatCOPInput(itemQuery.data.plannedAmount));
     setNote(itemQuery.data.note ?? '');
     setSelectedCategoryId(itemQuery.data.categoryId ?? '');
+    setSelectedSectionId(itemQuery.data.sectionId ?? '');
     setSelectedTagIds(itemQuery.data.tagIds);
   }
 
@@ -64,6 +67,11 @@ function PlanItemForm() {
     queryKey: ['expense-categories'],
     queryFn: fetchExpenseCategories,
     enabled: currentKind === 'expense',
+  });
+  const sectionsQuery = useQuery({
+    queryKey: ['plan-sections', planId ?? itemQuery.data?.planId],
+    queryFn: () => fetchPlanSections((planId ?? itemQuery.data?.planId)!),
+    enabled: currentKind === 'expense' && Boolean(planId ?? itemQuery.data?.planId),
   });
   const tagsQuery = useQuery({
     queryKey: ['tags'],
@@ -103,6 +111,9 @@ function PlanItemForm() {
           note,
           categoryId: currentKind === 'expense' ? selectedCategoryId || null : null,
           tagIds: currentKind === 'expense' ? selectedTagIds : [],
+          ...(currentKind === 'expense' && !itemQuery.data?.parentItemId && selectedSectionId !== (itemQuery.data?.sectionId ?? '')
+            ? { sectionId: selectedSectionId || null }
+            : {}),
         });
       } else {
         if (!planId) throw new Error('No se encontró el plan');
@@ -114,6 +125,7 @@ function PlanItemForm() {
           note,
           categoryId: currentKind === 'expense' ? selectedCategoryId || null : null,
           tagIds: currentKind === 'expense' ? selectedTagIds : [],
+          sectionId: currentKind === 'expense' ? selectedSectionId || null : null,
         });
       }
     },
@@ -270,6 +282,16 @@ function PlanItemForm() {
 
           {currentKind === 'expense' && (
             <>
+              {!itemQuery.data?.parentItemId && (
+                <div>
+                  <Label htmlFor="plan-section">Sección</Label>
+                  <select id="plan-section" value={selectedSectionId} onChange={(event) => setSelectedSectionId(event.target.value)} disabled={sectionsQuery.isLoading || sectionsQuery.isError} className="mt-1 h-11 w-full rounded-xl border border-input bg-input/30 px-3 text-sm">
+                    <option value="">Sin sección</option>
+                    {(sectionsQuery.data ?? []).map((section) => <option key={section.id} value={section.id}>{section.name}</option>)}
+                  </select>
+                  {sectionsQuery.isError && <p className="mt-1 text-xs text-expense">No se pudieron cargar las secciones.</p>}
+                </div>
+              )}
               <div>
                 <Label htmlFor="plan-category">Categoría para los gastos</Label>
                 <p className="mb-2 mt-1 text-xs text-muted-foreground">

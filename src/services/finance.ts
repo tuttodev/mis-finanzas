@@ -40,6 +40,8 @@ import type {
   MonthlyPlanSummary,
   PlanItem,
   PlanItemDTO,
+  PlanSection,
+  PlanSectionDTO,
   PayrollDocument,
   TransactionWithAccount,
   Tag,
@@ -1186,6 +1188,7 @@ function mapPlanItem(dto: PlanItemDTO, tagIds: string[] = [], actualAmount: numb
     kind: dto.kind,
     plannedAmount: dto.planned_amount,
     parentItemId: dto.parent_item_id ?? null,
+    sectionId: dto.section_id ?? null,
     actualAmount,
     note: dto.note,
     isPaid: dto.is_paid,
@@ -1194,6 +1197,31 @@ function mapPlanItem(dto: PlanItemDTO, tagIds: string[] = [], actualAmount: numb
     tagIds,
     sortOrder: dto.sort_order,
   };
+}
+
+function mapPlanSection(dto: PlanSectionDTO): PlanSection {
+  return { id: dto.id, planId: dto.plan_id, name: dto.name, sortOrder: dto.sort_order };
+}
+
+export async function fetchPlanSections(planId: string): Promise<PlanSection[]> {
+  const { data, error } = await supabase
+    .from('plan_sections')
+    .select('*')
+    .eq('plan_id', planId)
+    .order('sort_order')
+    .order('created_at');
+  return ensure(data as PlanSectionDTO[] | null, error).map(mapPlanSection);
+}
+
+async function createDefaultPlanSections(planId: string): Promise<PlanSection[]> {
+  const { data, error } = await supabase
+    .from('plan_sections')
+    .insert([
+      { plan_id: planId, name: 'Obligatorios', sort_order: 10 },
+      { plan_id: planId, name: 'Opcionales', sort_order: 20 },
+    ])
+    .select('*');
+  return ensure(data as PlanSectionDTO[] | null, error).map(mapPlanSection);
 }
 
 async function fetchPlanItems(planId: string): Promise<PlanItem[]> {
@@ -1288,8 +1316,8 @@ export async function fetchMonthlyPlan(monthKey: string): Promise<MonthlyPlanSum
   if (!data) return null;
 
   const plan = mapMonthlyPlan(data as MonthlyPlanDTO);
-  const items = await fetchPlanItems(plan.id);
-  return summarizePlan(plan, items);
+  const [items, sections] = await Promise.all([fetchPlanItems(plan.id), fetchPlanSections(plan.id)]);
+  return summarizePlan(plan, items, sections);
 }
 
 export async function fetchPreviousPlanSummary(
@@ -1307,8 +1335,8 @@ export async function fetchPreviousPlanSummary(
   if (!data) return null;
 
   const plan = mapMonthlyPlan(data as MonthlyPlanDTO);
-  const items = await fetchPlanItems(plan.id);
-  return summarizePlan(plan, items);
+  const [items, sections] = await Promise.all([fetchPlanItems(plan.id), fetchPlanSections(plan.id)]);
+  return summarizePlan(plan, items, sections);
 }
 
 export async function createBlankPlan(monthKey: string): Promise<MonthlyPlanSummary> {
@@ -1320,7 +1348,13 @@ export async function createBlankPlan(monthKey: string): Promise<MonthlyPlanSumm
     .single();
 
   const plan = mapMonthlyPlan(ensure(data as MonthlyPlanDTO | null, error));
-  return summarizePlan(plan, []);
+  try {
+    const sections = await createDefaultPlanSections(plan.id);
+    return summarizePlan(plan, [], sections);
+  } catch (sectionError) {
+    await supabase.from('monthly_plans').delete().eq('id', plan.id);
+    throw sectionError;
+  }
 }
 
 export async function duplicatePreviousPlan(monthKey: string): Promise<MonthlyPlanSummary> {
@@ -1334,7 +1368,18 @@ export async function duplicatePreviousPlan(monthKey: string): Promise<MonthlyPl
     .single();
   const plan = mapMonthlyPlan(ensure(data as MonthlyPlanDTO | null, error));
 
-  // Create group rows first, then remap the copied children's parent IDs.
+  const sectionIds = new Map<string, string>();
+  for (const section of previous.sections) {
+    const { data: copied, error: sectionError } = await supabase
+      .from('plan_sections')
+      .insert({ plan_id: plan.id, name: section.name, sort_order: section.sortOrder })
+      .select('id')
+      .single();
+    sectionIds.set(section.id, ensure(copied as { id: string } | null, sectionError).id);
+  }
+  if (!previous.sections.length) await createDefaultPlanSections(plan.id);
+
+  // Create group rows first, then remap the copied children's parent and section IDs.
   const groupIds = new Map<string, string>();
   for (const item of previous.items.filter((candidate) => candidate.kind === 'group')) {
     const { data: inserted, error: insertError } = await supabase
@@ -1344,6 +1389,7 @@ export async function duplicatePreviousPlan(monthKey: string): Promise<MonthlyPl
         name: item.name,
         kind: 'group',
         planned_amount: 0,
+        section_id: item.sectionId ? sectionIds.get(item.sectionId) ?? null : null,
         note: item.note,
         sort_order: item.sortOrder,
       })
@@ -1361,6 +1407,7 @@ export async function duplicatePreviousPlan(monthKey: string): Promise<MonthlyPl
         kind: item.kind,
         planned_amount: item.plannedAmount,
         parent_item_id: item.parentItemId ? groupIds.get(item.parentItemId) ?? null : null,
+        section_id: item.parentItemId ? null : item.sectionId ? sectionIds.get(item.sectionId) ?? null : null,
         note: item.note,
         budget_id: item.budgetId,
         category_id: item.categoryId,
@@ -1372,7 +1419,8 @@ export async function duplicatePreviousPlan(monthKey: string): Promise<MonthlyPl
     await syncPlanItemTags(createdItem.id, item.tagIds);
   }
 
-  return summarizePlan(plan, await fetchPlanItems(plan.id));
+  const [items, sections] = await Promise.all([fetchPlanItems(plan.id), fetchPlanSections(plan.id)]);
+  return summarizePlan(plan, items, sections);
 }
 
 /** Import selected items from the previous month, preserving their groups. */
@@ -1397,11 +1445,38 @@ export async function mergeFromPreviousPlan(
   );
   if (!toInsert.length) return [];
 
+  const sourceGroups = new Map(previous.items.filter((item) => item.kind === 'group').map((item) => [item.id, item]));
+  const targetSections = await fetchPlanSections(targetPlanId);
+  const sectionIds = new Map<string, string>();
+  for (const item of toInsert) {
+    const sourceSectionId = item.parentItemId
+      ? sourceGroups.get(item.parentItemId)?.sectionId
+      : item.sectionId;
+    if (!sourceSectionId || sectionIds.has(sourceSectionId)) continue;
+    const sourceSection = previous.sections.find((section) => section.id === sourceSectionId);
+    if (!sourceSection) continue;
+    const existingSection = targetSections.find(
+      (section) => section.name.trim().toLowerCase() === sourceSection.name.trim().toLowerCase(),
+    );
+    if (existingSection) {
+      sectionIds.set(sourceSectionId, existingSection.id);
+      continue;
+    }
+    const { data: created, error: sectionError } = await supabase
+      .from('plan_sections')
+      .insert({ plan_id: targetPlanId, name: sourceSection.name, sort_order: sourceSection.sortOrder })
+      .select('*')
+      .single();
+    const newSection = mapPlanSection(ensure(created as PlanSectionDTO | null, sectionError));
+    targetSections.push(newSection);
+    sectionIds.set(sourceSectionId, newSection.id);
+  }
+
   const groupIds = new Map<string, string>();
   for (const item of toInsert) {
     if (!item.parentItemId || groupIds.has(item.parentItemId)) continue;
-    const originalGroup = previous.items.find((candidate) => candidate.id === item.parentItemId);
-    if (!originalGroup || originalGroup.kind !== 'group') continue;
+    const originalGroup = sourceGroups.get(item.parentItemId);
+    if (!originalGroup) continue;
     const existingGroup = existingItems.find(
       (candidate) =>
         candidate.kind === 'group' &&
@@ -1418,6 +1493,7 @@ export async function mergeFromPreviousPlan(
         name: originalGroup.name,
         kind: 'group',
         planned_amount: 0,
+        section_id: originalGroup.sectionId ? sectionIds.get(originalGroup.sectionId) ?? null : null,
         note: originalGroup.note,
         sort_order: originalGroup.sortOrder,
       })
@@ -1436,6 +1512,7 @@ export async function mergeFromPreviousPlan(
         kind: item.kind,
         planned_amount: item.plannedAmount,
         parent_item_id: item.parentItemId ? groupIds.get(item.parentItemId) ?? null : null,
+        section_id: item.parentItemId ? null : item.sectionId ? sectionIds.get(item.sectionId) ?? null : null,
         note: item.note,
         budget_id: item.budgetId,
         category_id: item.categoryId,
@@ -1455,6 +1532,7 @@ export async function savePlanGroup(
   planId: string,
   name: string,
   memberIds: string[],
+  sectionId: string | null,
   groupId?: string,
 ): Promise<void> {
   const trimmedName = name.trim();
@@ -1481,7 +1559,7 @@ export async function savePlanGroup(
   if (groupId) {
     const { data: updatedGroup, error } = await supabase
       .from('plan_items')
-      .update({ name: trimmedName })
+      .update({ name: trimmedName, section_id: sectionId })
       .eq('id', groupId)
       .eq('plan_id', planId)
       .eq('kind', 'group')
@@ -1497,7 +1575,7 @@ export async function savePlanGroup(
     if (removedIds.length) {
       const { error: ungroupError } = await supabase
         .from('plan_items')
-        .update({ parent_item_id: null })
+        .update({ parent_item_id: null, section_id: sectionId })
         .in('id', removedIds);
       if (ungroupError) throw new Error(ungroupError.message);
     }
@@ -1510,6 +1588,7 @@ export async function savePlanGroup(
         name: trimmedName,
         kind: 'group',
         planned_amount: 0,
+        section_id: sectionId,
         sort_order: sortOrder,
       })
       .select('id')
@@ -1519,7 +1598,7 @@ export async function savePlanGroup(
 
   const { data: linked, error: linkError } = await supabase
     .from('plan_items')
-    .update({ parent_item_id: targetGroupId })
+    .update({ parent_item_id: targetGroupId, section_id: null })
     .eq('plan_id', planId)
     .eq('kind', 'expense')
     .in('id', ids)
@@ -1531,7 +1610,60 @@ export async function savePlanGroup(
 }
 
 export async function deletePlanGroup(groupId: string): Promise<void> {
+  const { data: group, error: groupError } = await supabase
+    .from('plan_items')
+    .select('id, section_id')
+    .eq('id', groupId)
+    .eq('kind', 'group')
+    .single();
+  const sectionId = ensure(group as { id: string; section_id: string | null } | null, groupError).section_id;
+  const { error: moveError } = await supabase
+    .from('plan_items')
+    .update({ parent_item_id: null, section_id: sectionId })
+    .eq('parent_item_id', groupId);
+  if (moveError) throw new Error(moveError.message);
   const { error } = await supabase.from('plan_items').delete().eq('id', groupId).eq('kind', 'group');
+  if (error) throw new Error(error.message);
+}
+
+export async function movePlanItemToSection(itemId: string, sectionId: string | null): Promise<void> {
+  const { data, error } = await supabase
+    .from('plan_items')
+    .update({ parent_item_id: null, section_id: sectionId })
+    .eq('id', itemId)
+    .in('kind', ['expense', 'group'])
+    .select('id')
+    .single();
+  ensure(data as { id: string } | null, error);
+}
+
+export async function createPlanSection(planId: string, name: string): Promise<PlanSection> {
+  const trimmedName = name.trim();
+  if (!trimmedName) throw new Error('El nombre es obligatorio');
+  const existing = await fetchPlanSections(planId);
+  const nextOrder = Math.max(0, ...existing.map((section) => section.sortOrder)) + 10;
+  const { data, error } = await supabase
+    .from('plan_sections')
+    .insert({ plan_id: planId, name: trimmedName, sort_order: nextOrder })
+    .select('*')
+    .single();
+  return mapPlanSection(ensure(data as PlanSectionDTO | null, error));
+}
+
+export async function renamePlanSection(sectionId: string, name: string): Promise<void> {
+  const trimmedName = name.trim();
+  if (!trimmedName) throw new Error('El nombre es obligatorio');
+  const { data, error } = await supabase
+    .from('plan_sections')
+    .update({ name: trimmedName })
+    .eq('id', sectionId)
+    .select('id')
+    .single();
+  ensure(data as { id: string } | null, error);
+}
+
+export async function deletePlanSection(sectionId: string): Promise<void> {
+  const { error } = await supabase.from('plan_sections').delete().eq('id', sectionId);
   if (error) throw new Error(error.message);
 }
 
@@ -1551,6 +1683,7 @@ export async function createPlanItem(input: CreatePlanItemInput): Promise<PlanIt
     name,
     kind: input.kind,
     planned_amount: roundCurrencyAmount(input.plannedAmount),
+    section_id: input.kind === 'expense' ? input.sectionId ?? null : null,
     note: input.note?.trim() || null,
     budget_id: input.budgetId ?? null,
     category_id: input.kind === 'expense' ? input.categoryId ?? null : null,
@@ -1572,6 +1705,10 @@ export async function updatePlanItem(itemId: string, input: UpdatePlanItemInput)
     note: input.note?.trim() || null,
   };
   if (input.kind !== undefined) payload.kind = input.kind;
+  if (input.sectionId !== undefined) {
+    payload.section_id = input.kind === 'expense' ? input.sectionId : null;
+    payload.parent_item_id = null;
+  }
   if (input.budgetId !== undefined) payload.budget_id = input.budgetId;
   if (input.categoryId !== undefined) {
     payload.category_id = input.kind === 'expense' ? input.categoryId : null;
@@ -1616,6 +1753,7 @@ export async function createPlanItemsBatch(
     name: item.name.trim(),
     kind: item.kind,
     planned_amount: roundCurrencyAmount(item.plannedAmount),
+    section_id: item.kind === 'expense' ? item.sectionId ?? null : null,
     note: item.note?.trim() || null,
     budget_id: item.budgetId ?? null,
     category_id: item.kind === 'expense' ? item.categoryId ?? null : null,
