@@ -56,7 +56,7 @@ export function MergePreviousPlanDialog({
   const queryClient = useQueryClient();
 
   const [selected, setSelected] = useState<Set<string>>(() => {
-    const newItems = previousPlan.items.filter((i) => !isExisting(i, currentItems));
+    const newItems = previousPlan.items.filter((i) => i.kind !== 'group' && !isExisting(i, currentItems));
     return new Set(newItems.map((i) => i.id));
   });
 

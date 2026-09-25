@@ -52,7 +52,7 @@ function PlanItemForm() {
 
   if (itemQuery.data && loadedItemId !== itemQuery.data.id) {
     setLoadedItemId(itemQuery.data.id);
-    setCurrentKind(itemQuery.data.kind);
+    setCurrentKind(itemQuery.data.kind === 'group' ? 'expense' : itemQuery.data.kind);
     setName(itemQuery.data.name);
     setAmount(formatCOPInput(itemQuery.data.plannedAmount));
     setNote(itemQuery.data.note ?? '');

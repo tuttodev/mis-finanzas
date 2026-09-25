@@ -11,11 +11,13 @@ type PlanItemRowProps = {
   item: PlanItem;
   onTogglePaid: (item: PlanItem) => void;
   togglePending?: boolean;
+  sortable?: boolean;
 };
 
-export function PlanItemRow({ item, onTogglePaid, togglePending }: PlanItemRowProps) {
+export function PlanItemRow({ item, onTogglePaid, togglePending, sortable = true }: PlanItemRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
+    disabled: !sortable,
   });
 
   const style = {
@@ -37,7 +39,7 @@ export function PlanItemRow({ item, onTogglePaid, togglePending }: PlanItemRowPr
       style={style}
       className={`flex items-center gap-1 py-1 ${isDragging ? 'relative z-10 bg-card' : ''}`}
     >
-      <button
+      {sortable ? <button
         type="button"
         aria-label="Arrastrar para reordenar"
         {...attributes}
@@ -45,7 +47,7 @@ export function PlanItemRow({ item, onTogglePaid, togglePending }: PlanItemRowPr
         className="shrink-0 touch-none p-1 text-muted-foreground/50 hover:text-muted-foreground"
       >
         <GripVertical className="h-4 w-4" />
-      </button>
+      </button> : <span className="w-6 shrink-0" />}
 
       {item.kind === 'expense' ? (
         <button

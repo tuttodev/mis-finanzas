@@ -1,3 +1,4 @@
+import { summarizePlan } from '@/lib/plan-summary';
 import { supabase } from '@/lib/supabase';
 import { roundCurrencyAmount } from '@/lib/formatters';
 import type {
@@ -1184,6 +1185,7 @@ function mapPlanItem(dto: PlanItemDTO, tagIds: string[] = [], actualAmount: numb
     name: dto.name,
     kind: dto.kind,
     plannedAmount: dto.planned_amount,
+    parentItemId: dto.parent_item_id ?? null,
     actualAmount,
     note: dto.note,
     isPaid: dto.is_paid,
@@ -1191,29 +1193,6 @@ function mapPlanItem(dto: PlanItemDTO, tagIds: string[] = [], actualAmount: numb
     categoryId: dto.category_id,
     tagIds,
     sortOrder: dto.sort_order,
-  };
-}
-
-function summarizePlan(plan: MonthlyPlan, items: PlanItem[]): MonthlyPlanSummary {
-  const incomeGross = items
-    .filter((item) => item.kind === 'income')
-    .reduce((sum, item) => sum + item.plannedAmount, 0);
-  const deductionsTotal = items
-    .filter((item) => item.kind === 'deduction')
-    .reduce((sum, item) => sum + item.plannedAmount, 0);
-  const incomeTotal = incomeGross - deductionsTotal;
-  const expenseTotal = items
-    .filter((item) => item.kind === 'expense')
-    .reduce((sum, item) => sum + item.plannedAmount, 0);
-
-  return {
-    plan,
-    items,
-    incomeGross,
-    deductionsTotal,
-    incomeTotal,
-    expenseTotal,
-    leftover: incomeTotal - expenseTotal,
   };
 }
 
@@ -1348,96 +1327,212 @@ export async function duplicatePreviousPlan(monthKey: string): Promise<MonthlyPl
   const previous = await fetchPreviousPlanSummary(monthKey);
   if (!previous) throw new Error('No hay un plan anterior para duplicar');
 
-  const payload: InsertMonthlyPlanDTO = { month: monthKey };
   const { data, error } = await supabase
     .from('monthly_plans')
-    .insert(payload)
+    .insert({ month: monthKey } satisfies InsertMonthlyPlanDTO)
     .select('*')
     .single();
-
   const plan = mapMonthlyPlan(ensure(data as MonthlyPlanDTO | null, error));
 
-  if (previous.items.length) {
-    await Promise.all(
-      previous.items.map(async (item) => {
-        const { data: insertedItem, error: itemError } = await supabase
-          .from('plan_items')
-          .insert({
-            plan_id: plan.id,
-            name: item.name,
-            kind: item.kind,
-            planned_amount: item.plannedAmount,
-            note: item.note,
-            budget_id: item.budgetId,
-            category_id: item.categoryId,
-            sort_order: item.sortOrder,
-          })
-          .select('*')
-          .single();
-        const createdItem = ensure(insertedItem as PlanItemDTO | null, itemError);
-        await syncPlanItemTags(createdItem.id, item.tagIds);
-      }),
-    );
+  // Create group rows first, then remap the copied children's parent IDs.
+  const groupIds = new Map<string, string>();
+  for (const item of previous.items.filter((candidate) => candidate.kind === 'group')) {
+    const { data: inserted, error: insertError } = await supabase
+      .from('plan_items')
+      .insert({
+        plan_id: plan.id,
+        name: item.name,
+        kind: 'group',
+        planned_amount: 0,
+        note: item.note,
+        sort_order: item.sortOrder,
+      })
+      .select('*')
+      .single();
+    groupIds.set(item.id, ensure(inserted as PlanItemDTO | null, insertError).id);
   }
 
-  const items = await fetchPlanItems(plan.id);
-  return summarizePlan(plan, items);
+  for (const item of previous.items.filter((candidate) => candidate.kind !== 'group')) {
+    const { data: inserted, error: insertError } = await supabase
+      .from('plan_items')
+      .insert({
+        plan_id: plan.id,
+        name: item.name,
+        kind: item.kind,
+        planned_amount: item.plannedAmount,
+        parent_item_id: item.parentItemId ? groupIds.get(item.parentItemId) ?? null : null,
+        note: item.note,
+        budget_id: item.budgetId,
+        category_id: item.categoryId,
+        sort_order: item.sortOrder,
+      })
+      .select('*')
+      .single();
+    const createdItem = ensure(inserted as PlanItemDTO | null, insertError);
+    await syncPlanItemTags(createdItem.id, item.tagIds);
+  }
+
+  return summarizePlan(plan, await fetchPlanItems(plan.id));
 }
 
-/**
- * Imports selected items from the previous month's plan into an existing plan.
- * Items that already exist in the target plan (matched by name + kind, case-insensitive)
- * are skipped so there are no duplicates.
- * Returns the newly inserted PlanItems.
- */
+/** Import selected items from the previous month, preserving their groups. */
 export async function mergeFromPreviousPlan(
   targetPlanId: string,
   monthKey: string,
   selectedItemIds: string[],
 ): Promise<PlanItem[]> {
   if (!selectedItemIds.length) return [];
-
   const previous = await fetchPreviousPlanSummary(monthKey);
   if (!previous) throw new Error('No hay un plan anterior para importar');
 
   const existingItems = await fetchPlanItems(targetPlanId);
   const existingKeys = new Set(
-    existingItems.map((i) => `${i.kind}::${i.name.trim().toLowerCase()}`),
+    existingItems.map((item) => `${item.kind}::${item.name.trim().toLowerCase()}`),
   );
-
   const toInsert = previous.items.filter(
     (item) =>
+      item.kind !== 'group' &&
       selectedItemIds.includes(item.id) &&
       !existingKeys.has(`${item.kind}::${item.name.trim().toLowerCase()}`),
   );
-
   if (!toInsert.length) return [];
 
-  const inserted: PlanItem[] = [];
-  await Promise.all(
-    toInsert.map(async (item) => {
-      const { data: insertedItem, error: itemError } = await supabase
-        .from('plan_items')
-        .insert({
-          plan_id: targetPlanId,
-          name: item.name,
-          kind: item.kind,
-          planned_amount: item.plannedAmount,
-          note: item.note,
-          budget_id: item.budgetId,
-          category_id: item.categoryId,
-          sort_order: item.sortOrder,
-        })
-        .select('*')
-        .single();
-      const createdItem = ensure(insertedItem as PlanItemDTO | null, itemError);
-      await syncPlanItemTags(createdItem.id, item.tagIds);
-      const tagIdsByPlanItem = await fetchPlanItemTagsMap([createdItem.id]);
-      inserted.push(mapPlanItem(createdItem, tagIdsByPlanItem.get(createdItem.id)));
-    }),
-  );
+  const groupIds = new Map<string, string>();
+  for (const item of toInsert) {
+    if (!item.parentItemId || groupIds.has(item.parentItemId)) continue;
+    const originalGroup = previous.items.find((candidate) => candidate.id === item.parentItemId);
+    if (!originalGroup || originalGroup.kind !== 'group') continue;
+    const existingGroup = existingItems.find(
+      (candidate) =>
+        candidate.kind === 'group' &&
+        candidate.name.trim().toLowerCase() === originalGroup.name.trim().toLowerCase(),
+    );
+    if (existingGroup) {
+      groupIds.set(originalGroup.id, existingGroup.id);
+      continue;
+    }
+    const { data: insertedGroup, error: groupError } = await supabase
+      .from('plan_items')
+      .insert({
+        plan_id: targetPlanId,
+        name: originalGroup.name,
+        kind: 'group',
+        planned_amount: 0,
+        note: originalGroup.note,
+        sort_order: originalGroup.sortOrder,
+      })
+      .select('*')
+      .single();
+    groupIds.set(originalGroup.id, ensure(insertedGroup as PlanItemDTO | null, groupError).id);
+  }
 
+  const inserted: PlanItem[] = [];
+  for (const item of toInsert) {
+    const { data: insertedItem, error: itemError } = await supabase
+      .from('plan_items')
+      .insert({
+        plan_id: targetPlanId,
+        name: item.name,
+        kind: item.kind,
+        planned_amount: item.plannedAmount,
+        parent_item_id: item.parentItemId ? groupIds.get(item.parentItemId) ?? null : null,
+        note: item.note,
+        budget_id: item.budgetId,
+        category_id: item.categoryId,
+        sort_order: item.sortOrder,
+      })
+      .select('*')
+      .single();
+    const createdItem = ensure(insertedItem as PlanItemDTO | null, itemError);
+    await syncPlanItemTags(createdItem.id, item.tagIds);
+    inserted.push(mapPlanItem(createdItem, item.tagIds));
+  }
   return inserted;
+}
+
+/** Groups are summary rows. Their displayed amount comes only from expense children. */
+export async function savePlanGroup(
+  planId: string,
+  name: string,
+  memberIds: string[],
+  groupId?: string,
+): Promise<void> {
+  const trimmedName = name.trim();
+  const ids = Array.from(new Set(memberIds));
+  if (!trimmedName) throw new Error('El nombre del grupo es obligatorio');
+  if (!ids.length) throw new Error('Selecciona al menos una subpartida');
+
+  const { data: candidates, error: candidatesError } = await supabase
+    .from('plan_items')
+    .select('id, kind, parent_item_id, sort_order')
+    .eq('plan_id', planId)
+    .in('id', ids);
+  if (candidatesError) throw new Error(candidatesError.message);
+  if (
+    candidates?.length !== ids.length ||
+    candidates.some(
+      (item) => item.kind !== 'expense' || (item.parent_item_id && item.parent_item_id !== groupId),
+    )
+  ) {
+    throw new Error('Las subpartidas deben pertenecer a este plan y estar disponibles');
+  }
+
+  let targetGroupId = groupId;
+  if (groupId) {
+    const { data: updatedGroup, error } = await supabase
+      .from('plan_items')
+      .update({ name: trimmedName })
+      .eq('id', groupId)
+      .eq('plan_id', planId)
+      .eq('kind', 'group')
+      .select('id')
+      .single();
+    ensure(updatedGroup as { id: string } | null, error);
+    const { data: currentMembers, error: membersError } = await supabase
+      .from('plan_items')
+      .select('id')
+      .eq('parent_item_id', groupId);
+    if (membersError) throw new Error(membersError.message);
+    const removedIds = (currentMembers ?? []).map((item) => item.id).filter((id) => !ids.includes(id));
+    if (removedIds.length) {
+      const { error: ungroupError } = await supabase
+        .from('plan_items')
+        .update({ parent_item_id: null })
+        .in('id', removedIds);
+      if (ungroupError) throw new Error(ungroupError.message);
+    }
+  } else {
+    const sortOrder = Math.min(...(candidates ?? []).map((item) => item.sort_order));
+    const { data: created, error } = await supabase
+      .from('plan_items')
+      .insert({
+        plan_id: planId,
+        name: trimmedName,
+        kind: 'group',
+        planned_amount: 0,
+        sort_order: sortOrder,
+      })
+      .select('id')
+      .single();
+    targetGroupId = ensure(created as { id: string } | null, error).id;
+  }
+
+  const { data: linked, error: linkError } = await supabase
+    .from('plan_items')
+    .update({ parent_item_id: targetGroupId })
+    .eq('plan_id', planId)
+    .eq('kind', 'expense')
+    .in('id', ids)
+    .select('id');
+  if (linkError || linked?.length !== ids.length) {
+    if (!groupId && targetGroupId) await supabase.from('plan_items').delete().eq('id', targetGroupId);
+    throw new Error(linkError?.message ?? 'No se pudieron agrupar todas las partidas');
+  }
+}
+
+export async function deletePlanGroup(groupId: string): Promise<void> {
+  const { error } = await supabase.from('plan_items').delete().eq('id', groupId).eq('kind', 'group');
+  if (error) throw new Error(error.message);
 }
 
 export async function fetchPlanItem(itemId: string): Promise<PlanItem> {

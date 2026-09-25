@@ -328,6 +328,7 @@ export type CreateBudgetInput = {
 };
 
 export type PlanItemKind = 'income' | 'expense' | 'deduction';
+export type PlanItemType = PlanItemKind | 'group';
 
 export type MonthlyPlanDTO = {
   id: string;
@@ -340,8 +341,9 @@ export type PlanItemDTO = {
   id: string;
   plan_id: string;
   name: string;
-  kind: PlanItemKind;
+  kind: PlanItemType;
   planned_amount: number;
+  parent_item_id: string | null;
   note: string | null;
   is_paid: boolean;
   budget_id: string | null;
@@ -385,8 +387,9 @@ export type PlanItem = {
   id: string;
   planId: string;
   name: string;
-  kind: PlanItemKind;
+  kind: PlanItemType;
   plannedAmount: number;
+  parentItemId: string | null;
   /** Sum of amounts of all transactions linked to this plan item (absolute value). */
   actualAmount: number | null;
   note: string | null;
