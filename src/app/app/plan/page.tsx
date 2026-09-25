@@ -4,30 +4,31 @@ import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronDown, ChevronLeft, ChevronRight, Copy, FileText, GitMerge, Layers3, Pencil, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Copy, FileText, GitMerge, Layers3, Pencil, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   DndContext,
   PointerSensor,
+  KeyboardSensor,
   closestCenter,
   useSensor,
   useSensors,
   type DragEndEvent,
 } from '@dnd-kit/core';
-import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableContext, arrayMove, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ColillaImportDialog } from '@/components/finance/colilla-import-dialog';
 import { MergePreviousPlanDialog } from '@/components/finance/merge-previous-plan-dialog';
 import { PayrollDocumentList } from '@/components/finance/payroll-document-list';
 import { PlanItemRow } from '@/components/finance/plan-item-row';
+import { PlanGroupRow } from '@/components/finance/plan-group-row';
 import { PlanGroupDialog } from '@/components/finance/plan-group-dialog';
 import { PlanSectionDialog } from '@/components/finance/plan-section-dialog';
 import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';
 import { PageHeader } from '@/components/layout/page-header';
 import { currentMonthKey, formatCOP, formatMonthTitle, shiftMonthKey } from '@/lib/formatters';
-import { getGroupPlannedAmount } from '@/lib/plan-summary';
 import {
   createBlankPlan,
   duplicatePreviousPlan,
@@ -120,7 +121,10 @@ function PlanPage() {
     },
   });
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   function goToMonth(delta: number) {
     window.history.pushState(null, '', `/app/plan?month=${shiftMonthKey(monthKey, delta)}`);
@@ -142,7 +146,7 @@ function PlanPage() {
       const { active, over } = event;
       if (!over || active.id === over.id) return;
 
-      const items = section === 'payroll' ? payrollItems : ungroupedExpenseItems.filter((item) => (item.sectionId ?? '') === sectionId);
+      const items = section === 'payroll' ? payrollItems : expenseTopLevel.filter((item) => (item.sectionId ?? '') === sectionId);
       const oldIndex = items.findIndex((item) => item.id === active.id);
       const newIndex = items.findIndex((item) => item.id === over.id);
       if (oldIndex === -1 || newIndex === -1) return;
@@ -314,7 +318,6 @@ function PlanPage() {
 
           {sectionCards.map((section) => {
             const sectionItems = expenseTopLevel.filter((item) => (item.sectionId ?? '') === section.id);
-            const sectionUngroupedItems = ungroupedExpenseItems.filter((item) => (item.sectionId ?? '') === section.id);
             return (
               <div key={section.id || 'unassigned'} className="rounded-2xl border border-border bg-card px-3 py-2">
                 <div className="flex flex-wrap items-center justify-between gap-2 px-1 py-1.5">
@@ -338,37 +341,34 @@ function PlanPage() {
                 </div>
                 {sectionItems.length ? (
                   <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd('expense', section.id)}>
-                    <SortableContext items={sectionUngroupedItems.map((item) => item.id)} strategy={verticalListSortingStrategy}>
+                    <SortableContext items={sectionItems.map((item) => item.id)} strategy={verticalListSortingStrategy}>
                       <div className="divide-y divide-border">
                         {sectionItems.map((item) => {
                           if (item.kind !== 'group') {
                             return <PlanItemRow key={item.id} item={item} sections={plan.sections} effectiveSectionId={item.sectionId} onMoveSection={(selected, sectionId) => moveSectionMutation.mutate({ itemId: selected.id, sectionId })} movePending={moveSectionMutation.isPending} onTogglePaid={(selected) => togglePaidMutation.mutate(selected)} togglePending={togglePaidMutation.isPending} />;
                           }
-                          const children = expenseItems.filter((child) => child.parentItemId === item.id).sort((a, b) => a.sortOrder - b.sortOrder);
-                          const amount = getGroupPlannedAmount(children, item.id);
-                          const collapsed = collapsedGroupIds.has(item.id);
+                          const children = expenseItems
+                            .filter((child) => child.parentItemId === item.id)
+                            .sort((a, b) => a.sortOrder - b.sortOrder);
                           return (
-                            <div key={item.id}>
-                              <div className="flex items-center gap-2 py-2">
-                                <button type="button" aria-label={`${collapsed ? 'Expandir' : 'Colapsar'} ${item.name}`} aria-expanded={!collapsed} onClick={() => setCollapsedGroupIds((current) => { const next = new Set(current); if (next.has(item.id)) next.delete(item.id); else next.add(item.id); return next; })} className="flex min-w-0 flex-1 items-center gap-2 rounded-xl px-1 py-1.5 text-left hover:bg-secondary/50">
-                                  {collapsed ? <ChevronRight className="h-4 w-4 shrink-0 text-primary" /> : <ChevronDown className="h-4 w-4 shrink-0 text-primary" />}
-                                  <span className="min-w-0 flex-1 truncate text-[15px] font-semibold">{item.name}</span>
-                                  <span className="tabular shrink-0 text-[15px] font-semibold">{formatCOP(amount)}</span>
-                                </button>
-                                <select aria-label={`Mover grupo ${item.name} a sección`} title="Mover grupo a sección" value={item.sectionId ?? ''} onChange={(event) => moveSectionMutation.mutate({ itemId: item.id, sectionId: event.target.value || null })} disabled={moveSectionMutation.isPending} className="max-w-24 shrink-0 rounded-lg border border-border bg-background px-1 py-1.5 text-xs text-muted-foreground">
-                                  <option value="">Sin sección</option>
-                                  {plan.sections.map((target) => <option key={target.id} value={target.id}>{target.name}</option>)}
-                                </select>
-                                <button type="button" aria-label={`Editar grupo ${item.name}`} onClick={() => { setEditingGroupId(item.id); setGroupSectionId(item.sectionId); setIsGroupOpen(true); }} className="shrink-0 rounded-lg p-2 text-muted-foreground hover:bg-secondary/50 hover:text-foreground">
-                                  <Pencil className="h-4 w-4" />
-                                </button>
-                              </div>
-                              {!collapsed && children.length > 0 && (
-                                <div className="ml-5 divide-y divide-border border-l border-border pl-2">
-                                  {children.map((child) => <PlanItemRow key={child.id} item={child} sortable={false} sections={plan.sections} effectiveSectionId={item.sectionId} onMoveSection={(selected, sectionId) => moveSectionMutation.mutate({ itemId: selected.id, sectionId })} movePending={moveSectionMutation.isPending} onTogglePaid={(selected) => togglePaidMutation.mutate(selected)} togglePending={togglePaidMutation.isPending} />)}
-                                </div>
-                              )}
-                            </div>
+                            <PlanGroupRow
+                              key={item.id}
+                              group={item}
+                              childrenItems={children}
+                              sections={plan.sections}
+                              collapsed={collapsedGroupIds.has(item.id)}
+                              onToggle={() => setCollapsedGroupIds((current) => {
+                                const next = new Set(current);
+                                if (next.has(item.id)) next.delete(item.id);
+                                else next.add(item.id);
+                                return next;
+                              })}
+                              onEdit={() => { setEditingGroupId(item.id); setGroupSectionId(item.sectionId); setIsGroupOpen(true); }}
+                              onMoveSection={(selected, sectionId) => moveSectionMutation.mutate({ itemId: selected.id, sectionId })}
+                              movePending={moveSectionMutation.isPending}
+                              onTogglePaid={(selected) => togglePaidMutation.mutate(selected)}
+                              togglePending={togglePaidMutation.isPending}
+                            />
                           );
                         })}
                       </div>

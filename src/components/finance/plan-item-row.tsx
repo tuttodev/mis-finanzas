@@ -6,6 +6,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { formatCOP } from '@/lib/formatters';
 import type { PlanItem, PlanSection } from '@/types/finance';
+import { PlanSectionPicker } from './plan-section-picker';
 
 type PlanItemRowProps = {
   item: PlanItem;
@@ -110,17 +111,13 @@ export function PlanItemRow({ item, onTogglePaid, togglePending, sortable = true
       </Link>
 
       {item.kind === 'expense' && onMoveSection && sections && (
-        <select
-          aria-label={`Mover ${item.name} a sección`}
-          title="Mover a sección"
-          value={effectiveSectionId ?? ''}
-          onChange={(event) => onMoveSection(item, event.target.value || null)}
+        <PlanSectionPicker
+          itemName={item.name}
+          value={effectiveSectionId ?? null}
+          sections={sections}
+          onChange={(sectionId) => onMoveSection(item, sectionId)}
           disabled={movePending}
-          className="max-w-24 shrink-0 rounded-lg border border-border bg-background px-1 py-1.5 text-xs text-muted-foreground"
-        >
-          <option value="">Sin sección</option>
-          {sections.map((section) => <option key={section.id} value={section.id}>{section.name}</option>)}
-        </select>
+        />
       )}
 
       {item.kind === 'expense' && (
