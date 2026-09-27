@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Search } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -25,6 +26,8 @@ export function PlanGroupDialog({ open, onOpenChange, planId, monthKey, items, s
   const queryClient = useQueryClient();
   const [name, setName] = useState(group?.name ?? '');
   const [sectionId, setSectionId] = useState(group?.sectionId ?? initialSectionId ?? '');
+  const [search, setSearch] = useState('');
+  const [showAllSections, setShowAllSections] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() =>
     new Set(items.filter((item) => item.parentItemId === group?.id && item.kind === 'expense').map((item) => item.id)),
   );
@@ -32,6 +35,14 @@ export function PlanGroupDialog({ open, onOpenChange, planId, monthKey, items, s
   const availableItems = items.filter(
     (item) => item.kind === 'expense' && (!item.parentItemId || item.parentItemId === group?.id),
   );
+  const selectedItems = availableItems.filter((item) => selectedIds.has(item.id));
+  const normalizedSearch = search.trim().toLocaleLowerCase('es');
+  const visibleItems = availableItems.filter(
+    (item) =>
+      (showAllSections || (item.sectionId ?? '') === sectionId || selectedIds.has(item.id)) &&
+      item.name.toLocaleLowerCase('es').includes(normalizedSearch),
+  );
+  const selectedTotal = selectedItems.reduce((sum, item) => sum + item.plannedAmount, 0);
 
   const saveMutation = useMutation({
     mutationFn: () => savePlanGroup(planId, name, Array.from(selectedIds), sectionId || null, group?.id),
@@ -67,66 +78,101 @@ export function PlanGroupDialog({ open, onOpenChange, planId, monthKey, items, s
   const pending = saveMutation.isPending || deleteMutation.isPending;
 
   return (
-    <AlertDialog open={open} onOpenChange={(isOpen) => !isOpen && onOpenChange(false)}>
-      <AlertDialogContent className="max-w-sm sm:max-w-md">
-        <AlertDialogHeader>
+    <AlertDialog open={open} onOpenChange={(isOpen) => !isOpen && !pending && onOpenChange(false)}>
+      <AlertDialogContent className="w-[calc(100vw-2rem)] min-w-0 max-h-[calc(100dvh-2rem)] overflow-x-hidden overflow-y-auto data-[size=default]:max-w-xl data-[size=default]:sm:max-w-xl">
+        <AlertDialogHeader className="min-w-0">
           <AlertDialogTitle>{group ? 'Editar grupo' : 'Agrupar partidas'}</AlertDialogTitle>
-          <AlertDialogDescription>
-            El grupo muestra la suma de sus subpartidas. El sobrante cuenta cada subpartida una sola vez.
+          <AlertDialogDescription className="min-w-0 max-w-full">
+            Selecciona las subpartidas del grupo. Su suma se cuenta una sola vez en el plan.
           </AlertDialogDescription>
         </AlertDialogHeader>
 
-        <div className="space-y-3">
-          <label htmlFor="plan-group-name" className="block text-sm font-medium">Nombre del grupo</label>
-          <Input
-            id="plan-group-name"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            maxLength={80}
-            placeholder="TC NU"
-            disabled={pending}
-          />
-          <div>
-            <label htmlFor="plan-group-section" className="mb-1.5 block text-sm font-medium">Sección</label>
-            <select
-              id="plan-group-section"
-              value={sectionId}
-              onChange={(event) => setSectionId(event.target.value)}
-              disabled={pending}
-              className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
-            >
-              <option value="">Sin sección</option>
-              {sections.map((section) => <option key={section.id} value={section.id}>{section.name}</option>)}
-            </select>
+        <div className="min-w-0 space-y-4">
+          <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+            <div className="min-w-0">
+              <label htmlFor="plan-group-name" className="mb-1.5 block text-sm font-medium">Nombre del grupo</label>
+              <Input
+                id="plan-group-name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                maxLength={80}
+                placeholder="TC NU"
+                disabled={pending}
+                className="h-10"
+              />
+            </div>
+            <div className="min-w-0">
+              <label htmlFor="plan-group-section" className="mb-1.5 block text-sm font-medium">Sección</label>
+              <select
+                id="plan-group-section"
+                value={sectionId}
+                onChange={(event) => setSectionId(event.target.value)}
+                disabled={pending}
+                className="h-10 w-full min-w-0 rounded-lg border border-input bg-background px-3 text-sm"
+              >
+                <option value="">Sin sección</option>
+                {sections.map((section) => <option key={section.id} value={section.id}>{section.name}</option>)}
+              </select>
+            </div>
           </div>
-          <p className="text-xs font-semibold text-muted-foreground">Subpartidas</p>
-          <div className="max-h-[40vh] overflow-y-auto rounded-xl border border-border">
-            {availableItems.length ? availableItems.map((item) => (
-              <label key={item.id} className="flex cursor-pointer items-center gap-3 border-b border-border px-3 py-2.5 last:border-b-0 hover:bg-muted/40">
-                <input
-                  type="checkbox"
-                  checked={selectedIds.has(item.id)}
-                  onChange={() => toggleItem(item.id)}
-                  disabled={pending}
-                  className="h-4 w-4 shrink-0 accent-primary"
-                />
-                <span className="min-w-0 flex-1 truncate text-sm">{item.name}</span>
-                <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{formatCOP(item.plannedAmount)}</span>
-              </label>
-            )) : <p className="p-3 text-sm text-muted-foreground">No hay partidas disponibles.</p>}
+
+          <div className="min-w-0 space-y-2">
+            <div className="flex min-w-0 items-center justify-between gap-2">
+              <p className="text-sm font-semibold">Subpartidas</p>
+              <button
+                type="button"
+                onClick={() => setShowAllSections((current) => !current)}
+                className="shrink-0 text-xs font-medium text-primary hover:underline"
+              >
+                {showAllSections ? 'Solo esta sección' : 'Ver todas las secciones'}
+              </button>
+            </div>
+            <div className="relative min-w-0">
+              <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                aria-label="Buscar subpartidas"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Buscar partida"
+                className="h-9 pl-9"
+              />
+            </div>
+            <div role="group" aria-label="Partidas disponibles" className="max-h-[min(38dvh,22rem)] min-w-0 overflow-y-auto overflow-x-hidden rounded-xl border border-border">
+              {visibleItems.length ? visibleItems.map((item) => {
+                const selected = selectedIds.has(item.id);
+                return (
+                  <label key={item.id} className={`flex min-w-0 cursor-pointer items-center gap-2.5 border-b border-border px-3 py-2.5 last:border-b-0 hover:bg-muted/40 ${selected ? 'bg-primary/5' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={selected}
+                      onChange={() => toggleItem(item.id)}
+                      disabled={pending}
+                      className="h-4 w-4 shrink-0 accent-primary"
+                    />
+                    <span className="min-w-0 flex-1 truncate text-sm" title={item.name}>{item.name}</span>
+                    <span className="tabular shrink-0 whitespace-nowrap text-xs text-muted-foreground">{formatCOP(item.plannedAmount)}</span>
+                  </label>
+                );
+              }) : (
+                <p className="px-3 py-5 text-center text-sm text-muted-foreground">
+                  {normalizedSearch ? 'No hay partidas que coincidan.' : 'No hay partidas disponibles en esta sección.'}
+                </p>
+              )}
+            </div>
+            <div className="flex min-w-0 items-baseline justify-between gap-3 rounded-lg bg-primary/5 px-3 py-2.5">
+              <span className="text-xs font-medium text-muted-foreground">{selectedIds.size} seleccionadas · Total del grupo</span>
+              <span className="tabular min-w-0 text-right text-base font-bold text-foreground">{formatCOP(selectedTotal)}</span>
+            </div>
           </div>
-          <p className="text-right text-sm font-semibold">
-            Total: {formatCOP(availableItems.filter((item) => selectedIds.has(item.id)).reduce((sum, item) => sum + item.plannedAmount, 0))}
-          </p>
         </div>
 
-        <AlertDialogFooter>
+        <AlertDialogFooter className="min-w-0 flex-wrap">
           {group && (
-            <Button variant="ghost" className="mr-auto text-destructive" disabled={pending} onClick={() => deleteMutation.mutate()}>
+            <Button variant="ghost" className="sm:mr-auto text-destructive" disabled={pending} onClick={() => deleteMutation.mutate()}>
               Desagrupar
             </Button>
           )}
-          <AlertDialogCancel disabled={pending} onClick={() => onOpenChange(false)}>Cancelar</AlertDialogCancel>
+          <AlertDialogCancel disabled={pending}>Cancelar</AlertDialogCancel>
           <Button disabled={pending || !name.trim() || selectedIds.size === 0} onClick={() => saveMutation.mutate()}>
             {saveMutation.isPending ? 'Guardando...' : 'Guardar grupo'}
           </Button>
