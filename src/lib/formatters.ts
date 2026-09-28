@@ -66,15 +66,8 @@ export function formatCurrencyInput(value: string | number, currency: Currency =
   const sanitized = value.trim().replace(/[^\d.,]/g, '');
   if (!sanitized) return '';
 
-  const lastComma = sanitized.lastIndexOf(',');
-  const lastDot = sanitized.lastIndexOf('.');
-  const lastSeparator = Math.max(lastComma, lastDot);
-  const separator = sanitized[lastSeparator];
-  const digitsAfter = lastSeparator < 0 ? 0 : sanitized.slice(lastSeparator + 1).replace(/\D/g, '').length;
-  const hasOtherSeparator = lastComma >= 0 && lastDot >= 0;
-  const decimalIndex = lastSeparator >= 0
-    && !(separator === group && digitsAfter === 3 && !hasOtherSeparator)
-    ? lastSeparator : -1;
+  // Group separators can have incomplete groups while the user types or deletes digits.
+  const decimalIndex = sanitized.indexOf(decimal);
 
   const integerDigits = (decimalIndex >= 0
     ? sanitized.slice(0, decimalIndex)
