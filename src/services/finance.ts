@@ -111,6 +111,7 @@ function mapBudget(dto: BudgetDTO): Budget {
   return {
     id: dto.id,
     name: dto.name,
+    currency: dto.currency,
     limitAmount: dto.limit_amount,
     isActive: dto.is_active,
   };
@@ -478,12 +479,6 @@ export async function createTransaction(input: CreateTransactionInput) {
   if (input.type === 'Gasto' && !input.categoryId) {
     throw new Error('Selecciona una categoría');
   }
-  if (input.account.currency !== 'COP' && input.budgetId) {
-    throw new Error('Los movimientos en USD no se pueden asignar a presupuestos en COP');
-  }
-  if (input.account.currency !== 'COP' && input.planItemId) {
-    throw new Error('Los movimientos en USD no se pueden vincular a partidas planeadas en COP');
-  }
 
   let budgetCycleId: string | null = null;
   if (input.type === 'Gasto' && input.budgetId) {
@@ -679,12 +674,6 @@ export async function updateTransaction(
   if (input.type === 'Gasto' && !input.categoryId) {
     throw new Error('Selecciona una categoría');
   }
-  if (input.account.currency !== 'COP' && input.budgetId) {
-    throw new Error('Los movimientos en USD no se pueden asignar a presupuestos en COP');
-  }
-  if (input.account.currency !== 'COP' && input.planItemId) {
-    throw new Error('Los movimientos en USD no se pueden vincular a partidas planeadas en COP');
-  }
 
   let budgetCycleId: string | null = null;
   if (input.type === 'Gasto' && input.budgetId) {
@@ -871,7 +860,7 @@ export async function deleteTransaction(transactionId: string) {
   if (error) throw new Error(error.message);
 }
 
-export async function fetchBudgetOptions(): Promise<Budget[]> {
+export async function fetchBudgetOptions(currency?: Currency): Promise<Budget[]> {
   const { data, error } = await supabase
     .from('budgets')
     .select('*')
@@ -879,11 +868,11 @@ export async function fetchBudgetOptions(): Promise<Budget[]> {
     .order('name');
 
   const budgets = ensure(data as BudgetDTO[] | null, error);
-  return budgets.map(mapBudget);
+  return budgets.filter((budget) => !currency || budget.currency === currency).map(mapBudget);
 }
 
-export async function fetchBudgetProgressList(): Promise<BudgetProgress[]> {
-  const budgets = await fetchBudgetOptions();
+export async function fetchBudgetProgressList(currency?: Currency): Promise<BudgetProgress[]> {
+  const budgets = await fetchBudgetOptions(currency);
 
   const progress = await Promise.all(
     budgets.map(async (budget) => {
@@ -934,8 +923,12 @@ export async function fetchBudgetSnapshotDetail(cycleId: string): Promise<Budget
     throw new Error('No se encontró un snapshot válido para este ciclo');
   }
 
-  const movements = await fetchBudgetMovements(cycleId);
-  return { snapshot, movements };
+  const [movements, budgetResult] = await Promise.all([
+    fetchBudgetMovements(cycleId),
+    supabase.from('budgets').select('currency').eq('id', cycleDto.budget_id).single(),
+  ]);
+  const currency = ensure(budgetResult.data as { currency: Currency } | null, budgetResult.error).currency;
+  return { snapshot, movements, currency };
 }
 
 export async function fetchBudgetMovements(cycleId: string): Promise<BudgetMovement[]> {
@@ -985,7 +978,7 @@ function toIsoDate(date: Date) {
 
 const monthLabelFormatter = new Intl.DateTimeFormat('es-CO', { month: 'short' });
 
-export async function fetchDashboardData(): Promise<DashboardData> {
+export async function fetchDashboardData(currency: Currency = 'COP'): Promise<DashboardData> {
   const now = new Date();
   const monthsBack = 5;
   const rangeStart = new Date(now.getFullYear(), now.getMonth() - monthsBack, 1);
@@ -1004,7 +997,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
   const transactions = ensure(txResult.data as TransactionDTO[] | null, txResult.error);
   const accountNames = new Map(accounts.map((account) => [account.id, account.name]));
   const accountsById = new Map(accounts.map((account) => [account.id, account]));
-  const balancesByCurrency = (['COP', 'USD'] as Currency[])
+  const balancesByCurrency = (['COP', 'PEN', 'USD', 'EUR'] as Currency[])
     .map((currency) => ({
       currency,
       balance: accounts
@@ -1039,9 +1032,8 @@ export async function fetchDashboardData(): Promise<DashboardData> {
   const categoryTotals = new Map<string, number>();
 
   for (const tx of transactions) {
-    // Budgets and dashboard charts are denominated in COP. USD is tracked in its
-    // own account balance and is intentionally never mixed into these metrics.
-    if (accountsById.get(tx.account_id)?.currency !== 'COP') continue;
+    // Report one currency at a time; never add amounts across currencies.
+    if (accountsById.get(tx.account_id)?.currency !== currency) continue;
     // Transfers move money between own accounts; they are not income nor expense
     if (tx.transfer_id) continue;
 
@@ -1115,6 +1107,7 @@ function dateInputToIso(dateInput: string) {
 export async function createBudget(input: CreateBudgetInput) {
   const payload: InsertBudgetDTO = {
     name: input.name,
+    currency: input.currency,
     limit_amount: roundCurrencyAmount(input.limitAmount),
   };
 
@@ -1176,8 +1169,14 @@ function mapMonthlyPlan(dto: MonthlyPlanDTO): MonthlyPlan {
   return {
     id: dto.id,
     month: dto.month,
+    currency: dto.currency,
     payday: dto.payday ?? null,
   };
+}
+
+export async function fetchPlanCurrency(planId: string): Promise<Currency> {
+  const { data, error } = await supabase.from('monthly_plans').select('currency').eq('id', planId).single();
+  return ensure(data as { currency: Currency } | null, error).currency;
 }
 
 function mapPlanItem(dto: PlanItemDTO, tagIds: string[] = [], actualAmount: number | null = null): PlanItem {
@@ -1305,11 +1304,12 @@ async function syncPlanItemTags(planItemId: string, tagIds: string[]) {
   if (insertError) throw new Error(insertError.message);
 }
 
-export async function fetchMonthlyPlan(monthKey: string): Promise<MonthlyPlanSummary | null> {
+export async function fetchMonthlyPlan(monthKey: string, currency: Currency = 'COP'): Promise<MonthlyPlanSummary | null> {
   const { data, error } = await supabase
     .from('monthly_plans')
     .select('*')
     .eq('month', monthKey)
+    .eq('currency', currency)
     .maybeSingle();
 
   if (error) throw new Error(error.message);
@@ -1322,11 +1322,13 @@ export async function fetchMonthlyPlan(monthKey: string): Promise<MonthlyPlanSum
 
 export async function fetchPreviousPlanSummary(
   monthKey: string,
+  currency: Currency = 'COP',
 ): Promise<MonthlyPlanSummary | null> {
   const { data, error } = await supabase
     .from('monthly_plans')
     .select('*')
     .lt('month', monthKey)
+    .eq('currency', currency)
     .order('month', { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -1339,8 +1341,8 @@ export async function fetchPreviousPlanSummary(
   return summarizePlan(plan, items, sections);
 }
 
-export async function createBlankPlan(monthKey: string): Promise<MonthlyPlanSummary> {
-  const payload: InsertMonthlyPlanDTO = { month: monthKey };
+export async function createBlankPlan(monthKey: string, currency: Currency = 'COP'): Promise<MonthlyPlanSummary> {
+  const payload: InsertMonthlyPlanDTO = { month: monthKey, currency };
   const { data, error } = await supabase
     .from('monthly_plans')
     .insert(payload)
@@ -1357,13 +1359,13 @@ export async function createBlankPlan(monthKey: string): Promise<MonthlyPlanSumm
   }
 }
 
-export async function duplicatePreviousPlan(monthKey: string): Promise<MonthlyPlanSummary> {
-  const previous = await fetchPreviousPlanSummary(monthKey);
+export async function duplicatePreviousPlan(monthKey: string, currency: Currency = 'COP'): Promise<MonthlyPlanSummary> {
+  const previous = await fetchPreviousPlanSummary(monthKey, currency);
   if (!previous) throw new Error('No hay un plan anterior para duplicar');
 
   const { data, error } = await supabase
     .from('monthly_plans')
-    .insert({ month: monthKey } satisfies InsertMonthlyPlanDTO)
+    .insert({ month: monthKey, currency } satisfies InsertMonthlyPlanDTO)
     .select('*')
     .single();
   const plan = mapMonthlyPlan(ensure(data as MonthlyPlanDTO | null, error));
@@ -1428,9 +1430,13 @@ export async function mergeFromPreviousPlan(
   targetPlanId: string,
   monthKey: string,
   selectedItemIds: string[],
+  currency: Currency = 'COP',
 ): Promise<PlanItem[]> {
   if (!selectedItemIds.length) return [];
-  const previous = await fetchPreviousPlanSummary(monthKey);
+  if (await fetchPlanCurrency(targetPlanId) !== currency) {
+    throw new Error('La moneda del plan no coincide con la del mes anterior');
+  }
+  const previous = await fetchPreviousPlanSummary(monthKey, currency);
   if (!previous) throw new Error('No hay un plan anterior para importar');
 
   const existingItems = await fetchPlanItems(targetPlanId);

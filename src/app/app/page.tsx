@@ -15,8 +15,9 @@ import { TransferBadge } from '@/components/finance/transfer-badge';
 import { RefundBadge } from '@/components/finance/refund-badge';
 import { PlanningBadge } from '@/components/finance/planning-badge';
 import { TagBadge } from '@/components/finance/tag-badge';
-import { formatCOP, formatCurrency, formatShortDate } from '@/lib/formatters';
+import { formatCurrency, formatShortDate } from '@/lib/formatters';
 import { fetchBudgetProgressList, fetchDashboardData } from '@/services/finance';
+import { useDefaultCurrency } from '@/providers/profile-provider';
 
 const CHART_COLORS = [
   'var(--chart-1)',
@@ -33,19 +34,22 @@ const todayFormatter = new Intl.DateTimeFormat('es-CO', {
 });
 
 export default function DashboardPage() {
+  const { currency, isLoading: profileLoading, isError: profileError } = useDefaultCurrency();
   const dashboardQuery = useQuery({
-    queryKey: ['dashboard'],
-    queryFn: fetchDashboardData,
+    queryKey: ['dashboard', currency],
+    queryFn: () => fetchDashboardData(currency),
+    enabled: !profileLoading && !profileError,
   });
 
   const budgetsQuery = useQuery({
-    queryKey: ['budgets'],
-    queryFn: fetchBudgetProgressList,
+    queryKey: ['budgets', currency],
+    queryFn: () => fetchBudgetProgressList(currency),
+    enabled: !profileLoading && !profileError,
   });
 
   const { hidden, toggle } = usePrivacy();
 
-  if (dashboardQuery.isLoading) {
+  if (profileLoading || dashboardQuery.isLoading) {
     return (
       <div className="mx-auto max-w-2xl space-y-4 p-4">
         <Skeleton className="h-44 w-full rounded-2xl" />
@@ -54,6 +58,8 @@ export default function DashboardPage() {
       </div>
     );
   }
+
+  if (profileError) return <div className="mx-auto max-w-2xl p-4"><ErrorState message="No se pudo cargar la moneda del perfil" /></div>;
 
   if (dashboardQuery.isError || !dashboardQuery.data) {
     return (
@@ -118,19 +124,19 @@ export default function DashboardPage() {
           <div className="min-w-0 rounded-xl bg-secondary/60 p-3">
             <p className="flex items-start gap-1 text-xs leading-4 text-muted-foreground">
               <ArrowUpRight className="h-3.5 w-3.5 text-income" />
-              Ingresos del mes · COP
+              Ingresos del mes · {currency}
             </p>
             <p className="tabular mt-1 min-w-0 font-display text-lg leading-tight font-semibold text-income">
-              {hidden ? '••••••' : formatCOP(data.monthIncome)}
+              {hidden ? '••••••' : formatCurrency(data.monthIncome, currency)}
             </p>
           </div>
           <div className="min-w-0 rounded-xl bg-secondary/60 p-3">
             <p className="flex items-start gap-1 text-xs leading-4 text-muted-foreground">
               <ArrowDownRight className="h-3.5 w-3.5 text-expense" />
-              Gastos del mes · COP
+              Gastos del mes · {currency}
             </p>
             <p className="tabular mt-1 min-w-0 font-display text-lg leading-tight font-semibold text-expense">
-              {hidden ? '••••••' : formatCOP(data.monthExpense)}
+              {hidden ? '••••••' : formatCurrency(data.monthExpense, currency)}
             </p>
           </div>
         </div>
@@ -139,9 +145,9 @@ export default function DashboardPage() {
       {/* Daily spending trend */}
       <section className="rounded-2xl border border-border bg-card p-5">
         <h2 className="text-base font-semibold">Gasto diario</h2>
-        <p className="mb-3 text-xs text-muted-foreground">Últimos 30 días · COP</p>
+        <p className="mb-3 text-xs text-muted-foreground">Últimos 30 días · {currency}</p>
         {data.dailySpend.some((d) => d.value > 0) ? (
-          <SpendArea data={data.dailySpend} />
+          <SpendArea data={data.dailySpend} currency={currency} />
         ) : (
           <p className="py-6 text-center text-sm text-muted-foreground">
             Sin gastos registrados en los últimos 30 días.
@@ -153,10 +159,10 @@ export default function DashboardPage() {
       <section className="rounded-2xl border border-border bg-card p-5">
         <h2 className="text-base font-semibold">Flujo mensual</h2>
         <p className="mb-3 text-xs text-muted-foreground">
-          Ingresos y gastos de los últimos 6 meses · COP
+          Ingresos y gastos de los últimos 6 meses · {currency}
         </p>
         {data.cashflow.some((m) => m.income > 0 || m.expense > 0) ? (
-          <CashflowBars data={data.cashflow} />
+          <CashflowBars data={data.cashflow} currency={currency} />
         ) : (
           <p className="py-6 text-center text-sm text-muted-foreground">
             Aún no hay movimientos para graficar.
@@ -167,9 +173,9 @@ export default function DashboardPage() {
       {/* Spending by category */}
       <section className="rounded-2xl border border-border bg-card p-5">
         <h2 className="text-base font-semibold">Gasto por categoría</h2>
-        <p className="mb-3 text-xs text-muted-foreground">Mes actual · COP</p>
+        <p className="mb-3 text-xs text-muted-foreground">Mes actual · {currency}</p>
         {categorySlices.length ? (
-          <DonutChart data={categorySlices} centerLabel="Total gastado" />
+          <DonutChart data={categorySlices} centerLabel="Total gastado" currency={currency} />
         ) : (
           <p className="py-6 text-center text-sm text-muted-foreground">
             Aún no hay gastos categorizados este mes.
@@ -182,7 +188,7 @@ export default function DashboardPage() {
         <h2 className="text-base font-semibold">Gasto por presupuesto</h2>
         <p className="mb-3 text-xs text-muted-foreground">Ciclo actual de cada presupuesto</p>
         {budgetSlices.length ? (
-          <DonutChart data={budgetSlices} centerLabel="Total gastado" />
+          <DonutChart data={budgetSlices} centerLabel="Total gastado" currency={currency} />
         ) : (
           <p className="py-6 text-center text-sm text-muted-foreground">
             Aún no hay gastos asignados a presupuestos.{' '}

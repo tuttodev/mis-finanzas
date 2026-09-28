@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { formatCOP, formatPercent } from '@/lib/formatters';
+import { formatCurrency, formatPercent } from '@/lib/formatters';
+import type { Currency } from '@/types/finance';
 
 export type HistoryPoint = {
   label: string;
@@ -33,7 +34,7 @@ function topRoundedBar(x: number, y: number, width: number, height: number) {
   ].join(' ');
 }
 
-export function HistoryBars({ data }: HistoryBarsProps) {
+export function HistoryBars({ data, currency = 'COP' }: HistoryBarsProps & { currency?: Currency }) {
   const [active, setActive] = useState<number | null>(null);
 
   const percentages = data.map((d) => (d.limit > 0 ? (d.spent / d.limit) * 100 : 0));
@@ -120,10 +121,10 @@ export function HistoryBars({ data }: HistoryBarsProps) {
         >
           <p className="text-[11px] font-medium text-muted-foreground">{activePoint.label}</p>
           <p className="tabular whitespace-nowrap text-xs text-foreground">
-            Gastado: {formatCOP(activePoint.spent)}
+            Gastado: {formatCurrency(activePoint.spent, currency)}
           </p>
           <p className="tabular whitespace-nowrap text-xs text-muted-foreground">
-            Límite: {formatCOP(activePoint.limit)} · {formatPercent(activePct)}
+            Límite: {formatCurrency(activePoint.limit, currency)} · {formatPercent(activePct)}
           </p>
         </div>
       )}

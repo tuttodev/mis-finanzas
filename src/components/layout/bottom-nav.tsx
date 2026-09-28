@@ -12,6 +12,7 @@ import {
   MoreHorizontal,
   PieChart,
   Plus,
+  Settings,
   Tag,
   Tags,
   X,
@@ -27,6 +28,7 @@ const tabs = [
   { href: '/app/categories', label: 'Categorías', icon: Tags, exact: false, prefix: '/app/categor' },
   { href: '/app/tags', label: 'Etiquetas', icon: Tag, exact: false, prefix: '/app/tag' },
   { href: '/app/budgets', label: 'Presupuestos', icon: PieChart, exact: false, prefix: '/app/budget' },
+  { href: '/app/profile', label: 'Perfil', icon: Settings, exact: false, prefix: '/app/profile' },
 ] as const;
 
 const mobileTabs = tabs.slice(0, 3);

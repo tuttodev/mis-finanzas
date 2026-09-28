@@ -14,9 +14,9 @@ import {
   AlertDialogFooter,
   AlertDialogCancel,
 } from '@/components/ui/alert-dialog';
-import { formatCOP } from '@/lib/formatters';
+import { formatCurrency } from '@/lib/formatters';
 import { mergeFromPreviousPlan } from '@/services/finance';
-import type { MonthlyPlanSummary, PlanItem, PlanItemKind } from '@/types/finance';
+import type { Currency, MonthlyPlanSummary, PlanItem, PlanItemKind } from '@/types/finance';
 import { captureAnalytics } from '@/lib/analytics';
 
 interface MergePreviousPlanDialogProps {
@@ -25,6 +25,7 @@ interface MergePreviousPlanDialogProps {
   targetPlanId: string;
   monthKey: string;
   previousPlan: MonthlyPlanSummary;
+  currency?: Currency;
   currentItems: PlanItem[];
 }
 
@@ -51,6 +52,7 @@ export function MergePreviousPlanDialog({
   targetPlanId,
   monthKey,
   previousPlan,
+  currency = 'COP',
   currentItems,
 }: MergePreviousPlanDialogProps) {
   const queryClient = useQueryClient();
@@ -62,7 +64,7 @@ export function MergePreviousPlanDialog({
 
   const mergeMutation = useMutation({
     mutationFn: () =>
-      mergeFromPreviousPlan(targetPlanId, monthKey, Array.from(selected)),
+      mergeFromPreviousPlan(targetPlanId, monthKey, Array.from(selected), currency),
     onSuccess: async (inserted) => {
       captureAnalytics('plan_items_merged', { item_count: inserted.length });
       await queryClient.invalidateQueries({ queryKey: ['plan', monthKey] });
@@ -137,7 +139,7 @@ export function MergePreviousPlanDialog({
                         )}
                         <span className="min-w-0 flex-1 truncate text-sm">{item.name}</span>
                         <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
-                          {formatCOP(item.plannedAmount)}
+                          {formatCurrency(item.plannedAmount, currency)}
                         </span>
                       </label>
                     );

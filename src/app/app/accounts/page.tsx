@@ -10,6 +10,7 @@ import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';
 import { PageHeader } from '@/components/layout/page-header';
 import { formatCurrency } from '@/lib/formatters';
+import { CURRENCIES } from '@/lib/formatters';
 import { fetchAccountsOverview } from '@/services/finance';
 import { usePrivacy } from '@/providers/privacy-provider';
 
@@ -21,11 +22,11 @@ export default function AccountsPage() {
 
   const { hidden, toggle } = usePrivacy();
 
-  const balancesByCurrency = (['COP', 'USD'] as const)
-    .map((currency) => ({
-      currency,
+  const balancesByCurrency = CURRENCIES
+    .map(({ code }) => ({
+      currency: code,
       balance: accountsQuery.data
-        ?.filter((account) => account.currency === currency)
+        ?.filter((account) => account.currency === code)
         .reduce((sum, account) => sum + account.currentBalance, 0) ?? 0,
     }))
     .filter(({ currency }) => accountsQuery.data?.some((account) => account.currency === currency));

@@ -7,14 +7,15 @@ import { toast } from 'sonner';
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { formatCOP } from '@/lib/formatters';
+import { formatCurrency } from '@/lib/formatters';
 import { deletePlanGroup, savePlanGroup } from '@/services/finance';
-import type { PlanItem, PlanSection } from '@/types/finance';
+import type { Currency, PlanItem, PlanSection } from '@/types/finance';
 
 type PlanGroupDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   planId: string;
+  currency?: Currency;
   monthKey: string;
   items: PlanItem[];
   sections: PlanSection[];
@@ -22,7 +23,7 @@ type PlanGroupDialogProps = {
   group?: PlanItem | null;
 };
 
-export function PlanGroupDialog({ open, onOpenChange, planId, monthKey, items, sections, initialSectionId, group }: PlanGroupDialogProps) {
+export function PlanGroupDialog({ open, onOpenChange, planId, monthKey, items, sections, initialSectionId, group, currency = 'COP' }: PlanGroupDialogProps) {
   const queryClient = useQueryClient();
   const [name, setName] = useState(group?.name ?? '');
   const [sectionId, setSectionId] = useState(group?.sectionId ?? initialSectionId ?? '');
@@ -150,7 +151,7 @@ export function PlanGroupDialog({ open, onOpenChange, planId, monthKey, items, s
                       className="h-4 w-4 shrink-0 accent-primary"
                     />
                     <span className="min-w-0 flex-1 truncate text-sm" title={item.name}>{item.name}</span>
-                    <span className="tabular shrink-0 whitespace-nowrap text-xs text-muted-foreground">{formatCOP(item.plannedAmount)}</span>
+                    <span className="tabular shrink-0 whitespace-nowrap text-xs text-muted-foreground">{formatCurrency(item.plannedAmount, currency)}</span>
                   </label>
                 );
               }) : (
@@ -161,7 +162,7 @@ export function PlanGroupDialog({ open, onOpenChange, planId, monthKey, items, s
             </div>
             <div className="flex min-w-0 items-baseline justify-between gap-3 rounded-lg bg-primary/5 px-3 py-2.5">
               <span className="text-xs font-medium text-muted-foreground">{selectedIds.size} seleccionadas · Total del grupo</span>
-              <span className="tabular min-w-0 text-right text-base font-bold text-foreground">{formatCOP(selectedTotal)}</span>
+              <span className="tabular min-w-0 text-right text-base font-bold text-foreground">{formatCurrency(selectedTotal, currency)}</span>
             </div>
           </div>
         </div>

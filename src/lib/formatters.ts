@@ -1,19 +1,24 @@
 import type { Currency } from '@/types/finance';
 
-const currencyFormatters: Record<Currency, Intl.NumberFormat> = {
-  COP: new Intl.NumberFormat('es-CO', {
-    style: 'currency',
-    currency: 'COP',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }),
-  USD: new Intl.NumberFormat('es-CO', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }),
+export const CURRENCIES: Array<{ code: Currency; label: string }> = [
+  { code: 'COP', label: 'Peso colombiano' },
+  { code: 'PEN', label: 'Sol peruano' },
+  { code: 'USD', label: 'Dólar estadounidense' },
+  { code: 'EUR', label: 'Euro' },
+];
+
+const currencyLocales: Record<Currency, string> = {
+  COP: 'es-CO',
+  PEN: 'es-PE',
+  USD: 'en-US',
+  EUR: 'es-ES',
 };
+
+const currencyFormatters = Object.fromEntries(
+  CURRENCIES.map(({ code }) => [code, new Intl.NumberFormat(currencyLocales[code], {
+    style: 'currency', currency: code, minimumFractionDigits: 2, maximumFractionDigits: 2,
+  })]),
+) as Record<Currency, Intl.NumberFormat>;
 
 export const shortDateFormatter = new Intl.DateTimeFormat('es-CO', {
   day: 'numeric',
@@ -44,11 +49,15 @@ export function formatCurrency(value: number, currency: Currency) {
   return currencyFormatters[currency].format(value);
 }
 
-export function formatCOPInput(value: string | number) {
+export function formatCurrencyInput(value: string | number, currency: Currency = 'COP') {
+  const locale = currencyLocales[currency];
+  const parts = new Intl.NumberFormat(locale).formatToParts(1234567.5);
+  const group = parts.find((part) => part.type === 'group')?.value ?? ',';
+  const decimal = parts.find((part) => part.type === 'decimal')?.value ?? '.';
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) return '';
 
-    return value.toLocaleString('es-CO', {
+    return value.toLocaleString(locale, {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
@@ -59,19 +68,13 @@ export function formatCOPInput(value: string | number) {
 
   const lastComma = sanitized.lastIndexOf(',');
   const lastDot = sanitized.lastIndexOf('.');
-  let decimalIndex = lastComma;
-
-  if (lastDot > lastComma) {
-    const digitsAfterDot = sanitized.slice(lastDot + 1).replace(/\D/g, '').length;
-    const dotCount = sanitized.match(/\./g)?.length ?? 0;
-    const dotIsDecimal =
-      lastComma >= 0 ||
-      digitsAfterDot === 0 ||
-      digitsAfterDot < 3 ||
-      (dotCount > 1 && digitsAfterDot <= 2);
-
-    decimalIndex = dotIsDecimal ? lastDot : -1;
-  }
+  const lastSeparator = Math.max(lastComma, lastDot);
+  const separator = sanitized[lastSeparator];
+  const digitsAfter = lastSeparator < 0 ? 0 : sanitized.slice(lastSeparator + 1).replace(/\D/g, '').length;
+  const hasOtherSeparator = lastComma >= 0 && lastDot >= 0;
+  const decimalIndex = lastSeparator >= 0
+    && !(separator === group && digitsAfter === 3 && !hasOtherSeparator)
+    ? lastSeparator : -1;
 
   const integerDigits = (decimalIndex >= 0
     ? sanitized.slice(0, decimalIndex)
@@ -86,28 +89,36 @@ export function formatCOPInput(value: string | number) {
       : '';
 
   const normalizedInteger = (integerDigits || '0').replace(/^0+(?=\d)/, '');
-  const groupedInteger = normalizedInteger.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const groupedInteger = normalizedInteger.replace(/\B(?=(\d{3})+(?!\d))/g, group);
 
-  return decimalIndex >= 0 ? `${groupedInteger},${fractionDigits}` : groupedInteger;
+  return decimalIndex >= 0 ? `${groupedInteger}${decimal}${fractionDigits}` : groupedInteger;
 }
 
-export function formatCOPCompact(value: number) {
+export function formatCOPInput(value: string | number) {
+  return formatCurrencyInput(value, 'COP');
+}
+
+export function formatCurrencyCompact(value: number, currency: Currency) {
   const abs = Math.abs(value);
   if (abs >= 1_000_000) {
     const millions = value / 1_000_000;
-    return `$${millions.toLocaleString('es-CO', {
+    return `${currency} ${millions.toLocaleString(currencyLocales[currency], {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}M`;
   }
   if (abs >= 1_000) {
     const thousands = value / 1_000;
-    return `$${thousands.toLocaleString('es-CO', {
+    return `${currency} ${thousands.toLocaleString(currencyLocales[currency], {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}K`;
   }
-  return formatCOP(value);
+  return formatCurrency(value, currency);
+}
+
+export function formatCOPCompact(value: number) {
+  return formatCurrencyCompact(value, 'COP');
 }
 
 export function formatPercent(value: number) {
@@ -172,11 +183,13 @@ export function formatMonthTitle(monthKey: string) {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
-export function parseCurrencyInput(value: string, options?: { allowZero?: boolean }) {
-  const formatted = formatCOPInput(value);
-  const normalized = formatted
-    .replace(/\./g, '')
-    .replace(/,/g, '.');
+export function parseCurrencyInput(value: string, options?: { allowZero?: boolean; currency?: Currency }) {
+  const currency = options?.currency ?? 'COP';
+  const formatted = formatCurrencyInput(value, currency);
+  const parts = new Intl.NumberFormat(currencyLocales[currency]).formatToParts(1234567.5);
+  const group = parts.find((part) => part.type === 'group')?.value ?? ',';
+  const decimal = parts.find((part) => part.type === 'decimal')?.value ?? '.';
+  const normalized = formatted.replaceAll(group, '').replace(decimal, '.');
 
   const amount = Number(normalized);
   const minValid = options?.allowZero ? 0 : Number.EPSILON;

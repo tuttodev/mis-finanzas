@@ -9,13 +9,16 @@ import { BudgetProgressRow } from '@/components/finance/budget-progress-row';
 import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';
 import { PageHeader } from '@/components/layout/page-header';
-import { formatCOP } from '@/lib/formatters';
+import { formatCurrency } from '@/lib/formatters';
+import { useDefaultCurrency } from '@/providers/profile-provider';
 import { fetchBudgetProgressList } from '@/services/finance';
 
 export default function BudgetsPage() {
+  const { currency, isLoading: profileLoading, isError: profileError } = useDefaultCurrency();
   const budgetsQuery = useQuery({
-    queryKey: ['budgets'],
-    queryFn: fetchBudgetProgressList,
+    queryKey: ['budgets', currency],
+    queryFn: () => fetchBudgetProgressList(currency),
+    enabled: !profileLoading && !profileError,
   });
 
   const totals = budgetsQuery.data?.reduce(
@@ -39,7 +42,9 @@ export default function BudgetsPage() {
         }
       />
 
-      {budgetsQuery.isLoading ? (
+      {profileError ? (
+        <ErrorState message="No se pudo cargar la moneda del perfil" />
+      ) : profileLoading || budgetsQuery.isLoading ? (
         <div className="space-y-3 pt-2">
           <Skeleton className="h-24 w-full rounded-2xl" />
           {[1, 2, 3].map((i) => (
@@ -55,11 +60,11 @@ export default function BudgetsPage() {
               <div className="flex items-baseline justify-between gap-3">
                 <p className="text-sm text-muted-foreground">Gastado este ciclo</p>
                 <p className="tabular text-xs text-muted-foreground">
-                  de {formatCOP(totals.limit)}
+                  de {formatCurrency(totals.limit, currency)}
                 </p>
               </div>
               <p className="tabular mt-1 font-display text-3xl font-bold">
-                {formatCOP(totals.spent)}
+                {formatCurrency(totals.spent, currency)}
               </p>
               <div className="mt-3 h-2 overflow-hidden rounded-full bg-secondary">
                 <div

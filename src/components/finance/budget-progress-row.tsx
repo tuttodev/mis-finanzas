@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { formatCOP, formatPercent } from '@/lib/formatters';
+import { formatCurrency, formatPercent } from '@/lib/formatters';
 import type { BudgetProgress } from '@/types/finance';
 
 export function BudgetProgressRow({ progress }: { progress: BudgetProgress }) {
@@ -33,11 +33,11 @@ export function BudgetProgressRow({ progress }: { progress: BudgetProgress }) {
         />
       </div>
       <div className="flex items-center justify-between gap-3 text-[13px] text-muted-foreground">
-        <span className="tabular">Gastado: {formatCOP(progress.spentAmount)}</span>
+        <span className="tabular">Gastado: {formatCurrency(progress.spentAmount, progress.budget.currency)}</span>
         <span className="tabular">
           {overBudget
-            ? `Excedido: ${formatCOP(Math.abs(progress.remainingAmount))}`
-            : `Disponible: ${formatCOP(progress.remainingAmount)}`}
+            ? `Excedido: ${formatCurrency(Math.abs(progress.remainingAmount), progress.budget.currency)}`
+            : `Disponible: ${formatCurrency(progress.remainingAmount, progress.budget.currency)}`}
         </span>
       </div>
     </Link>

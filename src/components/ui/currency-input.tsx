@@ -1,6 +1,6 @@
 import * as React from 'react';
 
-import { formatCOPInput } from '@/lib/formatters';
+import { formatCurrencyInput } from '@/lib/formatters';
 import type { Currency } from '@/types/finance';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,10 @@ type CurrencyInputProps = Omit<
   sign?: '+' | '−';
   variant?: 'default' | 'prominent';
   currency?: Currency;
+};
+
+const CURRENCY_SYMBOLS: Record<Currency, string> = {
+  COP: '$', PEN: 'S/', USD: '$', EUR: '€',
 };
 
 function CurrencyInput({
@@ -37,7 +41,7 @@ function CurrencyInput({
         )}
       >
         {sign}
-        {'$'}
+        {CURRENCY_SYMBOLS[currency]}
       </span>
       <Input
         {...props}
@@ -45,7 +49,7 @@ function CurrencyInput({
         inputMode="decimal"
         autoComplete="off"
         value={value}
-        onChange={(event) => onValueChange(formatCOPInput(event.target.value))}
+        onChange={(event) => onValueChange(formatCurrencyInput(event.target.value, currency))}
         className={cn(
           'tabular pr-14 pl-7',
           isProminent &&

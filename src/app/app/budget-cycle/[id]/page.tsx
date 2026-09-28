@@ -7,7 +7,7 @@ import { BudgetMovementRow } from '@/components/finance/budget-movement-row';
 import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';
 import { PageHeader } from '@/components/layout/page-header';
-import { formatCOP, formatPercent, formatShortDate } from '@/lib/formatters';
+import { formatCurrency, formatPercent, formatShortDate } from '@/lib/formatters';
 import { fetchBudgetSnapshotDetail } from '@/services/finance';
 
 export default function BudgetCycleDetailPage({
@@ -40,7 +40,7 @@ export default function BudgetCycleDetailPage({
     );
   }
 
-  const { snapshot, movements } = detailQuery.data;
+  const { snapshot, movements, currency } = detailQuery.data;
   const over = snapshot.percentage > 100;
 
   return (
@@ -55,10 +55,10 @@ export default function BudgetCycleDetailPage({
         <div className="rounded-2xl border border-border bg-card p-5">
           <p className="text-sm text-muted-foreground">Gastado en el ciclo</p>
           <p className="tabular mt-1 font-display text-3xl font-bold">
-            {formatCOP(snapshot.spentAmount)}
+            {formatCurrency(snapshot.spentAmount, currency)}
             <span className="text-base font-medium text-muted-foreground">
               {' '}
-              / {formatCOP(snapshot.limitAmount)}
+              / {formatCurrency(snapshot.limitAmount, currency)}
             </span>
           </p>
           <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-secondary">
@@ -83,6 +83,7 @@ export default function BudgetCycleDetailPage({
               <div className="divide-y divide-border">
                 {movements.map((movement) => (
                   <BudgetMovementRow
+                    currency={currency}
                     key={movement.id}
                     movement={movement}
                     href={`/app/transaction/${movement.id}/edit`}

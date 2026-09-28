@@ -1,5 +1,5 @@
 export type AccountType = 'Ahorros' | 'Crédito' | 'Efectivo';
-export type Currency = 'COP' | 'USD';
+export type Currency = 'COP' | 'PEN' | 'USD' | 'EUR';
 export type TransactionType = 'Ingreso' | 'Gasto';
 export type TransactionKind = 'regular' | 'refund';
 
@@ -86,6 +86,7 @@ export type UpdateTransactionDTO = InsertTransactionDTO;
 export type BudgetDTO = {
   id: string;
   name: string;
+  currency: Currency;
   limit_amount: number;
   is_active: boolean;
   created_at?: string | null;
@@ -94,6 +95,7 @@ export type BudgetDTO = {
 
 export type InsertBudgetDTO = {
   name: string;
+  currency: Currency;
   limit_amount: number;
 };
 
@@ -173,6 +175,7 @@ export type TransactionDescriptionSuggestion = {
 export type Budget = {
   id: string;
   name: string;
+  currency: Currency;
   limitAmount: number;
   isActive: boolean;
 };
@@ -225,6 +228,7 @@ export type BudgetDetail = {
 export type BudgetSnapshotDetail = {
   snapshot: BudgetSnapshot;
   movements: BudgetMovement[];
+  currency: Currency;
 };
 
 export type TransactionWithAccount = Transaction & {
@@ -323,6 +327,7 @@ export type CreateFeedbackInput = {
 
 export type CreateBudgetInput = {
   name: string;
+  currency: Currency;
   limitAmount: number;
   startedAt?: string;
 };
@@ -347,6 +352,7 @@ export type PlanSection = {
 export type MonthlyPlanDTO = {
   id: string;
   month: string;
+  currency: Currency;
   payday: string | null;
   created_at?: string | null;
 };
@@ -369,6 +375,7 @@ export type PlanItemDTO = {
 
 export type InsertMonthlyPlanDTO = {
   month: string;
+  currency: Currency;
   payday?: string | null;
 };
 
@@ -398,6 +405,7 @@ export type UpdatePlanItemDTO = {
 export type MonthlyPlan = {
   id: string;
   month: string;
+  currency: Currency;
   payday: string | null;
 };
 

@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { formatCOP, formatCOPCompact } from '@/lib/formatters';
+import { formatCurrency, formatCurrencyCompact } from '@/lib/formatters';
+import type { Currency } from '@/types/finance';
 
 export type CashflowPoint = {
   label: string;
@@ -44,7 +45,7 @@ function niceCeil(value: number) {
   return nice * magnitude;
 }
 
-export function CashflowBars({ data }: CashflowBarsProps) {
+export function CashflowBars({ data, currency = 'COP' }: CashflowBarsProps & { currency?: Currency }) {
   const [active, setActive] = useState<number | null>(null);
 
   const maxValue = niceCeil(
@@ -86,7 +87,7 @@ export function CashflowBars({ data }: CashflowBarsProps) {
                 textAnchor="end"
                 className="tabular fill-[var(--muted-foreground)] text-[9px]"
               >
-                {formatCOPCompact(tick)}
+                {formatCurrencyCompact(tick, currency)}
               </text>
             </g>
           );
@@ -141,10 +142,10 @@ export function CashflowBars({ data }: CashflowBarsProps) {
         >
           <p className="text-[11px] font-medium text-muted-foreground">{activePoint.label}</p>
           <p className="tabular whitespace-nowrap text-xs text-income">
-            Ingresos: {formatCOP(activePoint.income)}
+            Ingresos: {formatCurrency(activePoint.income, currency)}
           </p>
           <p className="tabular whitespace-nowrap text-xs text-expense">
-            Gastos: {formatCOP(activePoint.expense)}
+            Gastos: {formatCurrency(activePoint.expense, currency)}
           </p>
         </div>
       )}

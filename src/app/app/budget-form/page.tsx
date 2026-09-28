@@ -10,7 +10,9 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PageHeader } from '@/components/layout/page-header';
-import { formatCOPInput, parseCurrencyInput, todayIsoDate } from '@/lib/formatters';
+import { ErrorState } from '@/components/error-state';
+import { formatCurrencyInput, parseCurrencyInput, todayIsoDate } from '@/lib/formatters';
+import { useDefaultCurrency } from '@/providers/profile-provider';
 import { createBudget, fetchBudgetProgressList, updateBudget } from '@/services/finance';
 import { captureAnalytics } from '@/lib/analytics';
 
@@ -19,10 +21,11 @@ function BudgetForm() {
   const searchParams = useSearchParams();
   const id = searchParams.get('id');
   const queryClient = useQueryClient();
+  const { currency: defaultCurrency, isLoading: profileLoading, isError: profileError } = useDefaultCurrency();
 
   const budgetsQuery = useQuery({
-    queryKey: ['budgets'],
-    queryFn: fetchBudgetProgressList,
+    queryKey: ['budgets', 'all'],
+    queryFn: () => fetchBudgetProgressList(),
   });
 
   const existingBudget = useMemo(
@@ -32,7 +35,7 @@ function BudgetForm() {
 
   const [name, setName] = useState(existingBudget?.name ?? '');
   const [limitAmount, setLimitAmount] = useState(
-    existingBudget ? formatCOPInput(existingBudget.limitAmount) : '',
+    existingBudget ? formatCurrencyInput(existingBudget.limitAmount, existingBudget.currency) : '',
   );
   const [startedAt, setStartedAt] = useState(todayIsoDate());
   const [loadedBudgetId, setLoadedBudgetId] = useState<string | null>(null);
@@ -40,10 +43,11 @@ function BudgetForm() {
   if (existingBudget && loadedBudgetId !== existingBudget.id) {
     setLoadedBudgetId(existingBudget.id);
     setName(existingBudget.name);
-    setLimitAmount(formatCOPInput(existingBudget.limitAmount));
+    setLimitAmount(formatCurrencyInput(existingBudget.limitAmount, existingBudget.currency));
   }
 
-  const parsedAmount = parseCurrencyInput(limitAmount);
+  const currency = existingBudget?.currency ?? defaultCurrency;
+  const parsedAmount = parseCurrencyInput(limitAmount, { currency });
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -51,10 +55,11 @@ function BudgetForm() {
       if (!parsedAmount) throw new Error('Ingresa un límite válido');
 
       if (id) {
-        await updateBudget(id, { name: name.trim(), limitAmount: parsedAmount });
+        await updateBudget(id, { name: name.trim(), limitAmount: parsedAmount, currency });
       } else {
         await createBudget({
           name: name.trim(),
+          currency,
           limitAmount: parsedAmount,
           startedAt,
         });
@@ -68,6 +73,10 @@ function BudgetForm() {
     },
     onError: (error: Error) => toast.error(error.message),
   });
+
+  if (id && budgetsQuery.isError) {
+    return <div className="mx-auto max-w-2xl p-4"><ErrorState message={budgetsQuery.error.message} /></div>;
+  }
 
   return (
     <div className="mx-auto max-w-2xl p-4">
@@ -89,14 +98,15 @@ function BudgetForm() {
             />
           </div>
           <div>
-            <Label htmlFor="limit">Límite por ciclo en pesos colombianos</Label>
+            <Label htmlFor="limit">Límite por ciclo ({currency})</Label>
             <CurrencyInput
               id="limit"
+              currency={currency}
               className="mt-1 h-10"
               value={limitAmount}
               onValueChange={setLimitAmount}
               placeholder="0,00"
-              aria-label="Límite por ciclo en pesos colombianos (COP)"
+              aria-label={`Límite por ciclo (${currency})`}
             />
           </div>
 
@@ -118,7 +128,7 @@ function BudgetForm() {
           <Button
             className="w-full"
             size="lg"
-            disabled={mutation.isPending}
+            disabled={mutation.isPending || profileLoading || profileError || (Boolean(id) && budgetsQuery.isLoading)}
             onClick={() => mutation.mutate()}
           >
             {mutation.isPending ? 'Guardando...' : 'Guardar'}

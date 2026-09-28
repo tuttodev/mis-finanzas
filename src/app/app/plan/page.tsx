@@ -28,7 +28,8 @@ import { PlanSectionDialog } from '@/components/finance/plan-section-dialog';
 import { EmptyState } from '@/components/empty-state';
 import { ErrorState } from '@/components/error-state';
 import { PageHeader } from '@/components/layout/page-header';
-import { currentMonthKey, formatCOP, formatMonthTitle, shiftMonthKey } from '@/lib/formatters';
+import { currentMonthKey, formatCurrency, formatMonthTitle, shiftMonthKey } from '@/lib/formatters';
+import { useDefaultCurrency } from '@/providers/profile-provider';
 import {
   createBlankPlan,
   duplicatePreviousPlan,
@@ -46,6 +47,7 @@ function PlanPage() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const monthKey = searchParams.get('month') ?? currentMonthKey();
+  const { currency, isLoading: profileLoading, isError: profileError } = useDefaultCurrency();
 
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isMergeOpen, setIsMergeOpen] = useState(false);
@@ -57,16 +59,17 @@ function PlanPage() {
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(new Set());
 
   const planQuery = useQuery({
-    queryKey: ['plan', monthKey],
-    queryFn: () => fetchMonthlyPlan(monthKey),
+    queryKey: ['plan', monthKey, currency],
+    queryFn: () => fetchMonthlyPlan(monthKey, currency),
+    enabled: !profileLoading && !profileError,
   });
 
   const previousPlanQuery = useQuery({
-    queryKey: ['plan-previous', monthKey],
-    queryFn: () => fetchPreviousPlanSummary(monthKey),
+    queryKey: ['plan-previous', monthKey, currency],
+    queryFn: () => fetchPreviousPlanSummary(monthKey, currency),
     // Always fetch so it's available both when plan is empty (duplicate button)
     // and when plan exists (merge/import button).
-    enabled: !planQuery.isLoading,
+    enabled: !profileLoading && !profileError && !planQuery.isLoading,
   });
 
   const payrollDocumentsQuery = useQuery({
@@ -76,7 +79,7 @@ function PlanPage() {
   });
 
   const createBlankMutation = useMutation({
-    mutationFn: () => createBlankPlan(monthKey),
+    mutationFn: () => createBlankPlan(monthKey, currency),
     onSuccess: async () => {
       captureAnalytics('plan_created', { source: 'blank' });
       await queryClient.invalidateQueries({ queryKey: ['plan', monthKey] });
@@ -86,7 +89,7 @@ function PlanPage() {
   });
 
   const duplicateMutation = useMutation({
-    mutationFn: () => duplicatePreviousPlan(monthKey),
+    mutationFn: () => duplicatePreviousPlan(monthKey, currency),
     onSuccess: async () => {
       captureAnalytics('plan_duplicated');
       await queryClient.invalidateQueries({ queryKey: ['plan', monthKey] });
@@ -156,7 +159,7 @@ function PlanPage() {
         sortOrder: (index + 1) * 10,
       }));
 
-      queryClient.setQueryData<MonthlyPlanSummary | null>(['plan', monthKey], (old) => {
+      queryClient.setQueryData<MonthlyPlanSummary | null>(['plan', monthKey, currency], (old) => {
         if (!old) return old;
         const reorderedIds = new Set(reordered.map((item) => item.id));
         return { ...old, items: [...old.items.filter((item) => !reorderedIds.has(item.id)), ...reordered] };
@@ -168,7 +171,7 @@ function PlanPage() {
 
   return (
     <div className="mx-auto max-w-2xl p-4">
-      <PageHeader title="Plan mensual" subtitle="Reparte tu nómina y controla el sobrante" />
+      <PageHeader title="Plan mensual" subtitle={`Organiza tus ingresos y gastos en ${currency}`} />
 
       <div className="mb-4 flex items-center justify-between rounded-2xl border border-border bg-card px-2 py-1.5">
         <Button variant="ghost" size="icon" aria-label="Mes anterior" onClick={() => goToMonth(-1)}>
@@ -180,7 +183,9 @@ function PlanPage() {
         </Button>
       </div>
 
-      {planQuery.isLoading ? (
+      {profileError ? (
+        <ErrorState message="No se pudo cargar la moneda del perfil" />
+      ) : profileLoading || planQuery.isLoading ? (
         <div className="space-y-3">
           <Skeleton className="h-24 w-full rounded-2xl" />
           <Skeleton className="h-48 w-full rounded-2xl" />
@@ -193,12 +198,12 @@ function PlanPage() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="min-w-0 rounded-2xl border border-border bg-card p-4">
               <p className="text-xs text-muted-foreground">Ingresos disponibles</p>
-              <p className="tabular mt-1 text-xl leading-tight font-bold">{formatCOP(plan.incomeTotal)}</p>
+              <p className="tabular mt-1 text-xl leading-tight font-bold">{formatCurrency(plan.incomeTotal, currency)}</p>
               {plan.deductionsTotal > 0 && (
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  <span className="text-income">+{formatCOP(plan.incomeGross)}</span>
+                  <span className="text-income">+{formatCurrency(plan.incomeGross, currency)}</span>
                   {' · '}
-                  <span className="text-expense">-{formatCOP(plan.deductionsTotal)}</span>
+                  <span className="text-expense">-{formatCurrency(plan.deductionsTotal, currency)}</span>
                 </p>
               )}
             </div>
@@ -215,7 +220,7 @@ function PlanPage() {
                   plan.leftover < 0 ? 'text-expense' : 'text-income'
                 }`}
               >
-                {formatCOP(Math.abs(plan.leftover))}
+                {formatCurrency(Math.abs(plan.leftover), currency)}
               </p>
             </div>
           </div>
@@ -224,15 +229,15 @@ function PlanPage() {
           <div className="rounded-2xl border border-border bg-card px-3 py-2">
             <div className="flex items-center justify-between px-1 py-1.5">
               <div>
-                <h2 className="text-sm font-semibold text-foreground">Ingresos y colilla</h2>
+                <h2 className="text-sm font-semibold text-foreground">Ingresos {currency === 'COP' ? 'y colilla' : ''}</h2>
                 {plan.deductionsTotal > 0 && (
                   <p className="text-[11px] text-muted-foreground">
-                    Neto: <span className="font-semibold text-foreground">{formatCOP(plan.incomeTotal)}</span>
+                    Neto: <span className="font-semibold text-foreground">{formatCurrency(plan.incomeTotal, currency)}</span>
                   </p>
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <Button
+                {currency === 'COP' && <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setIsImportOpen(true)}
@@ -241,7 +246,7 @@ function PlanPage() {
                   <FileText className="h-3.5 w-3.5 text-primary" />
                   <span className="hidden min-[400px]:inline">Cargar colilla PDF</span>
                   <span className="min-[400px]:hidden">PDF</span>
-                </Button>
+                </Button>}
                 <Link
                   href={`/app/plan-item-form?planId=${plan.plan.id}&kind=income`}
                   className="flex h-8 items-center gap-1 rounded-lg bg-primary/10 px-2.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/20"
@@ -252,11 +257,11 @@ function PlanPage() {
               </div>
             </div>
 
-            <PayrollDocumentList
+            {currency === 'COP' && <PayrollDocumentList
               documents={payrollDocumentsQuery.data ?? []}
               isLoading={payrollDocumentsQuery.isLoading}
               isError={payrollDocumentsQuery.isError}
-            />
+            />}
 
             {payrollItems.length ? (
               <DndContext
@@ -273,6 +278,7 @@ function PlanPage() {
                       <PlanItemRow
                         key={item.id}
                         item={item}
+                        currency={currency}
                         onTogglePaid={(i) => togglePaidMutation.mutate(i)}
                         togglePending={togglePaidMutation.isPending}
                       />
@@ -302,7 +308,7 @@ function PlanPage() {
           <div className="flex items-center justify-between gap-3 px-1 pt-2">
             <div>
               <h2 className="text-sm font-semibold text-foreground">Partidas</h2>
-              <p className="text-xs text-muted-foreground">Total: {formatCOP(plan.expenseTotal)}</p>
+              <p className="text-xs text-muted-foreground">Total: {formatCurrency(plan.expenseTotal, currency)}</p>
             </div>
             <div className="flex items-center gap-3">
               {previousPlanQuery.data && previousPlanQuery.data.items.length > 0 && (
@@ -323,7 +329,7 @@ function PlanPage() {
                 <div className="flex flex-wrap items-center justify-between gap-2 px-1 py-1.5">
                   <div className="min-w-0">
                     <h3 className="truncate text-sm font-semibold">{section.name}</h3>
-                    <p className="tabular text-xs font-semibold text-primary">{formatCOP(section.total)}</p>
+                    <p className="tabular text-xs font-semibold text-primary">{formatCurrency(section.total, currency)}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     {section.id && (
@@ -345,7 +351,7 @@ function PlanPage() {
                       <div className="divide-y divide-border">
                         {sectionItems.map((item) => {
                           if (item.kind !== 'group') {
-                            return <PlanItemRow key={item.id} item={item} sections={plan.sections} effectiveSectionId={item.sectionId} onMoveSection={(selected, sectionId) => moveSectionMutation.mutate({ itemId: selected.id, sectionId })} movePending={moveSectionMutation.isPending} onTogglePaid={(selected) => togglePaidMutation.mutate(selected)} togglePending={togglePaidMutation.isPending} />;
+                            return <PlanItemRow key={item.id} item={item} currency={currency} sections={plan.sections} effectiveSectionId={item.sectionId} onMoveSection={(selected, sectionId) => moveSectionMutation.mutate({ itemId: selected.id, sectionId })} movePending={moveSectionMutation.isPending} onTogglePaid={(selected) => togglePaidMutation.mutate(selected)} togglePending={togglePaidMutation.isPending} />;
                           }
                           const children = expenseItems
                             .filter((child) => child.parentItemId === item.id)
@@ -353,6 +359,7 @@ function PlanPage() {
                           return (
                             <PlanGroupRow
                               key={item.id}
+                              currency={currency}
                               group={item}
                               childrenItems={children}
                               sections={plan.sections}
@@ -380,10 +387,10 @@ function PlanPage() {
           })}
 
           {isSectionOpen && <PlanSectionDialog key={editingSectionId ?? 'new'} open={isSectionOpen} onOpenChange={setIsSectionOpen} planId={plan.plan.id} monthKey={monthKey} section={plan.sections.find((section) => section.id === editingSectionId)} />}
-          {isGroupOpen && <PlanGroupDialog key={editingGroupId ?? 'new'} open={isGroupOpen} onOpenChange={setIsGroupOpen} planId={plan.plan.id} monthKey={monthKey} items={plan.items} sections={plan.sections} initialSectionId={groupSectionId} group={groupItems.find((item) => item.id === editingGroupId)} />}
+          {isGroupOpen && <PlanGroupDialog key={editingGroupId ?? 'new'} open={isGroupOpen} onOpenChange={setIsGroupOpen} planId={plan.plan.id} monthKey={monthKey} items={plan.items} sections={plan.sections} initialSectionId={groupSectionId} group={groupItems.find((item) => item.id === editingGroupId)} currency={currency} />}
 
           {/* PDF Colilla Import Modal */}
-          {plan && (
+          {plan && currency === 'COP' && (
             <ColillaImportDialog
               open={isImportOpen}
               onOpenChange={setIsImportOpen}
@@ -405,6 +412,7 @@ function PlanPage() {
               targetPlanId={plan.plan.id}
               monthKey={monthKey}
               previousPlan={previousPlanQuery.data}
+              currency={currency}
               currentItems={plan.items}
             />
           )}

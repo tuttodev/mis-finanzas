@@ -17,10 +17,11 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { todayIsoDate } from '@/lib/formatters';
-import type { Transaction } from '@/types/finance';
+import type { Currency, Transaction } from '@/types/finance';
 
 type TransactionExportDialogProps = {
   accountName: string;
+  currency: Currency;
   transactions: Transaction[];
   className?: string;
 };
@@ -32,6 +33,7 @@ const CSV_HEADERS = [
   'Categoría',
   'Tipo',
   'Monto',
+  'Moneda',
   'Transferencia',
   'Etiquetas',
 ];
@@ -59,7 +61,7 @@ function getSafeFileName(accountName: string) {
   return normalizedName || 'cuenta';
 }
 
-function buildTransactionsCsv(accountName: string, transactions: Transaction[]) {
+function buildTransactionsCsv(accountName: string, transactions: Transaction[], currency: Currency) {
   const rows = transactions.map((transaction) =>
     [
       accountName,
@@ -68,6 +70,7 @@ function buildTransactionsCsv(accountName: string, transactions: Transaction[]) 
       transaction.categoryName ?? 'Sin categoría',
       getTransactionType(transaction),
       transaction.amount.toFixed(2),
+      currency,
       transaction.transferId ? 'Sí' : 'No',
       transaction.tags.map((tag) => tag.name).join(', '),
     ]
@@ -80,6 +83,7 @@ function buildTransactionsCsv(accountName: string, transactions: Transaction[]) 
 
 export function TransactionExportDialog({
   accountName,
+  currency,
   transactions,
   className,
 }: TransactionExportDialogProps) {
@@ -109,7 +113,7 @@ export function TransactionExportDialog({
   function handleDownload() {
     if (!canDownload) return;
 
-    const csv = buildTransactionsCsv(accountName, selectedTransactions);
+    const csv = buildTransactionsCsv(accountName, selectedTransactions, currency);
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');

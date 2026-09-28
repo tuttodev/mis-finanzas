@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Pencil } from 'lucide-react';
-import { formatCOP, formatShortDate } from '@/lib/formatters';
-import type { BudgetMovement } from '@/types/finance';
+import { formatCurrency, formatShortDate } from '@/lib/formatters';
+import type { BudgetMovement, Currency } from '@/types/finance';
 
 import { CategoryBadge } from './category-badge';
 import { RefundBadge } from './refund-badge';
@@ -9,9 +9,11 @@ import { RefundBadge } from './refund-badge';
 export function BudgetMovementRow({
   movement,
   href,
+  currency,
 }: {
   movement: BudgetMovement;
   href?: string;
+  currency: Currency;
 }) {
   const content = (
     <>
@@ -32,7 +34,7 @@ export function BudgetMovementRow({
           }`}
         >
           {movement.kind === 'refund' ? '+' : '−'}
-          {formatCOP(Math.abs(movement.amount))}
+          {formatCurrency(Math.abs(movement.amount), currency)}
         </span>
         {href && <Pencil className="h-4 w-4 text-muted-foreground" />}
       </span>

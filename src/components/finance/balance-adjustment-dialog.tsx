@@ -19,7 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { formatCurrency, formatCOPInput, parseCurrencyInput, roundCurrencyAmount, todayIsoDate } from '@/lib/formatters';
+import { formatCurrency, formatCurrencyInput, parseCurrencyInput, roundCurrencyAmount, todayIsoDate } from '@/lib/formatters';
 import { adjustAccountBalance } from '@/services/finance';
 import type { Account } from '@/types/finance';
 
@@ -35,7 +35,7 @@ export function BalanceAdjustmentDialog({ account, className }: BalanceAdjustmen
   const [date, setDate] = useState(todayIsoDate());
   const [description, setDescription] = useState('Ajuste de saldo');
 
-  const targetNumber = parseCurrencyInput(targetValue, { allowZero: true });
+  const targetNumber = parseCurrencyInput(targetValue, { allowZero: true, currency: account.currency });
   const difference =
     targetNumber !== null
       ? roundCurrencyAmount(targetNumber - account.currentBalance)
@@ -72,7 +72,7 @@ export function BalanceAdjustmentDialog({ account, className }: BalanceAdjustmen
   function handleOpen() {
     setTargetValue(
       account.currentBalance !== 0
-        ? formatCOPInput(account.currentBalance)
+        ? formatCurrencyInput(account.currentBalance, account.currency)
         : '',
     );
     setDate(todayIsoDate());

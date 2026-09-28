@@ -4,12 +4,13 @@ import Link from 'next/link';
 import { Circle, CircleCheck, GripVertical, Plus } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { formatCOP } from '@/lib/formatters';
-import type { PlanItem, PlanSection } from '@/types/finance';
+import { formatCurrency } from '@/lib/formatters';
+import type { Currency, PlanItem, PlanSection } from '@/types/finance';
 import { PlanSectionPicker } from './plan-section-picker';
 
 type PlanItemRowProps = {
   item: PlanItem;
+  currency?: Currency;
   onTogglePaid: (item: PlanItem) => void;
   togglePending?: boolean;
   sortable?: boolean;
@@ -19,7 +20,7 @@ type PlanItemRowProps = {
   movePending?: boolean;
 };
 
-export function PlanItemRow({ item, onTogglePaid, togglePending, sortable = true, sections, effectiveSectionId, onMoveSection, movePending }: PlanItemRowProps) {
+export function PlanItemRow({ item, currency = 'COP', onTogglePaid, togglePending, sortable = true, sections, effectiveSectionId, onMoveSection, movePending }: PlanItemRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
     disabled: !sortable,
@@ -97,14 +98,14 @@ export function PlanItemRow({ item, onTogglePaid, togglePending, sortable = true
                   : 'text-foreground'
             }`}
           >
-            {item.kind === 'deduction' ? `-${formatCOP(item.plannedAmount)}` : formatCOP(item.plannedAmount)}
+            {item.kind === 'deduction' ? `-${formatCurrency(item.plannedAmount, currency)}` : formatCurrency(item.plannedAmount, currency)}
           </span>
           {showActual && (
             <span
               className={`tabular text-[12px] font-semibold ${actualIsCheaper ? 'text-income' : 'text-expense'}`}
               title="Monto real pagado"
             >
-              Real: {formatCOP(item.actualAmount!)}
+              Real: {formatCurrency(item.actualAmount!, currency)}
             </span>
           )}
         </div>

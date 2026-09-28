@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { formatCOP, formatPercent } from '@/lib/formatters';
+import { formatCurrency, formatPercent } from '@/lib/formatters';
+import type { Currency } from '@/types/finance';
 
 export type DonutSlice = {
   label: string;
@@ -12,6 +13,7 @@ export type DonutSlice = {
 type DonutChartProps = {
   data: DonutSlice[];
   centerLabel: string;
+  currency?: Currency;
 };
 
 const SIZE = 200;
@@ -35,7 +37,7 @@ function arcPath(startAngle: number, endAngle: number) {
   return `M ${start.x} ${start.y} A ${RADIUS} ${RADIUS} 0 ${largeArc} 1 ${end.x} ${end.y}`;
 }
 
-export function DonutChart({ data, centerLabel }: DonutChartProps) {
+export function DonutChart({ data, centerLabel, currency = 'COP' }: DonutChartProps) {
   const [selected, setSelected] = useState<number | null>(null);
   const total = data.reduce((sum, slice) => sum + slice.value, 0);
 
@@ -85,7 +87,7 @@ export function DonutChart({ data, centerLabel }: DonutChartProps) {
             textAnchor="middle"
             className="tabular fill-[var(--foreground)] font-display text-[15px] font-semibold"
           >
-            {formatCOP(active ? active.value : total)}
+            {formatCurrency(active ? active.value : total, currency)}
           </text>
         </svg>
       </div>
@@ -107,7 +109,7 @@ export function DonutChart({ data, centerLabel }: DonutChartProps) {
               {slice.label}
             </span>
             <span className="tabular text-[13px] font-medium text-foreground">
-              {formatCOP(slice.value)}
+              {formatCurrency(slice.value, currency)}
             </span>
             <span className="tabular w-12 text-right text-xs text-muted-foreground">
               {formatPercent((slice.value / total) * 100)}

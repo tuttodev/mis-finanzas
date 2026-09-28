@@ -13,8 +13,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  formatCOP,
-  formatCOPInput,
+  formatCurrency,
+  formatCurrencyInput,
   parseCurrencyInput,
   todayIsoDate,
 } from '@/lib/formatters';
@@ -51,7 +51,8 @@ export function RefundForm({ originalTransaction, refund }: RefundFormProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const isEditing = Boolean(refund);
-  const [amount, setAmount] = useState(refund ? formatCOPInput(refund.amount) : '');
+  const [amount, setAmount] = useState(refund ? formatCurrencyInput(refund.amount) : '');
+  const [editingAmountFormatted, setEditingAmountFormatted] = useState(false);
   const [description, setDescription] = useState(
     refund?.description ?? `Reembolso de ${originalTransaction.description}`,
   );
@@ -67,6 +68,11 @@ export function RefundForm({ originalTransaction, refund }: RefundFormProps) {
     queryKey: ['accounts'],
     queryFn: fetchAccountsOverview,
   });
+  const originalCurrency = accountsQuery.data?.find((account) => account.id === originalTransaction.accountId)?.currency ?? 'COP';
+  if (refund && !editingAmountFormatted && accountsQuery.data) {
+    setAmount(formatCurrencyInput(refund.amount, originalCurrency));
+    setEditingAmountFormatted(true);
+  }
   const refundedQuery = useQuery({
     queryKey: ['refunded-amount', originalTransaction.id, refund?.id ?? null],
     queryFn: () => fetchRefundedAmount(originalTransaction.id, refund?.id),
@@ -78,7 +84,7 @@ export function RefundForm({ originalTransaction, refund }: RefundFormProps) {
   );
   const alreadyRefunded = refundedQuery.data ?? 0;
   const refundableAmount = Math.max(0, Math.abs(originalTransaction.amount) - alreadyRefunded);
-  const parsedAmount = parseCurrencyInput(amount);
+  const parsedAmount = parseCurrencyInput(amount, { currency: originalCurrency });
 
   const mutation = useMutation({
     mutationFn: () => {
@@ -89,7 +95,7 @@ export function RefundForm({ originalTransaction, refund }: RefundFormProps) {
       if (refundedQuery.isLoading) throw new Error('Espera mientras validamos el gasto');
       if (refundedQuery.isError) throw new Error('No se pudo validar el valor disponible');
       if (parsedAmount > refundableAmount) {
-        throw new Error(`Solo quedan ${formatCOP(refundableAmount)} por reembolsar`);
+        throw new Error(`Solo quedan ${formatCurrency(refundableAmount, originalCurrency)} por reembolsar`);
       }
 
       const input = {
@@ -133,7 +139,7 @@ export function RefundForm({ originalTransaction, refund }: RefundFormProps) {
                   <CategoryBadge name={originalTransaction.categoryName} />
                 )}
                 <span className="tabular text-sm font-semibold text-expense">
-                  −{formatCOP(Math.abs(originalTransaction.amount))}
+                  −{formatCurrency(Math.abs(originalTransaction.amount), originalCurrency)}
                 </span>
               </div>
             </div>
@@ -141,11 +147,11 @@ export function RefundForm({ originalTransaction, refund }: RefundFormProps) {
           <div className="mt-4 grid grid-cols-2 gap-3 rounded-xl bg-secondary/60 p-3 text-sm">
             <div>
               <p className="text-xs text-muted-foreground">Ya reembolsado</p>
-              <p className="tabular font-semibold">{formatCOP(alreadyRefunded)}</p>
+              <p className="tabular font-semibold">{formatCurrency(alreadyRefunded, originalCurrency)}</p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Disponible</p>
-              <p className="tabular font-semibold text-income">{formatCOP(refundableAmount)}</p>
+              <p className="tabular font-semibold text-income">{formatCurrency(refundableAmount, originalCurrency)}</p>
             </div>
           </div>
         </div>
@@ -156,12 +162,13 @@ export function RefundForm({ originalTransaction, refund }: RefundFormProps) {
           </Label>
           <CurrencyInput
             id="refund-amount"
+            currency={originalCurrency}
             variant="prominent"
             sign="+"
             value={amount}
             onValueChange={setAmount}
             placeholder="0,00"
-            aria-label="Monto reembolsado en pesos colombianos (COP)"
+            aria-label={`Monto reembolsado en ${originalCurrency}`}
             className="text-income"
           />
 
@@ -217,7 +224,7 @@ export function RefundForm({ originalTransaction, refund }: RefundFormProps) {
             <p className="text-sm text-expense">No se pudieron cargar las cuentas.</p>
           ) : (
             <div className="grid grid-cols-2 gap-2">
-              {accountsQuery.data?.map((account) => {
+              {accountsQuery.data?.filter((account) => account.currency === originalCurrency).map((account) => {
                 const Icon = TYPE_ICONS[account.type] ?? Banknote;
                 const active = selectedAccountId === account.id;
                 return (

@@ -12,6 +12,8 @@ import { PageHeader } from '@/components/layout/page-header';
 import { createAccount } from '@/services/finance';
 import { captureAnalytics } from '@/lib/analytics';
 import type { AccountType, Currency } from '@/types/finance';
+import { CURRENCIES } from '@/lib/formatters';
+import { useDefaultCurrency } from '@/providers/profile-provider';
 
 const ACCOUNT_TYPES: Array<{
   type: AccountType;
@@ -29,6 +31,12 @@ export default function AccountFormPage() {
   const [name, setName] = useState('');
   const [type, setType] = useState<AccountType>('Ahorros');
   const [currency, setCurrency] = useState<Currency>('COP');
+  const preference = useDefaultCurrency();
+  const [loadedCurrency, setLoadedCurrency] = useState(false);
+  if (!preference.isLoading && !loadedCurrency) {
+    setLoadedCurrency(true);
+    setCurrency(preference.currency);
+  }
 
   const mutation = useMutation({
     mutationFn: () => createAccount({ name, type, currency }),
@@ -108,10 +116,7 @@ export default function AccountFormPage() {
           <fieldset>
             <legend className="text-sm font-medium">Moneda</legend>
             <div className="mt-2 grid grid-cols-2 gap-2">
-              {([
-                { code: 'COP', label: 'Pesos colombianos' },
-                { code: 'USD', label: 'Dólares estadounidenses' },
-              ] as const).map((option) => {
+              {CURRENCIES.map((option) => {
                 const active = currency === option.code;
                 return (
                   <button
@@ -133,7 +138,8 @@ export default function AccountFormPage() {
             </div>
           </fieldset>
 
-          <Button className="w-full" size="lg" type="submit" disabled={mutation.isPending}>
+          {preference.isError && <p className="text-sm text-expense">No se pudo cargar la moneda del perfil.</p>}
+          <Button className="w-full" size="lg" type="submit" disabled={mutation.isPending || preference.isLoading || preference.isError}>
             {mutation.isPending ? 'Guardando...' : 'Crear cuenta'}
           </Button>
         </div>

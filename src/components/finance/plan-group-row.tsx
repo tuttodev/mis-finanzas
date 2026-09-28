@@ -3,14 +3,15 @@
 import { ChevronDown, ChevronRight, GripVertical, Layers3, Pencil } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { formatCOP } from '@/lib/formatters';
+import { formatCurrency } from '@/lib/formatters';
 import { getGroupPlannedAmount } from '@/lib/plan-summary';
-import type { PlanItem, PlanSection } from '@/types/finance';
+import type { Currency, PlanItem, PlanSection } from '@/types/finance';
 import { PlanItemRow } from './plan-item-row';
 import { PlanSectionPicker } from './plan-section-picker';
 
 type PlanGroupRowProps = {
   group: PlanItem;
+  currency?: Currency;
   childrenItems: PlanItem[];
   sections: PlanSection[];
   collapsed: boolean;
@@ -24,6 +25,7 @@ type PlanGroupRowProps = {
 
 export function PlanGroupRow({
   group,
+  currency = 'COP',
   childrenItems,
   sections,
   collapsed,
@@ -70,7 +72,7 @@ export function PlanGroupRow({
                 {childrenItems.length} {childrenItems.length === 1 ? 'subpartida' : 'subpartidas'}
               </span>
             </span>
-            <span className="tabular shrink-0 text-sm font-semibold sm:text-[15px]">{formatCOP(amount)}</span>
+            <span className="tabular shrink-0 text-sm font-semibold sm:text-[15px]">{formatCurrency(amount, currency)}</span>
           </span>
           {collapsed ? <ChevronRight className="h-4 w-4 shrink-0 text-primary" /> : <ChevronDown className="h-4 w-4 shrink-0 text-primary" />}
         </button>
@@ -96,6 +98,7 @@ export function PlanGroupRow({
             <PlanItemRow
               key={child.id}
               item={child}
+              currency={currency}
               sortable={false}
               sections={sections}
               effectiveSectionId={group.sectionId}

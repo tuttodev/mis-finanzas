@@ -1,9 +1,9 @@
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
-import { formatCOP, formatPercent, formatShortDate } from '@/lib/formatters';
-import type { BudgetSnapshot } from '@/types/finance';
+import { formatCurrency, formatPercent, formatShortDate } from '@/lib/formatters';
+import type { BudgetSnapshot, Currency } from '@/types/finance';
 
-export function BudgetSnapshotRow({ snapshot }: { snapshot: BudgetSnapshot }) {
+export function BudgetSnapshotRow({ snapshot, currency }: { snapshot: BudgetSnapshot; currency: Currency }) {
   const over = snapshot.percentage > 100;
 
   return (
@@ -16,7 +16,7 @@ export function BudgetSnapshotRow({ snapshot }: { snapshot: BudgetSnapshot }) {
           {formatShortDate(snapshot.startedAt)} – {formatShortDate(snapshot.endedAt)}
         </span>
         <span className="tabular text-[13px] text-muted-foreground">
-          Gastado {formatCOP(snapshot.spentAmount)} de {formatCOP(snapshot.limitAmount)}
+          Gastado {formatCurrency(snapshot.spentAmount, currency)} de {formatCurrency(snapshot.limitAmount, currency)}
         </span>
       </div>
       <span

@@ -214,6 +214,7 @@ export default function AccountDetailPage({
             <BalanceAdjustmentDialog account={account} />
             <TransactionExportDialog
               accountName={account.name}
+              currency={account.currency}
               transactions={transactionsQuery.data ?? []}
             />
           </div>

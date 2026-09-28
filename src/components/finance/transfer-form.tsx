@@ -15,6 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency, parseCurrencyInput, todayIsoDate } from '@/lib/formatters';
 import { createTransfer, fetchAccountsOverview } from '@/services/finance';
 import { captureAnalytics } from '@/lib/analytics';
+import { useDefaultCurrency } from '@/providers/profile-provider';
 import type { Account, AccountType } from '@/types/finance';
 
 const TYPE_ICONS: Record<AccountType, typeof PiggyBank> = {
@@ -82,6 +83,7 @@ function yesterdayIsoDate() {
 export function TransferForm({ initialFromAccountId = '' }: TransferFormProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { currency: defaultCurrency, isLoading: profileLoading, isError: profileError } = useDefaultCurrency();
 
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
@@ -93,6 +95,11 @@ export function TransferForm({ initialFromAccountId = '' }: TransferFormProps) {
     queryKey: ['accounts'],
     queryFn: fetchAccountsOverview,
   });
+
+  if (!fromAccountId && !initialFromAccountId && !profileLoading && !profileError && accountsQuery.data) {
+    const preferred = accountsQuery.data.find((account) => account.currency === defaultCurrency);
+    if (preferred) setFromAccountId(preferred.id);
+  }
 
   const fromAccount = useMemo(
     () => accountsQuery.data?.find((account) => account.id === fromAccountId) ?? null,
@@ -108,9 +115,9 @@ export function TransferForm({ initialFromAccountId = '' }: TransferFormProps) {
   const selectableToAccounts = (accountsQuery.data ?? []).filter(
     (account) => !fromAccount || account.currency === fromAccount.currency,
   );
-  const transferCurrency = fromAccount?.currency ?? toAccount?.currency ?? 'COP';
+  const transferCurrency = fromAccount?.currency ?? toAccount?.currency ?? defaultCurrency;
 
-  const parsedAmount = parseCurrencyInput(amount);
+  const parsedAmount = parseCurrencyInput(amount, { currency: transferCurrency });
 
   const mutation = useMutation({
     mutationFn: () => {
@@ -152,7 +159,7 @@ export function TransferForm({ initialFromAccountId = '' }: TransferFormProps) {
       <div className="space-y-4">
         <div className="rounded-2xl border border-border bg-card p-5">
           <Label htmlFor="amount" className="text-xs text-muted-foreground">
-            Monto en {transferCurrency === 'USD' ? 'dólares estadounidenses' : 'pesos colombianos'}
+            Monto ({transferCurrency})
           </Label>
           <CurrencyInput
             id="amount"
@@ -255,7 +262,7 @@ export function TransferForm({ initialFromAccountId = '' }: TransferFormProps) {
         <Button
           className="w-full"
           size="lg"
-          disabled={mutation.isPending}
+          disabled={mutation.isPending || profileLoading || profileError}
           onClick={() => mutation.mutate()}
         >
           {mutation.isPending ? 'Guardando...' : 'Transferir'}

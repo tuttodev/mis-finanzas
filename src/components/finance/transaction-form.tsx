@@ -12,7 +12,8 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { Label } from '@/components/ui/label';
 import { PageHeader } from '@/components/layout/page-header';
 import { Skeleton } from '@/components/ui/skeleton';
-import { formatCOP, formatCOPInput, parseCurrencyInput, todayIsoDate } from '@/lib/formatters';
+import { formatCurrency, formatCurrencyInput, parseCurrencyInput, todayIsoDate } from '@/lib/formatters';
+import { useDefaultCurrency } from '@/providers/profile-provider';
 import {
   createExpenseCategory,
   createTransaction,
@@ -20,6 +21,7 @@ import {
   fetchBudgetProgressList,
   fetchExpenseCategories,
   fetchPlanItem,
+  fetchPlanCurrency,
   fetchTags,
   fetchTransactionDescriptions,
   setPlanItemPaid,
@@ -60,13 +62,14 @@ export function TransactionForm({
 }: TransactionFormProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { currency: defaultCurrency, isLoading: profileLoading, isError: profileError } = useDefaultCurrency();
   const isEditing = Boolean(transaction);
   const isSavingsInterest = preset === 'savings-interest' && !isEditing;
   const initialType: TransactionType =
     isSavingsInterest || (transaction && transaction.amount >= 0) ? 'Ingreso' : 'Gasto';
 
   const [amount, setAmount] = useState(
-    transaction ? formatCOPInput(Math.abs(transaction.amount)) : '',
+    transaction ? formatCurrencyInput(Math.abs(transaction.amount)) : '',
   );
   const [description, setDescription] = useState(
     transaction?.description ?? (isSavingsInterest ? 'Interes ahorros' : ''),
@@ -76,6 +79,7 @@ export function TransactionForm({
   const [selectedAccountId, setSelectedAccountId] = useState(
     transaction?.accountId ?? initialAccountId,
   );
+  const [editingAmountFormatted, setEditingAmountFormatted] = useState(false);
   const [selectedBudgetId, setSelectedBudgetId] = useState(transaction?.budgetId ?? '');
   const [selectedCategoryId, setSelectedCategoryId] = useState(
     transaction?.categoryId ?? '',
@@ -96,8 +100,8 @@ export function TransactionForm({
   });
 
   const budgetsQuery = useQuery({
-    queryKey: ['budgets'],
-    queryFn: fetchBudgetProgressList,
+    queryKey: ['budgets', 'all'],
+    queryFn: () => fetchBudgetProgressList(),
     enabled: !isSavingsInterest,
   });
 
@@ -121,16 +125,36 @@ export function TransactionForm({
     queryFn: () => fetchPlanItem(planItemId!),
     enabled: Boolean(planItemId) && !isEditing,
   });
-  const isPlanItemLoading = Boolean(planItemId) && planItemQuery.isLoading;
+  const planCurrencyQuery = useQuery({
+    queryKey: ['plan-currency', planItemQuery.data?.planId],
+    queryFn: () => fetchPlanCurrency(planItemQuery.data!.planId),
+    enabled: Boolean(planItemQuery.data?.planId),
+  });
+  const planCurrency = planCurrencyQuery.data;
+  const isPlanItemLoading = Boolean(planItemId) && (planItemQuery.isLoading || planCurrencyQuery.isLoading);
+  const planItemError = Boolean(planItemId) && (planItemQuery.isError || planCurrencyQuery.isError);
+
+  if (!selectedAccountId && !isEditing && !initialAccountId && !profileLoading && accountsQuery.data && (!planItemId || planCurrency)) {
+    const preferred = accountsQuery.data.find((account) => account.currency === (planCurrency ?? defaultCurrency));
+    if (preferred) setSelectedAccountId(preferred.id);
+  }
+
+  if (transaction && !editingAmountFormatted && accountsQuery.data) {
+    const account = accountsQuery.data.find((item) => item.id === transaction.accountId);
+    if (account) {
+      setAmount(formatCurrencyInput(Math.abs(transaction.amount), account.currency));
+      setEditingAmountFormatted(true);
+    }
+  }
 
   if (
     !isEditing &&
     planItemId &&
-    planItemQuery.data &&
+    planItemQuery.data && planCurrency &&
     loadedPlanItemId !== planItemQuery.data.id
   ) {
     setLoadedPlanItemId(planItemQuery.data.id);
-    setAmount(formatCOPInput(planItemQuery.data.plannedAmount));
+    setAmount(formatCurrencyInput(planItemQuery.data.plannedAmount, planCurrency));
     setDescription(planItemQuery.data.name);
     setSelectedBudgetId(planItemQuery.data.budgetId ?? '');
     setSelectedCategoryId(planItemQuery.data.categoryId ?? '');
@@ -142,7 +166,7 @@ export function TransactionForm({
     () => accountsQuery.data?.find((account) => account.id === selectedAccountId) ?? null,
     [accountsQuery.data, selectedAccountId],
   );
-  const selectedCurrency = selectedAccount?.currency ?? 'COP';
+  const selectedCurrency = selectedAccount?.currency ?? planCurrency ?? defaultCurrency;
   const originalTransactionCurrency = transaction
     ? accountsQuery.data?.find((account) => account.id === transaction.accountId)?.currency
     : null;
@@ -188,7 +212,7 @@ export function TransactionForm({
     { label: 'Personalizadas', tags: tagsQuery.data?.filter((tag) => !tag.isSystem) ?? [] },
   ].filter((group) => group.tags.length > 0);
 
-  const parsedAmount = parseCurrencyInput(amount);
+  const parsedAmount = parseCurrencyInput(amount, { currency: selectedCurrency });
   const isExpense = type === 'Gasto';
 
   const mutation = useMutation({
@@ -211,11 +235,11 @@ export function TransactionForm({
         description: description.trim(),
         type,
         date,
-        budgetId: isExpense && selectedCurrency === 'COP' && selectedBudgetId ? selectedBudgetId : null,
+        budgetId: isExpense && selectedBudgetId ? selectedBudgetId : null,
         categoryId: effectiveCategoryId || null,
         isPlanned,
         tagIds: selectedTagIds,
-        planItemId: isExpense && selectedCurrency === 'COP' && planItemId ? planItemId : null,
+        planItemId: isExpense && planItemId && planCurrency === selectedCurrency ? planItemId : null,
       };
 
       if (transaction) {
@@ -334,7 +358,7 @@ export function TransactionForm({
 
         <div className="rounded-2xl border border-border bg-card p-5">
           <Label htmlFor="amount" className="text-xs text-muted-foreground">
-            Monto en {selectedCurrency === 'USD' ? 'dólares estadounidenses' : 'pesos colombianos'}
+            Monto ({selectedCurrency})
           </Label>
           <CurrencyInput
             id="amount"
@@ -410,7 +434,8 @@ export function TransactionForm({
                 ?.filter(
                   (account) =>
                     (!isSavingsInterest || account.id === initialAccountId)
-                    && (!originalTransactionCurrency || account.currency === originalTransactionCurrency),
+                    && (!originalTransactionCurrency || account.currency === originalTransactionCurrency)
+                    && (!planCurrency || account.currency === planCurrency),
                 )
                 .map((account) => {
                   const Icon = TYPE_ICONS[account.type] ?? Banknote;
@@ -422,7 +447,7 @@ export function TransactionForm({
                       onClick={() => {
                         if (!isSavingsInterest) {
                           setSelectedAccountId(account.id);
-                          if (account.currency !== 'COP') setSelectedBudgetId('');
+                          if (account.currency !== selectedCurrency) setSelectedBudgetId('');
                         }
                       }}
                       disabled={isSavingsInterest}
@@ -450,6 +475,12 @@ export function TransactionForm({
                 })}
             </div>
           )}
+          {!transaction && !initialAccountId && !profileLoading && !profileError && !accountsQuery.isLoading
+            && !accountsQuery.data?.some((account) => account.currency === (planCurrency ?? defaultCurrency)) && (
+              <p className="mt-3 text-xs text-muted-foreground">
+                No tienes una cuenta en {planCurrency ?? defaultCurrency}. <Link className="font-semibold text-primary underline" href="/app/account-form">Crear cuenta</Link>
+              </p>
+            )}
         </div>
 
         {(isExpense || effectiveCategoryId || availableCategories.length > 0) && (
@@ -751,7 +782,7 @@ export function TransactionForm({
           )}
         </div>
 
-        {isExpense && selectedCurrency === 'COP' && (
+        {isExpense && (
           <div className="rounded-2xl border border-border bg-card p-5">
             <h3 className="mb-1 text-sm font-semibold">Presupuesto</h3>
             <p className="mb-3 text-xs text-muted-foreground">
@@ -772,7 +803,7 @@ export function TransactionForm({
                 >
                   Sin presupuesto
                 </button>
-                {budgetsQuery.data?.map((item) => {
+                {budgetsQuery.data?.filter((item) => item.budget.currency === selectedCurrency).map((item) => {
                   const active = selectedBudgetId === item.budget.id;
                   const over = item.remainingAmount < 0;
                   return (
@@ -793,8 +824,8 @@ export function TransactionForm({
                         }`}
                       >
                         {over
-                          ? `Excedido ${formatCOP(Math.abs(item.remainingAmount))}`
-                          : `Quedan ${formatCOP(item.remainingAmount)}`}
+                          ? `Excedido ${formatCurrency(Math.abs(item.remainingAmount), selectedCurrency)}`
+                          : `Quedan ${formatCurrency(item.remainingAmount, selectedCurrency)}`}
                       </span>
                     </button>
                   );
@@ -807,7 +838,7 @@ export function TransactionForm({
         <Button
           className="w-full"
           size="lg"
-          disabled={mutation.isPending || isPlanItemLoading}
+          disabled={mutation.isPending || isPlanItemLoading || planItemError || profileLoading || profileError}
           onClick={() => mutation.mutate()}
         >
           {mutation.isPending
@@ -822,6 +853,8 @@ export function TransactionForm({
                     ? 'Guardar gasto'
                     : 'Guardar ingreso'}
         </Button>
+        {planItemError && <p className="text-sm text-expense">No se pudo cargar la moneda de esta partida.</p>}
+        {profileError && <p className="text-sm text-expense">No se pudo cargar la moneda del perfil.</p>}
 
         {transaction
           && transaction.kind === 'regular'

@@ -1,6 +1,7 @@
 'use client';
 
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import type { Session } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
@@ -34,11 +35,14 @@ export function useAuth() {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const activeUserId = useRef<string | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
+      activeUserId.current = data.session?.user.id ?? null;
       setSession(data.session);
       if (data.session) posthog.identify(data.session.user.id);
       setLoading(false);
@@ -46,6 +50,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      const nextUserId = nextSession?.user.id ?? null;
+      if (activeUserId.current && activeUserId.current !== nextUserId) queryClient.clear();
+      activeUserId.current = nextUserId;
       setSession(nextSession);
       if (nextSession) {
         posthog.identify(nextSession.user.id);
@@ -59,7 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
     return () => subscription.unsubscribe();
-  }, []);
+  }, [queryClient]);
 
   useEffect(() => {
     if (!loading && !session) router.replace('/');

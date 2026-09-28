@@ -17,7 +17,7 @@ import { ErrorState } from '@/components/error-state';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { PageHeader } from '@/components/layout/page-header';
 import { HistoryBars } from '@/components/charts/history-bars';
-import { formatCOP, formatPercent, formatShortDate, todayIsoDate } from '@/lib/formatters';
+import { formatCurrency, formatPercent, formatShortDate, todayIsoDate } from '@/lib/formatters';
 import { fetchBudgetDetail, resetBudget, softDeleteBudget } from '@/services/finance';
 
 const cycleLabelFormatter = new Intl.DateTimeFormat('es-CO', {
@@ -116,10 +116,10 @@ export default function BudgetDetailPage({
             </p>
           </div>
           <p className="tabular mt-1 font-display text-3xl font-bold">
-            {formatCOP(progress.spentAmount)}
+            {formatCurrency(progress.spentAmount, progress.budget.currency)}
             <span className="text-base font-medium text-muted-foreground">
               {' '}
-              / {formatCOP(progress.budget.limitAmount)}
+              / {formatCurrency(progress.budget.limitAmount, progress.budget.currency)}
             </span>
           </p>
           <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-secondary">
@@ -130,8 +130,8 @@ export default function BudgetDetailPage({
           </div>
           <p className="tabular mt-2 text-sm text-muted-foreground">
             {overBudget
-              ? `Excedido por ${formatCOP(Math.abs(progress.remainingAmount))}`
-              : `Disponible: ${formatCOP(progress.remainingAmount)}`}
+              ? `Excedido por ${formatCurrency(Math.abs(progress.remainingAmount), progress.budget.currency)}`
+              : `Disponible: ${formatCurrency(progress.remainingAmount, progress.budget.currency)}`}
           </p>
 
           <div className="mt-4 grid grid-cols-3 gap-2">
@@ -161,7 +161,7 @@ export default function BudgetDetailPage({
             <p className="mb-3 text-xs text-muted-foreground">
               Porcentaje gastado frente al límite de cada ciclo
             </p>
-            <HistoryBars data={historyData} />
+            <HistoryBars data={historyData} currency={progress.budget.currency} />
           </div>
         )}
 
@@ -172,6 +172,7 @@ export default function BudgetDetailPage({
               <div className="divide-y divide-border">
                 {detail.movements.map((movement) => (
                   <BudgetMovementRow
+                    currency={progress.budget.currency}
                     key={movement.id}
                     movement={movement}
                     href={`/app/transaction/${movement.id}/edit`}
@@ -195,7 +196,7 @@ export default function BudgetDetailPage({
             {detail.snapshots.length ? (
               <div className="divide-y divide-border">
                 {detail.snapshots.map((snapshot) => (
-                  <BudgetSnapshotRow key={snapshot.id} snapshot={snapshot} />
+                  <BudgetSnapshotRow key={snapshot.id} snapshot={snapshot} currency={progress.budget.currency} />
                 ))}
               </div>
             ) : (

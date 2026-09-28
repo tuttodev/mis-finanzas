@@ -1,7 +1,8 @@
 'use client';
 
 import { useId, useMemo, useState } from 'react';
-import { formatCOP, formatShortDate } from '@/lib/formatters';
+import { formatCurrency, formatShortDate } from '@/lib/formatters';
+import type { Currency } from '@/types/finance';
 
 export type SpendPoint = {
   date: string;
@@ -11,6 +12,7 @@ export type SpendPoint = {
 type SpendAreaProps = {
   data: SpendPoint[];
   color?: string;
+  currency?: Currency;
 };
 
 const VB_W = 340;
@@ -19,7 +21,7 @@ const MARGIN = { top: 10, right: 6, bottom: 6, left: 6 };
 const PLOT_W = VB_W - MARGIN.left - MARGIN.right;
 const PLOT_H = VB_H - MARGIN.top - MARGIN.bottom;
 
-export function SpendArea({ data, color = 'var(--primary)' }: SpendAreaProps) {
+export function SpendArea({ data, color = 'var(--primary)', currency = 'COP' }: SpendAreaProps) {
   const gradientId = useId();
   const [active, setActive] = useState<number | null>(null);
 
@@ -118,7 +120,7 @@ export function SpendArea({ data, color = 'var(--primary)' }: SpendAreaProps) {
             {formatShortDate(activePoint.date)}
           </p>
           <p className="tabular whitespace-nowrap text-xs font-medium text-foreground">
-            {formatCOP(activePoint.value)}
+            {formatCurrency(activePoint.value, currency)}
           </p>
         </div>
       )}

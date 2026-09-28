@@ -13,12 +13,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { ErrorState } from '@/components/error-state';
 import { PageHeader } from '@/components/layout/page-header';
-import { formatCOPInput, parseCurrencyInput } from '@/lib/formatters';
+import { formatCurrencyInput, parseCurrencyInput } from '@/lib/formatters';
 import {
   createPlanItem,
   deletePlanItem,
   fetchExpenseCategories,
   fetchPlanItem,
+  fetchPlanCurrency,
   fetchPlanSections,
   fetchTags,
   updatePlanItem,
@@ -40,6 +41,13 @@ function PlanItemForm() {
     queryFn: () => fetchPlanItem(itemId!),
     enabled: Boolean(itemId),
   });
+  const activePlanId = planId ?? itemQuery.data?.planId;
+  const planCurrencyQuery = useQuery({
+    queryKey: ['plan-currency', activePlanId],
+    queryFn: () => fetchPlanCurrency(activePlanId!),
+    enabled: Boolean(activePlanId),
+  });
+  const currency = planCurrencyQuery.data ?? 'COP';
 
   const [currentKind, setCurrentKind] = useState<PlanItemKind>(kindParam ?? 'expense');
   const [name, setName] = useState('');
@@ -52,11 +60,11 @@ function PlanItemForm() {
   const [loadedItemId, setLoadedItemId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  if (itemQuery.data && loadedItemId !== itemQuery.data.id) {
+  if (itemQuery.data && planCurrencyQuery.data && loadedItemId !== itemQuery.data.id) {
     setLoadedItemId(itemQuery.data.id);
     setCurrentKind(itemQuery.data.kind === 'group' ? 'expense' : itemQuery.data.kind);
     setName(itemQuery.data.name);
-    setAmount(formatCOPInput(itemQuery.data.plannedAmount));
+    setAmount(formatCurrencyInput(itemQuery.data.plannedAmount, currency));
     setNote(itemQuery.data.note ?? '');
     setSelectedCategoryId(itemQuery.data.categoryId ?? '');
     setSelectedSectionId(itemQuery.data.sectionId ?? '');
@@ -90,7 +98,7 @@ function PlanItemForm() {
     { label: 'Comunes', tags: tagsQuery.data?.filter((tag) => tag.isSystem) ?? [] },
     { label: 'Personalizadas', tags: tagsQuery.data?.filter((tag) => !tag.isSystem) ?? [] },
   ].filter((group) => group.tags.length > 0);
-  const parsedAmount = parseCurrencyInput(amount, { allowZero: true });
+  const parsedAmount = parseCurrencyInput(amount, { allowZero: true, currency });
 
   const invalidatePlanQueries = () =>
     Promise.all([
@@ -168,7 +176,11 @@ function PlanItemForm() {
     );
   }
 
-  if (itemId && itemQuery.isLoading) {
+  if (planCurrencyQuery.isError) {
+    return <div className="mx-auto max-w-2xl p-4"><ErrorState message="No se pudo cargar la moneda del plan" /></div>;
+  }
+
+  if ((itemId && itemQuery.isLoading) || planCurrencyQuery.isLoading) {
     return (
       <div className="mx-auto max-w-2xl space-y-4 p-4">
         <Skeleton className="h-10 w-48" />
@@ -252,14 +264,15 @@ function PlanItemForm() {
             />
           </div>
           <div>
-            <Label htmlFor="amount">Monto en pesos colombianos</Label>
+            <Label htmlFor="amount">Monto ({currency})</Label>
             <CurrencyInput
               id="amount"
+              currency={currency}
               className="mt-1 h-10"
               value={amount}
               onValueChange={setAmount}
               placeholder="0,00"
-              aria-label="Monto en pesos colombianos (COP)"
+              aria-label={`Monto en ${currency}`}
             />
           </div>
           <div>
