@@ -11,6 +11,7 @@ import { CashflowBars } from '@/components/charts/cashflow-bars';
 import { SpendArea } from '@/components/charts/spend-area';
 import { DonutChart, type DonutSlice } from '@/components/charts/donut-chart';
 import { CategoryBadge } from '@/components/finance/category-badge';
+import { CategorySpendingComparison } from '@/components/finance/category-spending-comparison';
 import { TransferBadge } from '@/components/finance/transfer-badge';
 import { RefundBadge } from '@/components/finance/refund-badge';
 import { PlanningBadge } from '@/components/finance/planning-badge';
@@ -182,6 +183,12 @@ export default function DashboardPage() {
           </p>
         )}
       </section>
+
+      <CategorySpendingComparison
+        comparison={data.categoryComparison}
+        currency={currency}
+        hidden={hidden}
+      />
 
       {/* Spending by budget */}
       <section className="rounded-2xl border border-border bg-card p-5">

@@ -259,6 +259,7 @@ export type DashboardData = {
   cashflow: MonthlyCashflow[];
   dailySpend: DailySpend[];
   categorySpending: CategorySpending[];
+  categoryComparison: import('@/lib/category-spending-comparison').CategorySpendingComparison;
   recentTransactions: TransactionWithAccount[];
 };
 
