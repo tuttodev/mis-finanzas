@@ -1,6 +1,7 @@
 import { summarizePlan } from '@/lib/plan-summary';
 import { supabase } from '@/lib/supabase';
 import { roundCurrencyAmount } from '@/lib/formatters';
+import { compareCategorySpending } from '@/lib/category-spending-comparison';
 import type {
   Account,
   AccountDTO,
@@ -1028,9 +1029,6 @@ export async function fetchDashboardData(currency: Currency = 'COP'): Promise<Da
     dailySpend.push({ date: key, value: 0 });
   }
 
-  const currentMonthKey = toIsoDate(now).slice(0, 7);
-  const categoryTotals = new Map<string, number>();
-
   for (const tx of transactions) {
     // Report one currency at a time; never add amounts across currencies.
     if (accountsById.get(tx.account_id)?.currency !== currency) continue;
@@ -1050,17 +1048,6 @@ export async function fetchDashboardData(currency: Currency = 'COP'): Promise<Da
       if (dayIdx !== undefined) {
         dailySpend[dayIdx].value += isRefund ? -tx.amount : Math.abs(tx.amount);
       }
-
-      if (tx.date.startsWith(currentMonthKey)) {
-        const categoryName = tx.category_id
-          ? categories.get(tx.category_id)?.name ?? 'Sin categoría'
-          : 'Sin categoría';
-        categoryTotals.set(
-          categoryName,
-          (categoryTotals.get(categoryName) ?? 0)
-            + (isRefund ? -tx.amount : Math.abs(tx.amount)),
-        );
-      }
     }
   }
 
@@ -1077,10 +1064,11 @@ export async function fetchDashboardData(currency: Currency = 'COP'): Promise<Da
   const transactionTags = await fetchTransactionTagsMap(recentDtos.map((tx) => tx.id));
 
   const currentMonth = cashflow[cashflow.length - 1];
-  const categorySpending: CategorySpending[] = Array.from(categoryTotals, ([label, value]) => ({
-    label,
-    value,
-  }))
+  const categoryComparison = compareCategorySpending(
+    transactions, accountsById, categories, currency, now, 'Sin categoría',
+  );
+  const categorySpending: CategorySpending[] = categoryComparison.rows
+    .map((row) => ({ label: row.categoryName, value: row.currentAmount }))
     .filter((item) => item.value > 0)
     .sort((a, b) => b.value - a.value);
   const recentTransactions: TransactionWithAccount[] = recentDtos.map((dto) => ({
@@ -1096,6 +1084,7 @@ export async function fetchDashboardData(currency: Currency = 'COP'): Promise<Da
     cashflow,
     dailySpend,
     categorySpending,
+    categoryComparison,
     recentTransactions,
   };
 }

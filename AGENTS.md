@@ -1,44 +1,27 @@
-<!-- BEGIN:nextjs-agent-rules -->
-# This is NOT the Next.js you know
+# Jireh Finanzas agent map
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
-<!-- END:nextjs-agent-rules -->
+Jireh Finanzas is a Next.js application for accounts, transactions, budgets, and family planning. The course feature compares category spending in the current and previous calendar months.
 
-# Deploying to production (Vercel)
+## Read before changing finance behavior
 
-This project is already linked to Vercel (project `mis-finanzas`, see `.vercel/project.json`). The Vercel CLI is available locally (`vercel`).
+- [Finance rules](docs/finance-rules.md) define currency, refunds, transfers, dates, and empty categories.
+- [Architecture](docs/architecture.md) maps data access, calculations, types, and presentation.
+- [Category comparison specification](docs/category-spending-comparison.md) defines visible behavior and acceptance cases.
+- [Course evaluation](docs/course-evaluation.md) records the same review criteria for both attempts.
 
-## Environment variables
+## Run the project
 
-The app requires these variables at build/runtime:
-
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-
-They must be set in the Vercel project (Project Settings → Environment Variables) for the `Production` environment. Never commit `.env.local` — it's already gitignored.
-
-## Option A: Deploy via `git push` (recommended)
-
-If the Vercel project is connected to the GitHub repo (check in the Vercel dashboard → Project → Settings → Git), every push to `main` triggers a production deployment automatically:
+Use Node.js 25 or a compatible version with TypeScript type stripping. Run `npm ci`, copy `.env.example` to `.env.local`, and supply your own development Supabase URL and public anon key. Never commit credentials or use production financial records for demos. See [Environment and preview](docs/environment.md).
 
 ```bash
-git push origin main
+npm run dev
+npm test
+npm run lint
+npm run build
 ```
 
-Pushes to other branches create preview deployments instead.
+The dashboard is at `src/app/app/page.tsx`; existing Supabase access is in `src/services/finance.ts`; shared types are in `src/types/finance.ts`. Read the relevant `node_modules/next/dist/docs/` guide before writing Next.js code, as this version has breaking changes.
 
-## Option B: Deploy via Vercel CLI
+## Release boundary
 
-Useful for deploying without pushing to `main`, or the first time a Git integration isn't set up.
-
-```bash
-vercel --prod
-```
-
-This builds and deploys the current working directory straight to production. Run `vercel` (without `--prod`) first if you want a preview deployment to sanity-check before promoting.
-
-## Before deploying
-
-- Run `npm run build` locally to catch build errors early.
-- Run `npm run lint`.
-- Confirm any new environment variables were added in Vercel, not just `.env.local`.
+Follow [Release procedure](docs/release.md). Review the diff, tests, lint, build, and a preview with fictional data. Confirm the Vercel Git connection and production branch. Production deployment requires the course instructor's approval. Deploy the approved commit once, through the connected Git branch or the CLI path, and verify the resulting commit and feature. Do not commit secrets.

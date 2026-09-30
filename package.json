@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --port 322",
+    "test": "node --experimental-strip-types --test src/lib/__tests__/*.test.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

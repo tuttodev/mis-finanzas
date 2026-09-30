@@ -1,36 +1,28 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Jireh Finanzas
 
-## Getting Started
+A Next.js application for accounts, transactions, budgets, and family finance planning.
 
-First, run the development server:
+## Local setup
+
+Use Node.js 25 or a compatible version with TypeScript type stripping. Run `npm ci`, copy `.env.example` to `.env.local`, and set a development Supabase URL and public anon key. Keep `.env.local` out of Git.
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:322/app` for the authenticated dashboard. The course's fictional comparison preview is at `http://localhost:322/harness-demo` on local and Vercel preview builds.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Validation
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm test
+npm run lint
+npm run build
+```
 
-## Learn More
+## Course branches
 
-To learn more about Next.js, take a look at the following resources:
+- `codex/jireh-course-no-harness`: the original application, without `AGENTS.md` and `CLAUDE.md`, ready for the first teaching attempt.
+- `codex/jireh-course-harness`: finance and architecture context, acceptance criteria, reproducible checks, the category comparison feature, fictional preview, and supervised release instructions.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+On the harness branch, start with [AGENTS.md](AGENTS.md). The [course evaluation](docs/course-evaluation.md) explains how to collect evidence for both attempts. Production release requires a separate human review and follows [docs/release.md](docs/release.md).
