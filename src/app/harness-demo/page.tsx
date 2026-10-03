@@ -22,9 +22,9 @@ export default function HarnessDemoPage() {
     ['demo-usd', { currency: 'USD' }],
   ]);
   const categories = new Map([
-    ['groceries', { name: 'Groceries' }],
-    ['housing', { name: 'Housing' }],
-    ['transport', { name: 'Transport' }],
+    ['groceries', { name: 'Mercado' }],
+    ['housing', { name: 'Vivienda' }],
+    ['transport', { name: 'Transporte' }],
   ]);
   const transactions = [
     { account_id: 'demo-cop', category_id: 'groceries', date: previousDate, amount: -300000 },
@@ -37,16 +37,16 @@ export default function HarnessDemoPage() {
     { account_id: 'demo-cop', category_id: 'groceries', date: currentDate, amount: -999999, transfer_id: 'demo-transfer' },
   ];
   const comparison = compareCategorySpending(
-    transactions, accounts, categories, 'COP', today, 'Uncategorized',
+    transactions, accounts, categories, 'COP', today, 'Sin categoría',
   );
 
   return (
     <main className="mx-auto max-w-2xl space-y-4 p-4">
       <header className="px-1 pt-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-primary">Course preview</p>
-        <h1 className="mt-1 text-2xl font-bold">Jireh Finanzas · sample data</h1>
+        <p className="text-xs font-semibold uppercase tracking-wide text-primary">Vista previa del curso</p>
+        <h1 className="mt-1 text-2xl font-bold">Jireh Finanzas · datos ficticios</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Fictional transactions only. This page never connects to a finance account.
+          Solo transacciones ficticias. Esta página nunca se conecta a una cuenta financiera.
         </p>
       </header>
       <CategorySpendingComparison comparison={comparison} currency="COP" />

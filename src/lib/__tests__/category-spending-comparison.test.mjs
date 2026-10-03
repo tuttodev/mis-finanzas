@@ -24,7 +24,7 @@ function transaction(date, amount, categoryId, extra = {}) {
   };
 }
 
-test('compares consecutive calendar months using net spending in COP', () => {
+test('AC-1, AC-2, AC-3: compares consecutive calendar months using net COP spending, ignoring transfers, income, other currencies and older months', () => {
   const result = compareCategorySpending([
     transaction('2026-09-05', -150, 'food'),
     transaction('2026-09-10', 30, 'food', { kind: 'refund' }),
@@ -54,7 +54,7 @@ test('compares consecutive calendar months using net spending in COP', () => {
   });
 });
 
-test('crosses the year boundary and keeps uncategorized refunds and negative net totals', () => {
+test('AC-4, AC-5: crosses the December-January boundary and keeps uncategorized refunds and negative net totals', () => {
   const result = compareCategorySpending([
     transaction('2025-12-01', -10.1, null),
     transaction('2026-01-01', -1.2, null),
@@ -69,7 +69,7 @@ test('crosses the year boundary and keeps uncategorized refunds and negative net
   }]);
 });
 
-test('does not invent a percentage for zero or negative previous spending', () => {
+test('AC-5: does not invent a percentage for zero or negative previous spending', () => {
   const result = compareCategorySpending([
     transaction('2026-09-02', -20, 'food'),
     transaction('2026-09-03', 20, 'food', { kind: 'refund' }),
@@ -82,7 +82,7 @@ test('does not invent a percentage for zero or negative previous spending', () =
   assert.equal(result.rows.find((row) => row.categoryId === 'travel')?.percentChange, null);
 });
 
-test('returns an empty comparison when both months have no spending', () => {
+test('AC-6: returns an empty comparison when both months have no spending', () => {
   const result = compareCategorySpending([
     transaction('2026-08-01', -10, 'food'),
     transaction('2026-10-01', -10, 'food', { account_id: 'usd' }),
@@ -91,7 +91,7 @@ test('returns an empty comparison when both months have no spending', () => {
   assert.deepEqual(result.rows, []);
 });
 
-test('keeps separate category IDs even when their display names match', () => {
+test('finance rule: keeps separate category IDs even when their display names match', () => {
   const sameNames = new Map([
     ['first', { name: 'Other' }],
     ['second', { name: 'Other' }],

@@ -6,7 +6,8 @@ Jireh Finanzas is a Next.js application for accounts, transactions, budgets, and
 
 - [Finance rules](docs/finance-rules.md) define currency, refunds, transfers, dates, and empty categories.
 - [Architecture](docs/architecture.md) maps data access, calculations, types, and presentation.
-- [Category comparison specification](docs/category-spending-comparison.md) defines visible behavior and acceptance cases.
+- [Feature specs](specs/) hold one folder per feature. Start new ones from [specs/_template.md](specs/_template.md).
+- [001 · Category comparison](specs/001-category-spending-comparison/spec.md) defines visible behavior and acceptance cases AC-1 to AC-6, verified by `src/lib/__tests__/category-spending-comparison.test.mjs`.
 - [Course evaluation](docs/course-evaluation.md) records the same review criteria for both attempts.
 
 ## Run the project
@@ -21,6 +22,10 @@ npm run build
 ```
 
 The dashboard is at `src/app/app/page.tsx`; existing Supabase access is in `src/services/finance.ts`; shared types are in `src/types/finance.ts`. Read the relevant `node_modules/next/dist/docs/` guide before writing Next.js code, as this version has breaking changes.
+
+## Done means validated
+
+A task is finished only when `npm test`, `npm run lint`, and `npm run build` pass. Git hooks in `.githooks/` enforce this: `pre-commit` runs tests and lint, `pre-push` runs the build. `npm install` activates them through the `prepare` script. Never bypass them with `--no-verify`.
 
 ## Release boundary
 
