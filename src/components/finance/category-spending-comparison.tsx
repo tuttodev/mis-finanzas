@@ -8,27 +8,27 @@ type Props = {
   hidden?: boolean;
 };
 
-const percentFormatter = new Intl.NumberFormat('en-US', {
+const percentFormatter = new Intl.NumberFormat('es-CO', {
   maximumFractionDigits: 1,
   signDisplay: 'always',
 });
 
 function formatMonth(monthKey: string) {
   const [year, month] = monthKey.split('-').map(Number);
-  return new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' })
+  return new Intl.DateTimeFormat('es-CO', { month: 'short', year: 'numeric' })
     .format(new Date(year, month - 1, 1));
 }
 
 export function CategorySpendingComparison({ comparison, currency, hidden = false }: Props) {
   return (
     <section className="rounded-2xl border border-border bg-card p-5">
-      <h2 className="text-base font-semibold">Category spending compared</h2>
+      <h2 className="text-base font-semibold">Gastos por categoría: este mes vs. el anterior</h2>
       <p className="mb-3 text-xs text-muted-foreground">
         {formatMonth(comparison.currentMonth)} vs {formatMonth(comparison.previousMonth)} · {currency}
       </p>
       {comparison.rows.length === 0 ? (
         <p className="py-6 text-center text-sm text-muted-foreground">
-          No category spending in either month.
+          No hay gastos por categoría en ninguno de los dos meses.
         </p>
       ) : (
         <div className="space-y-2">
@@ -37,19 +37,19 @@ export function CategorySpendingComparison({ comparison, currency, hidden = fals
               <h3 className="mb-2 text-sm font-medium">{row.categoryName}</h3>
               <dl className="grid grid-cols-3 gap-2 text-xs">
                 <div className="min-w-0">
-                  <dt className="text-muted-foreground">Current</dt>
+                  <dt className="text-muted-foreground">Este mes</dt>
                   <dd className="tabular break-words font-semibold">
                     {hidden ? '••••••' : formatCurrency(row.currentAmount, currency)}
                   </dd>
                 </div>
                 <div className="min-w-0">
-                  <dt className="text-muted-foreground">Previous</dt>
+                  <dt className="text-muted-foreground">Mes anterior</dt>
                   <dd className="tabular break-words font-semibold">
                     {hidden ? '••••••' : formatCurrency(row.previousAmount, currency)}
                   </dd>
                 </div>
                 <div className="min-w-0">
-                  <dt className="text-muted-foreground">Difference</dt>
+                  <dt className="text-muted-foreground">Diferencia</dt>
                   <dd className={`tabular break-words font-semibold ${
                     row.difference > 0 ? 'text-expense' : row.difference < 0 ? 'text-income' : ''
                   }`}>
@@ -62,8 +62,8 @@ export function CategorySpendingComparison({ comparison, currency, hidden = fals
               {!hidden && (
                 <p className="mt-1 text-xs text-muted-foreground">
                   {row.percentChange === null
-                    ? 'Percentage unavailable when previous spending is zero or negative.'
-                    : `${percentFormatter.format(row.percentChange)}% vs previous month`}
+                    ? 'Sin porcentaje: el mes anterior no tuvo gasto positivo.'
+                    : `${percentFormatter.format(row.percentChange)}% vs. el mes anterior`}
                 </p>
               )}
             </div>

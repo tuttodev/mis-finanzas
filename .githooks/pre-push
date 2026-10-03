@@ -1,0 +1,5 @@
+#!/bin/sh
+# Harness sensor: block pushes that do not build.
+set -e
+echo "[harness] npm run build"
+npm run build
