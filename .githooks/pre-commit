@@ -1,0 +1,7 @@
+#!/bin/sh
+# Harness: no commit may break the business rules or the lint rules.
+set -e
+echo "[harness] npm test"
+npm test --silent
+echo "[harness] npm run lint"
+npm run lint --silent
