@@ -1,0 +1,193 @@
+'use client';
+
+import { useMemo, useState } from 'react';
+import { Download } from 'lucide-react';
+import { toast } from 'sonner';
+import { Button } from '@/shared/ui/button';
+import { DatePicker } from '@/shared/ui/date-picker';
+import { Label } from '@/shared/ui/label';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/shared/ui/alert-dialog';
+import { todayIsoDate } from '@/shared/lib/formatters';
+import type { Transaction } from '@/modules/transactions/domain/transaction.types';
+import { Currency } from '@/shared/domain/currency.enum';
+import { TransactionKind } from '@/modules/transactions/domain/transaction-kind.enum';
+
+type TransactionExportDialogProps = {
+  accountName: string;
+  currency: Currency;
+  transactions: Transaction[];
+  className?: string;
+};
+
+const CSV_HEADERS = [
+  'Cuenta',
+  'Fecha',
+  'Descripción',
+  'Categoría',
+  'Tipo',
+  'Monto',
+  'Moneda',
+  'Transferencia',
+  'Etiquetas',
+];
+
+function escapeCsvValue(value: string | number) {
+  const stringValue = String(value);
+  return /[",\r\n]/.test(stringValue)
+    ? `"${stringValue.replaceAll('"', '""')}"`
+    : stringValue;
+}
+
+function getTransactionType(transaction: Transaction) {
+  if (transaction.kind === TransactionKind.Refund) return 'Devolución';
+  return transaction.amount < 0 ? 'Gasto' : 'Ingreso';
+}
+
+function getSafeFileName(accountName: string) {
+  const normalizedName = accountName
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .toLowerCase();
+
+  return normalizedName || 'cuenta';
+}
+
+function buildTransactionsCsv(accountName: string, transactions: Transaction[], currency: Currency) {
+  const rows = transactions.map((transaction) =>
+    [
+      accountName,
+      transaction.date,
+      transaction.description,
+      transaction.categoryName ?? 'Sin categoría',
+      getTransactionType(transaction),
+      transaction.amount.toFixed(2),
+      currency,
+      transaction.transferId ? 'Sí' : 'No',
+      transaction.tags.map((tag) => tag.name).join(', '),
+    ]
+      .map(escapeCsvValue)
+      .join(','),
+  );
+
+  return `\uFEFF${[CSV_HEADERS.map(escapeCsvValue).join(','), ...rows].join('\r\n')}`;
+}
+
+export function TransactionExportDialog({
+  accountName,
+  currency,
+  transactions,
+  className,
+}: TransactionExportDialogProps) {
+  const [open, setOpen] = useState(false);
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+
+  const defaultFromDate = transactions[transactions.length - 1]?.date ?? todayIsoDate();
+  const defaultToDate = transactions[0]?.date ?? todayIsoDate();
+  const selectedTransactions = useMemo(
+    () =>
+      transactions.filter(
+        (transaction) =>
+          transaction.date >= fromDate && transaction.date <= toDate,
+      ),
+    [fromDate, toDate, transactions],
+  );
+  const invalidRange = Boolean(fromDate && toDate && fromDate > toDate);
+  const canDownload = Boolean(fromDate && toDate) && !invalidRange && selectedTransactions.length > 0;
+
+  function handleOpen() {
+    setFromDate(defaultFromDate);
+    setToDate(defaultToDate);
+    setOpen(true);
+  }
+
+  function handleDownload() {
+    if (!canDownload) return;
+
+    const csv = buildTransactionsCsv(accountName, selectedTransactions, currency);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `transacciones-${getSafeFileName(accountName)}-${fromDate}-${toDate}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setOpen(false);
+    toast.success(`${selectedTransactions.length} transacciones descargadas`);
+  }
+
+  return (
+    <>
+      <Button
+        className={className}
+        size="lg"
+        variant="outline"
+        onClick={handleOpen}
+      >
+        <Download className="h-4 w-4" />
+        Exportar
+      </Button>
+
+      <AlertDialog open={open} onOpenChange={setOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Descargar transacciones</AlertDialogTitle>
+            <AlertDialogDescription>
+              Selecciona el rango de fechas que quieres exportar de esta cuenta.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="export-from-date">Desde</Label>
+              <DatePicker
+                id="export-from-date"
+                value={fromDate}
+                max={toDate || undefined}
+                onChange={setFromDate}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="export-to-date">Hasta</Label>
+              <DatePicker
+                id="export-to-date"
+                value={toDate}
+                min={fromDate || undefined}
+                onChange={setToDate}
+              />
+            </div>
+          </div>
+
+          <p className="text-sm text-muted-foreground" aria-live="polite">
+            {invalidRange
+              ? 'La fecha inicial debe ser anterior o igual a la fecha final.'
+              : selectedTransactions.length
+                ? `${selectedTransactions.length} transacciones en el rango seleccionado.`
+                : 'No hay transacciones en el rango seleccionado.'}
+          </p>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setOpen(false)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDownload} disabled={!canDownload}>
+              <Download className="h-4 w-4" />
+              Descargar CSV
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}

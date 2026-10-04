@@ -5,23 +5,26 @@ import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeftRight, BadgeCent, Pencil, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { TransactionRow } from '@/components/finance/transaction-row';
-import { TransactionExportDialog } from '@/components/finance/transaction-export-dialog';
-import { BalanceAdjustmentDialog } from '@/components/finance/balance-adjustment-dialog';
-import { EmptyState } from '@/components/empty-state';
-import { ErrorState } from '@/components/error-state';
-import { ConfirmDialog } from '@/components/confirm-dialog';
-import { PageHeader } from '@/components/layout/page-header';
-import { SpendArea, type SpendPoint } from '@/components/charts/spend-area';
-import { formatCurrency, formatDateGroupLabel } from '@/lib/formatters';
-import {
-  deleteTransaction,
-  fetchAccountTransactions,
-  fetchAccountsOverview,
-} from '@/services/finance';
-import type { Transaction } from '@/types/finance';
+import { Button } from '@/shared/ui/button';
+import { Skeleton } from '@/shared/ui/skeleton';
+import { TransactionRow } from '@/modules/transactions/ui/transaction-row';
+import { TransactionExportDialog } from '@/modules/transactions/ui/transaction-export-dialog';
+import { BalanceAdjustmentDialog } from '@/modules/accounts/ui/balance-adjustment-dialog';
+import { EmptyState } from '@/shared/ui/empty-state';
+import { ErrorState } from '@/shared/ui/error-state';
+import { ConfirmDialog } from '@/shared/ui/confirm-dialog';
+import { PageHeader } from '@/shared/ui/layout/page-header';
+import { SpendArea, type SpendPoint } from '@/shared/ui/charts/spend-area';
+import { formatCurrency, formatDateGroupLabel } from '@/shared/lib/formatters';
+import { deleteTransaction } from '@/modules/transactions/application/transactions.use-cases';
+import type { Transaction } from '@/modules/transactions/domain/transaction.types';
+import { AccountType } from '@/modules/accounts/domain/account-type.enum';
+import { CategorySlug } from '@/modules/categories/domain/category-slug.enum';
+import { TransactionPreset } from '@/modules/transactions/domain/transaction-preset.enum';
+import { AppRoute, SearchParam } from '@/shared/navigation/app-route.enum';
+import { appRoutes, withSearchParams } from '@/shared/navigation/app-routes';
+import { transactionQueries } from '@/modules/transactions/application/transactions.queries';
+import { accountQueries } from '@/modules/accounts/application/accounts.queries';
 
 function buildBalanceHistory(
   currentBalance: number,
@@ -70,13 +73,11 @@ export default function AccountDetailPage({
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const accountsQuery = useQuery({
-    queryKey: ['accounts'],
-    queryFn: fetchAccountsOverview,
+    ...accountQueries.list(),
   });
 
   const transactionsQuery = useQuery({
-    queryKey: ['transactions', id],
-    queryFn: () => fetchAccountTransactions(id),
+    ...transactionQueries.byAccount(id),
     enabled: Boolean(id),
   });
 
@@ -98,7 +99,7 @@ export default function AccountDetailPage({
     () =>
       (transactionsQuery.data ?? []).reduce(
         (total, transaction) =>
-          transaction.categorySlug === 'savings-interest' && transaction.amount > 0
+          transaction.categorySlug === CategorySlug.SavingsInterest && transaction.amount > 0
             ? total + transaction.amount
             : total,
         0,
@@ -143,7 +144,7 @@ export default function AccountDetailPage({
 
   return (
     <div className="mx-auto max-w-2xl p-4">
-      <PageHeader title={account.name} subtitle={`${account.type} · ${account.currency}`} backHref="/app/accounts" />
+      <PageHeader title={account.name} subtitle={`${account.type} · ${account.currency}`} backHref={AppRoute.Accounts} />
 
       <div className="space-y-4">
         <div className="rounded-2xl border border-border bg-card p-5">
@@ -158,7 +159,7 @@ export default function AccountDetailPage({
             {formatCurrency(account.currentBalance, account.currency)}
           </p>
 
-          {account.type === 'Ahorros' && (
+          {account.type === AccountType.Savings && (
             <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-income/10 px-3 py-2.5">
               <span className="flex items-center gap-2 text-sm font-medium text-income">
                 <BadgeCent className="h-4 w-4" />
@@ -178,14 +179,14 @@ export default function AccountDetailPage({
           )}
 
           <div className="mt-4 grid grid-cols-2 gap-2">
-            {account.type === 'Ahorros' && (
+            {account.type === AccountType.Savings && (
               <Button
                 className="col-span-2"
                 size="lg"
                 nativeButton={false}
                 render={
                   <Link
-                    href={`/app/transaction/new?accountId=${account.id}&preset=savings-interest`}
+                    href={withSearchParams(AppRoute.NewTransaction, { [SearchParam.AccountId]: account.id, [SearchParam.Preset]: TransactionPreset.SavingsInterest })}
                   />
                 }
               >
@@ -195,9 +196,9 @@ export default function AccountDetailPage({
             )}
             <Button
               size="lg"
-              variant={account.type === 'Ahorros' ? 'outline' : 'default'}
+              variant={account.type === AccountType.Savings ? 'outline' : 'default'}
               nativeButton={false}
-              render={<Link href={`/app/transaction/new?accountId=${account.id}`} />}
+              render={<Link href={withSearchParams(AppRoute.NewTransaction, { [SearchParam.AccountId]: account.id })} />}
             >
               <Plus className="h-4 w-4" />
               Nueva transacción
@@ -206,7 +207,7 @@ export default function AccountDetailPage({
               size="lg"
               variant="outline"
               nativeButton={false}
-              render={<Link href={`/app/transfer/new?accountId=${account.id}`} />}
+              render={<Link href={withSearchParams(AppRoute.NewTransfer, { [SearchParam.AccountId]: account.id })} />}
             >
               <ArrowLeftRight className="h-4 w-4" />
               Transferir
@@ -239,7 +240,7 @@ export default function AccountDetailPage({
                             </div>
                           ) : (
                             <Link
-                              href={`/app/transaction/${transaction.id}/edit`}
+                              href={appRoutes.editTransaction(transaction.id)}
                               aria-label={`Editar ${transaction.description}`}
                               className="flex min-w-0 flex-1 items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             >

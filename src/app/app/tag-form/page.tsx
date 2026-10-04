@@ -5,13 +5,16 @@ import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Tag } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { PageHeader } from '@/components/layout/page-header';
-import { TagBadge } from '@/components/finance/tag-badge';
-import { createTag } from '@/services/finance';
-import { captureAnalytics } from '@/lib/analytics';
+import { Button } from '@/shared/ui/button';
+import { Input } from '@/shared/ui/input';
+import { Label } from '@/shared/ui/label';
+import { PageHeader } from '@/shared/ui/layout/page-header';
+import { TagBadge } from '@/modules/tags/ui/tag-badge';
+import { createTag } from '@/modules/tags/application/tags.use-cases';
+import { captureAnalytics } from '@/shared/analytics/analytics';
+import { AnalyticsEvent } from '@/shared/analytics/analytics-event.enum';
+import { AppRoute } from '@/shared/navigation/app-route.enum';
+import { QueryKey } from '@/shared/query/query-key.enum';
 
 export default function TagFormPage() {
   const router = useRouter();
@@ -21,17 +24,17 @@ export default function TagFormPage() {
   const mutation = useMutation({
     mutationFn: () => createTag({ name }),
     onSuccess: async () => {
-      captureAnalytics('tag_created');
-      await queryClient.invalidateQueries({ queryKey: ['tags'] });
+      captureAnalytics(AnalyticsEvent.TagCreated);
+      await queryClient.invalidateQueries({ queryKey: [QueryKey.Tags] });
       toast.success('Etiqueta creada');
-      router.push('/app/tags');
+      router.push(AppRoute.Tags);
     },
     onError: (error: Error) => toast.error(error.message),
   });
 
   return (
     <div className="mx-auto max-w-2xl p-4">
-      <PageHeader title="Nueva etiqueta" backHref="/app/tags" />
+      <PageHeader title="Nueva etiqueta" backHref={AppRoute.Tags} />
 
       <form
         className="rounded-2xl border border-border bg-card p-5"

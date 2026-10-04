@@ -5,15 +5,20 @@ import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { ConfirmDialog } from '@/components/confirm-dialog';
-import { EmptyState } from '@/components/empty-state';
-import { ErrorState } from '@/components/error-state';
-import { CategoryIcon } from '@/components/finance/category-icon';
-import { PageHeader } from '@/components/layout/page-header';
-import { deleteExpenseCategory, fetchExpenseCategories } from '@/services/finance';
-import type { ExpenseCategory } from '@/types/finance';
+import { Button } from '@/shared/ui/button';
+import { Skeleton } from '@/shared/ui/skeleton';
+import { ConfirmDialog } from '@/shared/ui/confirm-dialog';
+import { EmptyState } from '@/shared/ui/empty-state';
+import { ErrorState } from '@/shared/ui/error-state';
+import { CategoryIcon } from '@/modules/categories/ui/category-icon';
+import { PageHeader } from '@/shared/ui/layout/page-header';
+import { deleteExpenseCategory } from '@/modules/categories/application/categories.use-cases';
+import type { ExpenseCategory } from '@/modules/categories/domain/category.types';
+import { TransactionType } from '@/modules/transactions/domain/transaction-type.enum';
+import { TRANSACTION_TYPE_LABELS } from '@/modules/transactions/ui/transaction-type-labels';
+import { AppRoute } from '@/shared/navigation/app-route.enum';
+import { categoryQueries } from '@/modules/categories/application/categories.queries';
+import { QueryKey } from '@/shared/query/query-key.enum';
 
 function CategoryList({
   categories,
@@ -35,7 +40,7 @@ function CategoryList({
               <p className="text-xs text-muted-foreground">
                 {category.isSystem ? 'Predeterminada' : 'Personalizada'}
                 {' · '}
-                {category.transactionType === 'income' ? 'Ingreso' : 'Gasto'}
+                {TRANSACTION_TYPE_LABELS[category.transactionType]}
               </p>
             </div>
             {onDelete && !category.hasTransactions && (
@@ -60,14 +65,13 @@ export default function CategoriesPage() {
   const [deleteTarget, setDeleteTarget] = useState<ExpenseCategory | null>(null);
 
   const categoriesQuery = useQuery({
-    queryKey: ['expense-categories'],
-    queryFn: fetchExpenseCategories,
+    ...categoryQueries.list(),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (categoryId: string) => deleteExpenseCategory(categoryId),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['expense-categories'] });
+      await queryClient.invalidateQueries({ queryKey: [QueryKey.ExpenseCategories] });
       toast.success('Categoría eliminada');
     },
     onError: (error: Error) => toast.error(error.message),
@@ -77,11 +81,11 @@ export default function CategoriesPage() {
     categoriesQuery.data?.filter((category) => !category.isSystem) ?? [];
   const systemExpenseCategories =
     categoriesQuery.data?.filter(
-      (category) => category.isSystem && category.transactionType === 'expense',
+      (category) => category.isSystem && category.transactionType === TransactionType.Expense,
     ) ?? [];
   const systemIncomeCategories =
     categoriesQuery.data?.filter(
-      (category) => category.isSystem && category.transactionType === 'income',
+      (category) => category.isSystem && category.transactionType === TransactionType.Income,
     ) ?? [];
 
   return (
@@ -90,7 +94,7 @@ export default function CategoriesPage() {
         title="Categorías"
         subtitle="Organiza tus gastos e ingresos a tu manera"
         action={
-          <Button nativeButton={false} render={<Link href="/app/category-form" />}>
+          <Button nativeButton={false} render={<Link href={AppRoute.CategoryForm} />}>
             <Plus className="h-4 w-4" />
             Nueva
           </Button>

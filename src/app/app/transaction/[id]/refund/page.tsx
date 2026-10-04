@@ -2,10 +2,11 @@
 
 import { use } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ErrorState } from '@/components/error-state';
-import { RefundForm } from '@/components/finance/refund-form';
-import { Skeleton } from '@/components/ui/skeleton';
-import { fetchTransaction } from '@/services/finance';
+import { ErrorState } from '@/shared/ui/error-state';
+import { RefundForm } from '@/modules/transactions/ui/refund-form';
+import { Skeleton } from '@/shared/ui/skeleton';
+import { transactionQueries } from '@/modules/transactions/application/transactions.queries';
+import { TransactionKind } from '@/modules/transactions/domain/transaction-kind.enum';
 
 export default function NewRefundPage({
   params,
@@ -14,8 +15,7 @@ export default function NewRefundPage({
 }) {
   const { id } = use(params);
   const transactionQuery = useQuery({
-    queryKey: ['transaction', id],
-    queryFn: () => fetchTransaction(id),
+    ...transactionQueries.detail(id),
     enabled: Boolean(id),
   });
 
@@ -41,7 +41,7 @@ export default function NewRefundPage({
 
   const transaction = transactionQuery.data;
   if (
-    transaction.kind !== 'regular'
+    transaction.kind !== TransactionKind.Regular
     || transaction.amount >= 0
     || !transaction.budgetCycleId
   ) {

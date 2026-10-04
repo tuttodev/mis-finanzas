@@ -1,19 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { extractTextFromPdf, parseColillaText } from '@/lib/pdf-parser';
-import type { ParseColillaResponse } from '@/types/finance';
+import { createServerSupabaseClient } from '@/infrastructure/supabase/server-client';
+import { extractTextFromPdf } from '@/infrastructure/pdf/extract-pdf-text';
+import { parseColillaText } from '@/modules/planning/domain/colilla-parser';
+import { MimeType } from '@/shared/http/mime-type.enum';
+import type { ParseColillaResponse } from '@/modules/planning/domain/plan.types';
 
 export const runtime = 'nodejs';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
-
-function createServerSupabaseClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { auth: { persistSession: false, autoRefreshToken: false } },
-  );
-}
 
 export async function POST(req: NextRequest): Promise<NextResponse<ParseColillaResponse>> {
   try {
@@ -56,7 +50,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<ParseColillaR
       );
     }
 
-    if (!file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') {
+    if (!file.name.toLowerCase().endsWith('.pdf') && file.type !== MimeType.Pdf) {
       return NextResponse.json(
         { success: false, error: 'El archivo debe ser un documento PDF.' },
         { status: 400 },

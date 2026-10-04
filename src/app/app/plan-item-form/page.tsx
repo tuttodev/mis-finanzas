@@ -5,27 +5,25 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, ChevronDown, Tag, Tags, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { CurrencyInput } from '@/components/ui/currency-input';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Skeleton } from '@/components/ui/skeleton';
-import { ConfirmDialog } from '@/components/confirm-dialog';
-import { ErrorState } from '@/components/error-state';
-import { PageHeader } from '@/components/layout/page-header';
-import { formatCurrencyInput, parseCurrencyInput } from '@/lib/formatters';
-import {
-  createPlanItem,
-  deletePlanItem,
-  fetchExpenseCategories,
-  fetchPlanItem,
-  fetchPlanCurrency,
-  fetchPlanSections,
-  fetchTags,
-  updatePlanItem,
-} from '@/services/finance';
-import type { PlanItemKind } from '@/types/finance';
-import { captureAnalytics } from '@/lib/analytics';
+import { Button } from '@/shared/ui/button';
+import { CurrencyInput } from '@/shared/ui/currency-input';
+import { Input } from '@/shared/ui/input';
+import { Label } from '@/shared/ui/label';
+import { Skeleton } from '@/shared/ui/skeleton';
+import { ConfirmDialog } from '@/shared/ui/confirm-dialog';
+import { ErrorState } from '@/shared/ui/error-state';
+import { PageHeader } from '@/shared/ui/layout/page-header';
+import { formatCurrencyInput, parseCurrencyInput } from '@/shared/lib/formatters';
+import { createPlanItem, deletePlanItem, updatePlanItem } from '@/modules/planning/application/planning.use-cases';
+import { type PlanItemKind, PlanItemType } from '@/modules/planning/domain/plan-item-type.enum';
+import { captureAnalytics } from '@/shared/analytics/analytics';
+import { DEFAULT_CURRENCY } from '@/shared/domain/currency.enum';
+import { AnalyticsEvent } from '@/shared/analytics/analytics-event.enum';
+import { AppRoute } from '@/shared/navigation/app-route.enum';
+import { tagQueries } from '@/modules/tags/application/tags.queries';
+import { planningQueries } from '@/modules/planning/application/planning.queries';
+import { categoryQueries } from '@/modules/categories/application/categories.queries';
+import { QueryKey } from '@/shared/query/query-key.enum';
 
 function PlanItemForm() {
   const router = useRouter();
@@ -37,19 +35,17 @@ function PlanItemForm() {
   const kindParam = searchParams.get('kind') as PlanItemKind | null;
 
   const itemQuery = useQuery({
-    queryKey: ['plan-item', itemId],
-    queryFn: () => fetchPlanItem(itemId!),
+    ...planningQueries.item(itemId!),
     enabled: Boolean(itemId),
   });
   const activePlanId = planId ?? itemQuery.data?.planId;
   const planCurrencyQuery = useQuery({
-    queryKey: ['plan-currency', activePlanId],
-    queryFn: () => fetchPlanCurrency(activePlanId!),
+    ...planningQueries.currency(activePlanId ?? ''),
     enabled: Boolean(activePlanId),
   });
-  const currency = planCurrencyQuery.data ?? 'COP';
+  const currency = planCurrencyQuery.data ?? DEFAULT_CURRENCY;
 
-  const [currentKind, setCurrentKind] = useState<PlanItemKind>(kindParam ?? 'expense');
+  const [currentKind, setCurrentKind] = useState<PlanItemKind>(kindParam ?? PlanItemType.Expense);
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
@@ -62,7 +58,7 @@ function PlanItemForm() {
 
   if (itemQuery.data && planCurrencyQuery.data && loadedItemId !== itemQuery.data.id) {
     setLoadedItemId(itemQuery.data.id);
-    setCurrentKind(itemQuery.data.kind === 'group' ? 'expense' : itemQuery.data.kind);
+    setCurrentKind(itemQuery.data.kind === PlanItemType.Group ? PlanItemType.Expense : itemQuery.data.kind);
     setName(itemQuery.data.name);
     setAmount(formatCurrencyInput(itemQuery.data.plannedAmount, currency));
     setNote(itemQuery.data.note ?? '');
@@ -72,19 +68,16 @@ function PlanItemForm() {
   }
 
   const categoriesQuery = useQuery({
-    queryKey: ['expense-categories'],
-    queryFn: fetchExpenseCategories,
-    enabled: currentKind === 'expense',
+    ...categoryQueries.list(),
+    enabled: currentKind === PlanItemType.Expense,
   });
   const sectionsQuery = useQuery({
-    queryKey: ['plan-sections', planId ?? itemQuery.data?.planId],
-    queryFn: () => fetchPlanSections((planId ?? itemQuery.data?.planId)!),
-    enabled: currentKind === 'expense' && Boolean(planId ?? itemQuery.data?.planId),
+    ...planningQueries.sections(planId ?? itemQuery.data?.planId ?? ''),
+    enabled: currentKind === PlanItemType.Expense && Boolean(planId ?? itemQuery.data?.planId),
   });
   const tagsQuery = useQuery({
-    queryKey: ['tags'],
-    queryFn: fetchTags,
-    enabled: currentKind === 'expense',
+    ...tagQueries.list(),
+    enabled: currentKind === PlanItemType.Expense,
   });
 
   const expenseCategories = categoriesQuery.data ?? [];
@@ -102,8 +95,8 @@ function PlanItemForm() {
 
   const invalidatePlanQueries = () =>
     Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['plan'] }),
-      queryClient.invalidateQueries({ queryKey: ['plan-previous'] }),
+      queryClient.invalidateQueries({ queryKey: [QueryKey.Plan] }),
+      queryClient.invalidateQueries({ queryKey: [QueryKey.PlanPrevious] }),
     ]);
 
   const saveMutation = useMutation({
@@ -117,9 +110,9 @@ function PlanItemForm() {
           kind: currentKind,
           plannedAmount: parsedAmount,
           note,
-          categoryId: currentKind === 'expense' ? selectedCategoryId || null : null,
-          tagIds: currentKind === 'expense' ? selectedTagIds : [],
-          ...(currentKind === 'expense' && !itemQuery.data?.parentItemId && selectedSectionId !== (itemQuery.data?.sectionId ?? '')
+          categoryId: currentKind === PlanItemType.Expense ? selectedCategoryId || null : null,
+          tagIds: currentKind === PlanItemType.Expense ? selectedTagIds : [],
+          ...(currentKind === PlanItemType.Expense && !itemQuery.data?.parentItemId && selectedSectionId !== (itemQuery.data?.sectionId ?? '')
             ? { sectionId: selectedSectionId || null }
             : {}),
         });
@@ -131,14 +124,14 @@ function PlanItemForm() {
           kind: currentKind,
           plannedAmount: parsedAmount,
           note,
-          categoryId: currentKind === 'expense' ? selectedCategoryId || null : null,
-          tagIds: currentKind === 'expense' ? selectedTagIds : [],
-          sectionId: currentKind === 'expense' ? selectedSectionId || null : null,
+          categoryId: currentKind === PlanItemType.Expense ? selectedCategoryId || null : null,
+          tagIds: currentKind === PlanItemType.Expense ? selectedTagIds : [],
+          sectionId: currentKind === PlanItemType.Expense ? selectedSectionId || null : null,
         });
       }
     },
     onSuccess: async () => {
-      captureAnalytics(itemId ? 'plan_item_updated' : 'plan_item_created', {
+      captureAnalytics(itemId ? AnalyticsEvent.PlanItemUpdated : AnalyticsEvent.PlanItemCreated, {
         item_kind: currentKind,
         has_category: Boolean(selectedCategoryId),
         has_tags: selectedTagIds.length > 0,
@@ -147,9 +140,9 @@ function PlanItemForm() {
       toast.success(
         itemId
           ? 'Item actualizado'
-          : currentKind === 'deduction'
+          : currentKind === PlanItemType.Deduction
             ? 'Deducción creada'
-            : currentKind === 'income'
+            : currentKind === PlanItemType.Income
               ? 'Ingreso creado'
               : 'Partida creada',
       );
@@ -189,23 +182,23 @@ function PlanItemForm() {
     );
   }
 
-  const isPayrollSection = currentKind === 'income' || currentKind === 'deduction';
+  const isPayrollSection = currentKind === PlanItemType.Income || currentKind === PlanItemType.Deduction;
 
   const pageTitle = itemId
-    ? currentKind === 'income'
+    ? currentKind === PlanItemType.Income
       ? 'Editar ingreso'
-      : currentKind === 'deduction'
+      : currentKind === PlanItemType.Deduction
         ? 'Editar deducción'
         : 'Editar partida'
-    : currentKind === 'income'
+    : currentKind === PlanItemType.Income
       ? 'Nuevo ingreso / devengo'
-      : currentKind === 'deduction'
+      : currentKind === PlanItemType.Deduction
         ? 'Nueva deducción de nómina'
         : 'Nueva partida';
 
   return (
     <div className="mx-auto max-w-2xl p-4">
-      <PageHeader title={pageTitle} backHref="/app/plan" />
+      <PageHeader title={pageTitle} backHref={AppRoute.Plan} />
 
       <div className="rounded-2xl border border-border bg-card p-5">
         <div className="space-y-4">
@@ -216,9 +209,9 @@ function PlanItemForm() {
               <div className="grid grid-cols-2 gap-2 rounded-xl bg-muted/40 p-1">
                 <button
                   type="button"
-                  onClick={() => setCurrentKind('income')}
+                  onClick={() => setCurrentKind(PlanItemType.Income)}
                   className={`rounded-lg py-2 text-xs font-semibold transition-all ${
-                    currentKind === 'income'
+                    currentKind === PlanItemType.Income
                       ? 'bg-card text-income shadow-xs'
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
@@ -227,9 +220,9 @@ function PlanItemForm() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setCurrentKind('deduction')}
+                  onClick={() => setCurrentKind(PlanItemType.Deduction)}
                   className={`rounded-lg py-2 text-xs font-semibold transition-all ${
-                    currentKind === 'deduction'
+                    currentKind === PlanItemType.Deduction
                       ? 'bg-card text-expense shadow-xs'
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
@@ -238,7 +231,7 @@ function PlanItemForm() {
                 </button>
               </div>
               <p className="mt-1.5 text-[11px] text-muted-foreground">
-                {currentKind === 'income'
+                {currentKind === PlanItemType.Income
                   ? 'Suma a tus ingresos (ej. Salario base, conectividad, bonificaciones).'
                   : 'Resta de tu nómina bruta (ej. Salud, pensión, retención en la fuente).'}
               </p>
@@ -253,9 +246,9 @@ function PlanItemForm() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={
-                currentKind === 'income'
+                currentKind === PlanItemType.Income
                   ? 'Salario básico, Conectividad, GLIM...'
-                  : currentKind === 'deduction'
+                  : currentKind === PlanItemType.Deduction
                     ? 'Aporte salud (4%), Pensión, Retefuente...'
                     : 'Arriendo, Mercado, Servicios...'
               }
@@ -283,9 +276,9 @@ function PlanItemForm() {
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder={
-                currentKind === 'deduction'
+                currentKind === PlanItemType.Deduction
                   ? 'Descuento obligatorio por ley'
-                  : currentKind === 'income'
+                  : currentKind === PlanItemType.Income
                     ? 'Cada quincena / fin de mes'
                     : "Va pa'la TC"
               }
@@ -293,7 +286,7 @@ function PlanItemForm() {
             />
           </div>
 
-          {currentKind === 'expense' && (
+          {currentKind === PlanItemType.Expense && (
             <>
               {!itemQuery.data?.parentItemId && (
                 <div>

@@ -6,19 +6,23 @@ import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Pencil, RotateCcw, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { DatePicker } from '@/components/ui/date-picker';
-import { Label } from '@/components/ui/label';
-import { Skeleton } from '@/components/ui/skeleton';
-import { BudgetMovementRow } from '@/components/finance/budget-movement-row';
-import { BudgetSnapshotRow } from '@/components/finance/budget-snapshot-row';
-import { EmptyState } from '@/components/empty-state';
-import { ErrorState } from '@/components/error-state';
-import { ConfirmDialog } from '@/components/confirm-dialog';
-import { PageHeader } from '@/components/layout/page-header';
-import { HistoryBars } from '@/components/charts/history-bars';
-import { formatCurrency, formatPercent, formatShortDate, todayIsoDate } from '@/lib/formatters';
-import { fetchBudgetDetail, resetBudget, softDeleteBudget } from '@/services/finance';
+import { Button } from '@/shared/ui/button';
+import { DatePicker } from '@/shared/ui/date-picker';
+import { Label } from '@/shared/ui/label';
+import { Skeleton } from '@/shared/ui/skeleton';
+import { BudgetMovementRow } from '@/modules/budgets/ui/budget-movement-row';
+import { BudgetSnapshotRow } from '@/modules/budgets/ui/budget-snapshot-row';
+import { EmptyState } from '@/shared/ui/empty-state';
+import { ErrorState } from '@/shared/ui/error-state';
+import { ConfirmDialog } from '@/shared/ui/confirm-dialog';
+import { PageHeader } from '@/shared/ui/layout/page-header';
+import { HistoryBars } from '@/shared/ui/charts/history-bars';
+import { formatCurrency, formatPercent, formatShortDate, todayIsoDate } from '@/shared/lib/formatters';
+import { deactivateBudget, resetBudget } from '@/modules/budgets/application/budgets.use-cases';
+import { AppRoute, SearchParam } from '@/shared/navigation/app-route.enum';
+import { appRoutes, withSearchParams } from '@/shared/navigation/app-routes';
+import { budgetQueries } from '@/modules/budgets/application/budgets.queries';
+import { BudgetConfirmAction } from '@/modules/budgets/ui/budget-confirm-action.enum';
 
 const cycleLabelFormatter = new Intl.DateTimeFormat('es-CO', {
   day: 'numeric',
@@ -33,12 +37,11 @@ export default function BudgetDetailPage({
   const { id } = use(params);
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [confirmAction, setConfirmAction] = useState<'reset' | 'delete' | null>(null);
+  const [confirmAction, setConfirmAction] = useState<BudgetConfirmAction | null>(null);
   const [restartDate, setRestartDate] = useState(todayIsoDate());
 
   const detailQuery = useQuery({
-    queryKey: ['budget', id],
-    queryFn: () => fetchBudgetDetail(id),
+    ...budgetQueries.detail(id),
     enabled: Boolean(id),
   });
 
@@ -55,11 +58,11 @@ export default function BudgetDetailPage({
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => softDeleteBudget(id),
+    mutationFn: () => deactivateBudget(id),
     onSuccess: async () => {
       await queryClient.invalidateQueries();
       toast.success('Presupuesto eliminado');
-      router.replace('/app/budgets');
+      router.replace(AppRoute.Budgets);
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -98,7 +101,7 @@ export default function BudgetDetailPage({
 
   return (
     <div className="mx-auto max-w-2xl p-4">
-      <PageHeader title={progress.budget.name} backHref="/app/budgets" />
+      <PageHeader title={progress.budget.name} backHref={AppRoute.Budgets} />
 
       <div className="space-y-4">
         {/* Current cycle */}
@@ -138,16 +141,16 @@ export default function BudgetDetailPage({
             <Button
               variant="outline"
               nativeButton={false}
-              render={<Link href={`/app/budget-form?id=${progress.budget.id}`} />}
+              render={<Link href={withSearchParams(AppRoute.BudgetForm, { [SearchParam.Id]: progress.budget.id })} />}
             >
               <Pencil className="h-4 w-4" />
               Editar
             </Button>
-            <Button variant="secondary" onClick={() => setConfirmAction('reset')}>
+            <Button variant="secondary" onClick={() => setConfirmAction(BudgetConfirmAction.Reset)}>
               <RotateCcw className="h-4 w-4" />
               Resetear
             </Button>
-            <Button variant="destructive" onClick={() => setConfirmAction('delete')}>
+            <Button variant="destructive" onClick={() => setConfirmAction(BudgetConfirmAction.Delete)}>
               <Trash2 className="h-4 w-4" />
               Eliminar
             </Button>
@@ -175,7 +178,7 @@ export default function BudgetDetailPage({
                     currency={progress.budget.currency}
                     key={movement.id}
                     movement={movement}
-                    href={`/app/transaction/${movement.id}/edit`}
+                    href={appRoutes.editTransaction(movement.id)}
                   />
                 ))}
               </div>
@@ -212,7 +215,7 @@ export default function BudgetDetailPage({
       </div>
 
       <ConfirmDialog
-        open={confirmAction === 'reset'}
+        open={confirmAction === BudgetConfirmAction.Reset}
         title="Resetear presupuesto"
         description="Se guardará un snapshot del ciclo actual y empezará un ciclo nuevo."
         confirmLabel="Resetear"
@@ -235,7 +238,7 @@ export default function BudgetDetailPage({
       </ConfirmDialog>
 
       <ConfirmDialog
-        open={confirmAction === 'delete'}
+        open={confirmAction === BudgetConfirmAction.Delete}
         title="Eliminar presupuesto"
         description="El presupuesto se ocultará, pero conservará su historial."
         confirmLabel="Eliminar"

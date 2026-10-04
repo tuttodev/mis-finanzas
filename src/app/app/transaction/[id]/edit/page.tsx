@@ -2,11 +2,12 @@
 
 import { use } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ErrorState } from '@/components/error-state';
-import { TransactionForm } from '@/components/finance/transaction-form';
-import { RefundForm } from '@/components/finance/refund-form';
-import { Skeleton } from '@/components/ui/skeleton';
-import { fetchTransaction } from '@/services/finance';
+import { ErrorState } from '@/shared/ui/error-state';
+import { TransactionForm } from '@/modules/transactions/ui/transaction-form';
+import { RefundForm } from '@/modules/transactions/ui/refund-form';
+import { Skeleton } from '@/shared/ui/skeleton';
+import { transactionQueries } from '@/modules/transactions/application/transactions.queries';
+import { TransactionKind } from '@/modules/transactions/domain/transaction-kind.enum';
 
 export default function EditTransactionPage({
   params,
@@ -15,15 +16,13 @@ export default function EditTransactionPage({
 }) {
   const { id } = use(params);
   const transactionQuery = useQuery({
-    queryKey: ['transaction', id],
-    queryFn: () => fetchTransaction(id),
+    ...transactionQueries.detail(id),
     enabled: Boolean(id),
   });
   const relatedTransactionId = transactionQuery.data?.relatedTransactionId ?? '';
   const originalTransactionQuery = useQuery({
-    queryKey: ['transaction', relatedTransactionId],
-    queryFn: () => fetchTransaction(relatedTransactionId),
-    enabled: transactionQuery.data?.kind === 'refund' && Boolean(relatedTransactionId),
+    ...transactionQueries.detail(relatedTransactionId),
+    enabled: transactionQuery.data?.kind === TransactionKind.Refund && Boolean(relatedTransactionId),
   });
 
   if (transactionQuery.isLoading) {
@@ -54,7 +53,7 @@ export default function EditTransactionPage({
     );
   }
 
-  if (transactionQuery.data.kind === 'refund') {
+  if (transactionQuery.data.kind === TransactionKind.Refund) {
     if (originalTransactionQuery.isLoading) {
       return (
         <div className="mx-auto max-w-2xl space-y-4 p-4">

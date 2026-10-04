@@ -5,32 +5,37 @@ import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Banknote, CreditCard, PiggyBank } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { PageHeader } from '@/components/layout/page-header';
-import { createAccount } from '@/services/finance';
-import { captureAnalytics } from '@/lib/analytics';
-import type { AccountType, Currency } from '@/types/finance';
-import { CURRENCIES } from '@/lib/formatters';
-import { useDefaultCurrency } from '@/providers/profile-provider';
+import { Button } from '@/shared/ui/button';
+import { Input } from '@/shared/ui/input';
+import { Label } from '@/shared/ui/label';
+import { PageHeader } from '@/shared/ui/layout/page-header';
+import { createAccount } from '@/modules/accounts/application/accounts.use-cases';
+import { AccountType } from '@/modules/accounts/domain/account-type.enum';
+import { Currency, DEFAULT_CURRENCY } from '@/shared/domain/currency.enum';
+import { captureAnalytics } from '@/shared/analytics/analytics';
+import { CURRENCIES } from '@/shared/lib/formatters';
+import { useDefaultCurrency } from '@/modules/profile/application/use-user-profile';
+import { ACCOUNT_TYPE_LABELS } from '@/modules/accounts/ui/account-type-labels';
+import { AnalyticsEvent } from '@/shared/analytics/analytics-event.enum';
+import { AppRoute } from '@/shared/navigation/app-route.enum';
+import { QueryKey } from '@/shared/query/query-key.enum';
 
 const ACCOUNT_TYPES: Array<{
   type: AccountType;
   description: string;
   icon: typeof PiggyBank;
 }> = [
-  { type: 'Ahorros', description: 'Cuenta bancaria o de ahorro', icon: PiggyBank },
-  { type: 'Crédito', description: 'Tarjeta o línea de crédito', icon: CreditCard },
-  { type: 'Efectivo', description: 'Dinero disponible en efectivo', icon: Banknote },
+  { type: AccountType.Savings, description: 'Cuenta bancaria o de ahorro', icon: PiggyBank },
+  { type: AccountType.Credit, description: 'Tarjeta o línea de crédito', icon: CreditCard },
+  { type: AccountType.Cash, description: 'Dinero disponible en efectivo', icon: Banknote },
 ];
 
 export default function AccountFormPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [name, setName] = useState('');
-  const [type, setType] = useState<AccountType>('Ahorros');
-  const [currency, setCurrency] = useState<Currency>('COP');
+  const [type, setType] = useState<AccountType>(AccountType.Savings);
+  const [currency, setCurrency] = useState<Currency>(DEFAULT_CURRENCY);
   const preference = useDefaultCurrency();
   const [loadedCurrency, setLoadedCurrency] = useState(false);
   if (!preference.isLoading && !loadedCurrency) {
@@ -41,18 +46,18 @@ export default function AccountFormPage() {
   const mutation = useMutation({
     mutationFn: () => createAccount({ name, type, currency }),
     onSuccess: async () => {
-      captureAnalytics('account_created', { account_type: type, currency });
-      await queryClient.invalidateQueries({ queryKey: ['accounts'] });
-      await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      captureAnalytics(AnalyticsEvent.AccountCreated, { account_type: ACCOUNT_TYPE_LABELS[type], currency });
+      await queryClient.invalidateQueries({ queryKey: [QueryKey.Accounts] });
+      await queryClient.invalidateQueries({ queryKey: [QueryKey.Dashboard] });
       toast.success('Cuenta creada');
-      router.push('/app/accounts');
+      router.push(AppRoute.Accounts);
     },
     onError: (error: Error) => toast.error(error.message),
   });
 
   return (
     <div className="mx-auto max-w-2xl p-4">
-      <PageHeader title="Nueva cuenta" backHref="/app/accounts" />
+      <PageHeader title="Nueva cuenta" backHref={AppRoute.Accounts} />
 
       <form
         className="rounded-2xl border border-border bg-card p-5"
@@ -102,7 +107,7 @@ export default function AccountFormPage() {
                       <Icon className="h-5 w-5" />
                     </span>
                     <span>
-                      <span className="block text-sm font-semibold">{option.type}</span>
+                      <span className="block text-sm font-semibold">{ACCOUNT_TYPE_LABELS[option.type]}</span>
                       <span className="block text-xs text-muted-foreground">
                         {option.description}
                       </span>

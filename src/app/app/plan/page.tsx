@@ -16,32 +16,31 @@ import {
   type DragEndEvent,
 } from '@dnd-kit/core';
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { ColillaImportDialog } from '@/components/finance/colilla-import-dialog';
-import { MergePreviousPlanDialog } from '@/components/finance/merge-previous-plan-dialog';
-import { PayrollDocumentList } from '@/components/finance/payroll-document-list';
-import { PlanItemRow } from '@/components/finance/plan-item-row';
-import { PlanGroupRow } from '@/components/finance/plan-group-row';
-import { PlanGroupDialog } from '@/components/finance/plan-group-dialog';
-import { PlanSectionDialog } from '@/components/finance/plan-section-dialog';
-import { EmptyState } from '@/components/empty-state';
-import { ErrorState } from '@/components/error-state';
-import { PageHeader } from '@/components/layout/page-header';
-import { currentMonthKey, formatCurrency, formatMonthTitle, shiftMonthKey } from '@/lib/formatters';
-import { useDefaultCurrency } from '@/providers/profile-provider';
-import {
-  createBlankPlan,
-  duplicatePreviousPlan,
-  fetchMonthlyPlan,
-  fetchPayrollDocuments,
-  fetchPreviousPlanSummary,
-  movePlanItemToSection,
-  reorderPlanItems,
-  setPlanItemPaid,
-} from '@/services/finance';
-import type { MonthlyPlanSummary, PlanItem } from '@/types/finance';
-import { captureAnalytics } from '@/lib/analytics';
+import { Button } from '@/shared/ui/button';
+import { Skeleton } from '@/shared/ui/skeleton';
+import { ColillaImportDialog } from '@/modules/planning/ui/colilla-import-dialog';
+import { MergePreviousPlanDialog } from '@/modules/planning/ui/merge-previous-plan-dialog';
+import { PayrollDocumentList } from '@/modules/planning/ui/payroll-document-list';
+import { PlanItemRow } from '@/modules/planning/ui/plan-item-row';
+import { PlanGroupRow } from '@/modules/planning/ui/plan-group-row';
+import { PlanGroupDialog } from '@/modules/planning/ui/plan-group-dialog';
+import { PlanSectionDialog } from '@/modules/planning/ui/plan-section-dialog';
+import { EmptyState } from '@/shared/ui/empty-state';
+import { ErrorState } from '@/shared/ui/error-state';
+import { PageHeader } from '@/shared/ui/layout/page-header';
+import { currentMonthKey, formatCurrency, formatMonthTitle, shiftMonthKey } from '@/shared/lib/formatters';
+import { useDefaultCurrency } from '@/modules/profile/application/use-user-profile';
+import { createBlankPlan, duplicatePreviousPlan, movePlanItemToSection, reorderPlanItems, setPlanItemPaid } from '@/modules/planning/application/planning.use-cases';
+import type { MonthlyPlanSummary, PlanItem } from '@/modules/planning/domain/plan.types';
+import { captureAnalytics } from '@/shared/analytics/analytics';
+import { PAYROLL_CURRENCY } from '@/modules/planning/domain/payroll';
+import { PlanItemType } from '@/modules/planning/domain/plan-item-type.enum';
+import { PlanList } from '@/modules/planning/ui/plan-list.enum';
+import { AnalyticsEvent } from '@/shared/analytics/analytics-event.enum';
+import { AppRoute, SearchParam } from '@/shared/navigation/app-route.enum';
+import { appRoutes, withSearchParams } from '@/shared/navigation/app-routes';
+import { planningQueries } from '@/modules/planning/application/planning.queries';
+import { QueryKey } from '@/shared/query/query-key.enum';
 
 function PlanPage() {
   const searchParams = useSearchParams();
@@ -59,30 +58,27 @@ function PlanPage() {
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(new Set());
 
   const planQuery = useQuery({
-    queryKey: ['plan', monthKey, currency],
-    queryFn: () => fetchMonthlyPlan(monthKey, currency),
+    ...planningQueries.month(monthKey, currency),
     enabled: !profileLoading && !profileError,
   });
 
   const previousPlanQuery = useQuery({
-    queryKey: ['plan-previous', monthKey, currency],
-    queryFn: () => fetchPreviousPlanSummary(monthKey, currency),
+    ...planningQueries.previous(monthKey, currency),
     // Always fetch so it's available both when plan is empty (duplicate button)
     // and when plan exists (merge/import button).
     enabled: !profileLoading && !profileError && !planQuery.isLoading,
   });
 
   const payrollDocumentsQuery = useQuery({
-    queryKey: ['payroll-documents', planQuery.data?.plan.id],
-    queryFn: () => fetchPayrollDocuments(planQuery.data!.plan.id),
+    ...planningQueries.payrollDocuments(planQuery.data?.plan.id ?? ''),
     enabled: Boolean(planQuery.data?.plan.id),
   });
 
   const createBlankMutation = useMutation({
     mutationFn: () => createBlankPlan(monthKey, currency),
     onSuccess: async () => {
-      captureAnalytics('plan_created', { source: 'blank' });
-      await queryClient.invalidateQueries({ queryKey: ['plan', monthKey] });
+      captureAnalytics(AnalyticsEvent.PlanCreated, { source: 'blank' });
+      await queryClient.invalidateQueries({ queryKey: [QueryKey.Plan, monthKey] });
       toast.success('Plan creado');
     },
     onError: (error: Error) => toast.error(error.message),
@@ -91,8 +87,8 @@ function PlanPage() {
   const duplicateMutation = useMutation({
     mutationFn: () => duplicatePreviousPlan(monthKey, currency),
     onSuccess: async () => {
-      captureAnalytics('plan_duplicated');
-      await queryClient.invalidateQueries({ queryKey: ['plan', monthKey] });
+      captureAnalytics(AnalyticsEvent.PlanDuplicated);
+      await queryClient.invalidateQueries({ queryKey: [QueryKey.Plan, monthKey] });
       toast.success('Plan duplicado del mes anterior');
     },
     onError: (error: Error) => toast.error(error.message),
@@ -101,8 +97,8 @@ function PlanPage() {
   const togglePaidMutation = useMutation({
     mutationFn: (item: PlanItem) => setPlanItemPaid(item.id, !item.isPaid),
     onSuccess: async (_data, item) => {
-      captureAnalytics('plan_item_payment_status_changed', { is_paid: !item.isPaid });
-      await queryClient.invalidateQueries({ queryKey: ['plan', monthKey] });
+      captureAnalytics(AnalyticsEvent.PlanItemPaymentStatusChanged, { is_paid: !item.isPaid });
+      await queryClient.invalidateQueries({ queryKey: [QueryKey.Plan, monthKey] });
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -110,7 +106,7 @@ function PlanPage() {
   const moveSectionMutation = useMutation({
     mutationFn: ({ itemId, sectionId }: { itemId: string; sectionId: string | null }) => movePlanItemToSection(itemId, sectionId),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['plan', monthKey] });
+      await queryClient.invalidateQueries({ queryKey: [QueryKey.Plan, monthKey] });
       toast.success('Partida movida');
     },
     onError: (error: Error) => toast.error(error.message),
@@ -120,7 +116,7 @@ function PlanPage() {
     mutationFn: (updates: { id: string; sortOrder: number }[]) => reorderPlanItems(updates),
     onError: (error: Error) => {
       toast.error(error.message);
-      queryClient.invalidateQueries({ queryKey: ['plan', monthKey] });
+      queryClient.invalidateQueries({ queryKey: [QueryKey.Plan, monthKey] });
     },
   });
 
@@ -130,26 +126,26 @@ function PlanPage() {
   );
 
   function goToMonth(delta: number) {
-    window.history.pushState(null, '', `/app/plan?month=${shiftMonthKey(monthKey, delta)}`);
+    window.history.pushState(null, '', appRoutes.plan(shiftMonthKey(monthKey, delta)));
   }
 
   const plan = planQuery.data;
   const payrollItems =
-    plan?.items.filter((item) => item.kind === 'income' || item.kind === 'deduction') ?? [];
-  const expenseItems = plan?.items.filter((item) => item.kind === 'expense') ?? [];
-  const groupItems = plan?.items.filter((item) => item.kind === 'group') ?? [];
+    plan?.items.filter((item) => item.kind === PlanItemType.Income || item.kind === PlanItemType.Deduction) ?? [];
+  const expenseItems = plan?.items.filter((item) => item.kind === PlanItemType.Expense) ?? [];
+  const groupItems = plan?.items.filter((item) => item.kind === PlanItemType.Group) ?? [];
   const ungroupedExpenseItems = expenseItems.filter((item) => !item.parentItemId);
   const expenseTopLevel = [...ungroupedExpenseItems, ...groupItems].sort(
     (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name),
   );
   const sectionCards = plan ? [...plan.sections.map((section) => ({ id: section.id, name: section.name, total: plan.sectionTotals[section.id] ?? 0 })), { id: '', name: 'Sin sección', total: plan.unassignedTotal }] : [];
 
-  function handleDragEnd(section: 'payroll' | 'expense', sectionId = '') {
+  function handleDragEnd(list: PlanList, sectionId = '') {
     return (event: DragEndEvent) => {
       const { active, over } = event;
       if (!over || active.id === over.id) return;
 
-      const items = section === 'payroll' ? payrollItems : expenseTopLevel.filter((item) => (item.sectionId ?? '') === sectionId);
+      const items = list === PlanList.Payroll ? payrollItems : expenseTopLevel.filter((item) => (item.sectionId ?? '') === sectionId);
       const oldIndex = items.findIndex((item) => item.id === active.id);
       const newIndex = items.findIndex((item) => item.id === over.id);
       if (oldIndex === -1 || newIndex === -1) return;
@@ -159,7 +155,7 @@ function PlanPage() {
         sortOrder: (index + 1) * 10,
       }));
 
-      queryClient.setQueryData<MonthlyPlanSummary | null>(['plan', monthKey, currency], (old) => {
+      queryClient.setQueryData<MonthlyPlanSummary | null>([QueryKey.Plan, monthKey, currency], (old) => {
         if (!old) return old;
         const reorderedIds = new Set(reordered.map((item) => item.id));
         return { ...old, items: [...old.items.filter((item) => !reorderedIds.has(item.id)), ...reordered] };
@@ -229,7 +225,7 @@ function PlanPage() {
           <div className="rounded-2xl border border-border bg-card px-3 py-2">
             <div className="flex items-center justify-between px-1 py-1.5">
               <div>
-                <h2 className="text-sm font-semibold text-foreground">Ingresos {currency === 'COP' ? 'y colilla' : ''}</h2>
+                <h2 className="text-sm font-semibold text-foreground">Ingresos {currency === PAYROLL_CURRENCY ? 'y colilla' : ''}</h2>
                 {plan.deductionsTotal > 0 && (
                   <p className="text-[11px] text-muted-foreground">
                     Neto: <span className="font-semibold text-foreground">{formatCurrency(plan.incomeTotal, currency)}</span>
@@ -237,7 +233,7 @@ function PlanPage() {
                 )}
               </div>
               <div className="flex items-center gap-2">
-                {currency === 'COP' && <Button
+                {currency === PAYROLL_CURRENCY && <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setIsImportOpen(true)}
@@ -248,7 +244,7 @@ function PlanPage() {
                   <span className="min-[400px]:hidden">PDF</span>
                 </Button>}
                 <Link
-                  href={`/app/plan-item-form?planId=${plan.plan.id}&kind=income`}
+                  href={withSearchParams(AppRoute.PlanItemForm, { [SearchParam.PlanId]: plan.plan.id, [SearchParam.Kind]: PlanItemType.Income })}
                   className="flex h-8 items-center gap-1 rounded-lg bg-primary/10 px-2.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/20"
                 >
                   <Plus className="h-3.5 w-3.5" />
@@ -257,7 +253,7 @@ function PlanPage() {
               </div>
             </div>
 
-            {currency === 'COP' && <PayrollDocumentList
+            {currency === PAYROLL_CURRENCY && <PayrollDocumentList
               documents={payrollDocumentsQuery.data ?? []}
               isLoading={payrollDocumentsQuery.isLoading}
               isError={payrollDocumentsQuery.isError}
@@ -267,7 +263,7 @@ function PlanPage() {
               <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd('payroll')}
+                onDragEnd={handleDragEnd(PlanList.Payroll)}
               >
                 <SortableContext
                   items={payrollItems.map((item) => item.id)}
@@ -340,17 +336,17 @@ function PlanPage() {
                     <button type="button" onClick={() => { setEditingGroupId(null); setGroupSectionId(section.id || null); setIsGroupOpen(true); }} className="flex items-center gap-1 text-xs font-semibold text-primary">
                       <Layers3 className="h-3.5 w-3.5" /> Agrupar
                     </button>
-                    <Link href={`/app/plan-item-form?planId=${plan.plan.id}&kind=expense&sectionId=${encodeURIComponent(section.id)}`} className="flex items-center gap-1 text-xs font-semibold text-primary">
+                    <Link href={withSearchParams(AppRoute.PlanItemForm, { [SearchParam.PlanId]: plan.plan.id, [SearchParam.Kind]: PlanItemType.Expense, [SearchParam.SectionId]: section.id })} className="flex items-center gap-1 text-xs font-semibold text-primary">
                       <Plus className="h-3.5 w-3.5" /> Agregar
                     </Link>
                   </div>
                 </div>
                 {sectionItems.length ? (
-                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd('expense', section.id)}>
+                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd(PlanList.Expenses, section.id)}>
                     <SortableContext items={sectionItems.map((item) => item.id)} strategy={verticalListSortingStrategy}>
                       <div className="divide-y divide-border">
                         {sectionItems.map((item) => {
-                          if (item.kind !== 'group') {
+                          if (item.kind !== PlanItemType.Group) {
                             return <PlanItemRow key={item.id} item={item} currency={currency} sections={plan.sections} effectiveSectionId={item.sectionId} onMoveSection={(selected, sectionId) => moveSectionMutation.mutate({ itemId: selected.id, sectionId })} movePending={moveSectionMutation.isPending} onTogglePaid={(selected) => togglePaidMutation.mutate(selected)} togglePending={togglePaidMutation.isPending} />;
                           }
                           const children = expenseItems
@@ -390,7 +386,7 @@ function PlanPage() {
           {isGroupOpen && <PlanGroupDialog key={editingGroupId ?? 'new'} open={isGroupOpen} onOpenChange={setIsGroupOpen} planId={plan.plan.id} monthKey={monthKey} items={plan.items} sections={plan.sections} initialSectionId={groupSectionId} group={groupItems.find((item) => item.id === editingGroupId)} currency={currency} />}
 
           {/* PDF Colilla Import Modal */}
-          {plan && currency === 'COP' && (
+          {plan && currency === PAYROLL_CURRENCY && (
             <ColillaImportDialog
               open={isImportOpen}
               onOpenChange={setIsImportOpen}
@@ -398,7 +394,7 @@ function PlanPage() {
               monthKey={monthKey}
               onSuccess={() => {
                 void queryClient.invalidateQueries({
-                  queryKey: ['payroll-documents', plan.plan.id],
+                  queryKey: [QueryKey.PayrollDocuments, plan.plan.id],
                 });
               }}
             />
