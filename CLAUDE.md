@@ -1,0 +1,1 @@
+Read [AGENTS.md](AGENTS.md) first. It maps the finance rules, architecture, feature specification, validation commands, and supervised release procedure. Use those shared documents as the source of truth instead of copying rules here.
