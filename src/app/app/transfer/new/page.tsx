@@ -2,7 +2,7 @@
 
 import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { TransferForm } from '@/components/finance/transfer-form';
+import { TransferForm } from '@/modules/transactions/ui/transfer-form';
 
 function NewTransferForm() {
   const searchParams = useSearchParams();

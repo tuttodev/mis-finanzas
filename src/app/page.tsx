@@ -1,4 +1,4 @@
-import { WelcomeScreen } from '@/components/auth/login-screen';
+import { WelcomeScreen } from '@/modules/auth/ui/login-screen';
 
 export default function HomePage() {
   return <WelcomeScreen />;

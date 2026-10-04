@@ -3,21 +3,21 @@
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { Eye, EyeOff, Plus } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { AccountRow } from '@/components/finance/account-row';
-import { EmptyState } from '@/components/empty-state';
-import { ErrorState } from '@/components/error-state';
-import { PageHeader } from '@/components/layout/page-header';
-import { formatCurrency } from '@/lib/formatters';
-import { CURRENCIES } from '@/lib/formatters';
-import { fetchAccountsOverview } from '@/services/finance';
-import { usePrivacy } from '@/providers/privacy-provider';
+import { Button } from '@/shared/ui/button';
+import { Skeleton } from '@/shared/ui/skeleton';
+import { AccountRow } from '@/modules/accounts/ui/account-row';
+import { EmptyState } from '@/shared/ui/empty-state';
+import { ErrorState } from '@/shared/ui/error-state';
+import { PageHeader } from '@/shared/ui/layout/page-header';
+import { formatCurrency } from '@/shared/lib/formatters';
+import { CURRENCIES } from '@/shared/lib/formatters';
+import { usePrivacy } from '@/shared/providers/privacy-provider';
+import { AppRoute } from '@/shared/navigation/app-route.enum';
+import { accountQueries } from '@/modules/accounts/application/accounts.queries';
 
 export default function AccountsPage() {
   const accountsQuery = useQuery({
-    queryKey: ['accounts'],
-    queryFn: fetchAccountsOverview,
+    ...accountQueries.list(),
   });
 
   const { hidden, toggle } = usePrivacy();
@@ -45,7 +45,7 @@ export default function AccountsPage() {
             >
               {hidden ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
             </button>
-            <Button nativeButton={false} render={<Link href="/app/account-form" />}>
+            <Button nativeButton={false} render={<Link href={AppRoute.AccountForm} />}>
               <Plus className="h-4 w-4" />
               Nueva
             </Button>

@@ -5,34 +5,39 @@ import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Tag } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { PageHeader } from '@/components/layout/page-header';
-import { createExpenseCategory } from '@/services/finance';
-import { captureAnalytics } from '@/lib/analytics';
+import { Button } from '@/shared/ui/button';
+import { Input } from '@/shared/ui/input';
+import { Label } from '@/shared/ui/label';
+import { PageHeader } from '@/shared/ui/layout/page-header';
+import { createExpenseCategory } from '@/modules/categories/application/categories.use-cases';
+import { captureAnalytics } from '@/shared/analytics/analytics';
+import { TransactionType } from '@/modules/transactions/domain/transaction-type.enum';
+import { TRANSACTION_TYPE_LABELS } from '@/modules/transactions/ui/transaction-type-labels';
+import { AnalyticsEvent } from '@/shared/analytics/analytics-event.enum';
+import { AppRoute } from '@/shared/navigation/app-route.enum';
+import { QueryKey } from '@/shared/query/query-key.enum';
 
 export default function CategoryFormPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [name, setName] = useState('');
-  const [transactionType, setTransactionType] = useState<'expense' | 'income'>('expense');
+  const [transactionType, setTransactionType] = useState<TransactionType>(TransactionType.Expense);
 
   const mutation = useMutation({
     mutationFn: () => createExpenseCategory({ name, transactionType }),
     onSuccess: async () => {
-      captureAnalytics('category_created', { transaction_type: transactionType });
-      await queryClient.invalidateQueries({ queryKey: ['expense-categories'] });
-      await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      captureAnalytics(AnalyticsEvent.CategoryCreated, { transaction_type: transactionType });
+      await queryClient.invalidateQueries({ queryKey: [QueryKey.ExpenseCategories] });
+      await queryClient.invalidateQueries({ queryKey: [QueryKey.Dashboard] });
       toast.success('Categoría creada');
-      router.push('/app/categories');
+      router.push(AppRoute.Categories);
     },
     onError: (error: Error) => toast.error(error.message),
   });
 
   return (
     <div className="mx-auto max-w-2xl p-4">
-      <PageHeader title="Nueva categoría" backHref="/app/categories" />
+      <PageHeader title="Nueva categoría" backHref={AppRoute.Categories} />
 
       <form
         className="rounded-2xl border border-border bg-card p-5"
@@ -45,10 +50,7 @@ export default function CategoryFormPage() {
           <div>
             <Label className="mb-2">Tipo de movimiento</Label>
             <div className="grid grid-cols-2 gap-1 rounded-xl bg-secondary p-1">
-              {([
-                ['expense', 'Gasto'],
-                ['income', 'Ingreso'],
-              ] as const).map(([value, label]) => (
+              {[TransactionType.Expense, TransactionType.Income].map((value) => (
                 <button
                   key={value}
                   type="button"
@@ -59,7 +61,7 @@ export default function CategoryFormPage() {
                       : 'text-muted-foreground'
                   }`}
                 >
-                  {label}
+                  {TRANSACTION_TYPE_LABELS[value]}
                 </button>
               ))}
             </div>
@@ -78,7 +80,7 @@ export default function CategoryFormPage() {
             />
             <p className="mt-2 text-xs text-muted-foreground">
               Aparecerá como opción al registrar un{' '}
-              {transactionType === 'expense' ? 'gasto' : 'ingreso'}.
+              {TRANSACTION_TYPE_LABELS[transactionType].toLowerCase()}.
             </p>
           </div>
 
@@ -90,7 +92,7 @@ export default function CategoryFormPage() {
               <p className="text-sm font-semibold">{name.trim() || 'Tu categoría'}</p>
               <p className="text-xs text-muted-foreground">
                 Categoría personalizada de{' '}
-                {transactionType === 'expense' ? 'gasto' : 'ingreso'}
+                {TRANSACTION_TYPE_LABELS[transactionType].toLowerCase()}
               </p>
             </div>
           </div>

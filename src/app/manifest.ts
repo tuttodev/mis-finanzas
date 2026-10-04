@@ -1,11 +1,12 @@
 import type { MetadataRoute } from 'next';
+import { AppRoute } from '@/shared/navigation/app-route.enum';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'Jireh Finanzas',
     short_name: 'Jireh',
     description: 'Organiza las cuentas, gastos, presupuestos y metas de tu familia en un solo lugar.',
-    start_url: '/app',
+    start_url: AppRoute.Dashboard,
     display: 'standalone',
     background_color: '#0b0f17',
     theme_color: '#0b0f17',

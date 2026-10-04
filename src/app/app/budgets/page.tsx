@@ -3,21 +3,21 @@
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { BudgetProgressRow } from '@/components/finance/budget-progress-row';
-import { EmptyState } from '@/components/empty-state';
-import { ErrorState } from '@/components/error-state';
-import { PageHeader } from '@/components/layout/page-header';
-import { formatCurrency } from '@/lib/formatters';
-import { useDefaultCurrency } from '@/providers/profile-provider';
-import { fetchBudgetProgressList } from '@/services/finance';
+import { Button } from '@/shared/ui/button';
+import { Skeleton } from '@/shared/ui/skeleton';
+import { BudgetProgressRow } from '@/modules/budgets/ui/budget-progress-row';
+import { EmptyState } from '@/shared/ui/empty-state';
+import { ErrorState } from '@/shared/ui/error-state';
+import { PageHeader } from '@/shared/ui/layout/page-header';
+import { formatCurrency } from '@/shared/lib/formatters';
+import { useDefaultCurrency } from '@/modules/profile/application/use-user-profile';
+import { AppRoute } from '@/shared/navigation/app-route.enum';
+import { budgetQueries } from '@/modules/budgets/application/budgets.queries';
 
 export default function BudgetsPage() {
   const { currency, isLoading: profileLoading, isError: profileError } = useDefaultCurrency();
   const budgetsQuery = useQuery({
-    queryKey: ['budgets', currency],
-    queryFn: () => fetchBudgetProgressList(currency),
+    ...budgetQueries.progress(currency),
     enabled: !profileLoading && !profileError,
   });
 
@@ -35,7 +35,7 @@ export default function BudgetsPage() {
         title="Presupuestos"
         subtitle="Controla el gasto y revisa tus ciclos"
         action={
-          <Button nativeButton={false} render={<Link href="/app/budget-form" />}>
+          <Button nativeButton={false} render={<Link href={AppRoute.BudgetForm} />}>
             <Plus className="h-4 w-4" />
             Nuevo
           </Button>

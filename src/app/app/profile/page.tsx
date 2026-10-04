@@ -3,33 +3,29 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { PageHeader } from '@/components/layout/page-header';
-import { ErrorState } from '@/components/error-state';
-import { Skeleton } from '@/components/ui/skeleton';
-import { CURRENCIES } from '@/lib/formatters';
-import { useAuth } from '@/providers/auth-provider';
-import { useUserProfile } from '@/providers/profile-provider';
-import { avatarPublicUrl, saveUserProfile } from '@/services/profile';
-import { supabase } from '@/lib/supabase';
-import type { Currency } from '@/types/finance';
-
-const AVATAR_TYPES: Record<string, string> = {
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-};
+import { Button } from '@/shared/ui/button';
+import { Input } from '@/shared/ui/input';
+import { Label } from '@/shared/ui/label';
+import { PageHeader } from '@/shared/ui/layout/page-header';
+import { ErrorState } from '@/shared/ui/error-state';
+import { Skeleton } from '@/shared/ui/skeleton';
+import { CURRENCIES } from '@/shared/lib/formatters';
+import { useAuth } from '@/modules/auth/application/auth-provider';
+import { useUserProfile } from '@/modules/profile/application/use-user-profile';
+import { getAvatarUrl, saveUserProfile } from '@/modules/profile/application/profile.use-cases';
+import { profileQueries } from '@/modules/profile/application/profile.queries';
+import { AVATAR_EXTENSIONS } from '@/modules/profile/domain/avatar';
+import { Currency, DEFAULT_CURRENCY } from '@/shared/domain/currency.enum';
+import { AppRoute } from '@/shared/navigation/app-route.enum';
 
 export default function ProfilePage() {
   const { session } = useAuth();
   const profileQuery = useUserProfile();
   const queryClient = useQueryClient();
-  const googleName = session.user.user_metadata.full_name ?? session.user.user_metadata.name ?? '';
-  const googleAvatar = session.user.user_metadata.avatar_url ?? session.user.user_metadata.picture ?? '';
+  const googleName = session.user.providerName;
+  const googleAvatar = session.user.providerAvatarUrl;
   const [name, setName] = useState('');
-  const [currency, setCurrency] = useState<Currency>('COP');
+  const [currency, setCurrency] = useState<Currency>(DEFAULT_CURRENCY);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState('');
   const [removeAvatar, setRemoveAvatar] = useState(false);
@@ -41,50 +37,21 @@ export default function ProfilePage() {
 
   if (profileQuery.isSuccess && !loaded) {
     setLoaded(true);
-    setName(profileQuery.data?.display_name ?? googleName);
-    setCurrency(profileQuery.data?.default_currency ?? 'COP');
+    setName(profileQuery.data?.displayName ?? googleName);
+    setCurrency(profileQuery.data?.defaultCurrency ?? DEFAULT_CURRENCY);
   }
 
   const mutation = useMutation({
-    mutationFn: async () => {
-      const displayName = name.trim();
-      if (!displayName || displayName.length > 80) throw new Error('Escribe un nombre de hasta 80 caracteres');
-      const oldPath = profileQuery.data?.avatar_path ?? null;
-      let avatarPath = removeAvatar ? null : oldPath;
-      let uploadedPath: string | null = null;
-
-      if (avatarFile) {
-        const extension = AVATAR_TYPES[avatarFile.type];
-        if (!extension || avatarFile.size > 2 * 1024 * 1024) {
-          throw new Error('Usa una imagen JPG, PNG o WebP de máximo 2 MB');
-        }
-        uploadedPath = `${session.user.id}/${crypto.randomUUID()}.${extension}`;
-        const { error } = await supabase.storage.from('profile-avatars').upload(uploadedPath, avatarFile, {
-          contentType: avatarFile.type,
-          upsert: false,
-        });
-        if (error) throw new Error(error.message);
-        avatarPath = uploadedPath;
-      }
-
-      try {
-        const saved = await saveUserProfile({
-          id: session.user.id,
-          display_name: displayName,
-          avatar_path: avatarPath,
-          default_currency: currency,
-        });
-        if (oldPath && oldPath !== avatarPath) {
-          await supabase.storage.from('profile-avatars').remove([oldPath]);
-        }
-        return saved;
-      } catch (error) {
-        if (uploadedPath) await supabase.storage.from('profile-avatars').remove([uploadedPath]);
-        throw error;
-      }
-    },
+    mutationFn: () => saveUserProfile({
+      userId: session.user.id,
+      displayName: name,
+      defaultCurrency: currency,
+      currentAvatarPath: profileQuery.data?.avatarPath ?? null,
+      avatarFile,
+      removeAvatar,
+    }),
     onSuccess: async (saved) => {
-      queryClient.setQueryData(['user-profile', session.user.id], saved);
+      queryClient.setQueryData(profileQueries.detail(session.user.id).queryKey, saved);
       await queryClient.invalidateQueries();
       setAvatarFile(null);
       setAvatarPreview('');
@@ -98,12 +65,12 @@ export default function ProfilePage() {
   if (profileQuery.isError) return <div className="mx-auto max-w-2xl p-4"><ErrorState message={profileQuery.error.message} /></div>;
 
   const avatarUrl = avatarFile ? avatarPreview
-    : !removeAvatar && profileQuery.data?.avatar_path ? avatarPublicUrl(profileQuery.data.avatar_path)
+    : !removeAvatar && profileQuery.data?.avatarPath ? getAvatarUrl(profileQuery.data.avatarPath)
     : googleAvatar;
 
   return (
     <div className="mx-auto max-w-2xl p-4">
-      <PageHeader title="Perfil y configuración" backHref="/app" />
+      <PageHeader title="Perfil y configuración" backHref={AppRoute.Dashboard} />
       <form className="space-y-6 rounded-2xl border border-border bg-card p-5" onSubmit={(event) => {
         event.preventDefault();
         mutation.mutate();
@@ -120,13 +87,13 @@ export default function ProfilePage() {
           )}
           <div className="space-y-2">
             <Label htmlFor="avatar">Avatar</Label>
-            <Input id="avatar" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => {
+            <Input id="avatar" type="file" accept={Object.keys(AVATAR_EXTENSIONS).join(',')} onChange={(event) => {
               const file = event.target.files?.[0] ?? null;
               setAvatarFile(file);
               setAvatarPreview(file ? URL.createObjectURL(file) : '');
               setRemoveAvatar(false);
             }} />
-            {(profileQuery.data?.avatar_path || avatarFile) && (
+            {(profileQuery.data?.avatarPath || avatarFile) && (
               <button type="button" className="text-xs text-muted-foreground underline" onClick={() => { setAvatarFile(null); setAvatarPreview(''); setRemoveAvatar(true); }}>
                 Quitar avatar personalizado
               </button>

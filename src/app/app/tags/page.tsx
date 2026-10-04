@@ -5,15 +5,18 @@ import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { ConfirmDialog } from '@/components/confirm-dialog';
-import { EmptyState } from '@/components/empty-state';
-import { ErrorState } from '@/components/error-state';
-import { PageHeader } from '@/components/layout/page-header';
-import { TagBadge } from '@/components/finance/tag-badge';
-import { deleteTag, fetchTags } from '@/services/finance';
-import type { Tag } from '@/types/finance';
+import { Button } from '@/shared/ui/button';
+import { Skeleton } from '@/shared/ui/skeleton';
+import { ConfirmDialog } from '@/shared/ui/confirm-dialog';
+import { EmptyState } from '@/shared/ui/empty-state';
+import { ErrorState } from '@/shared/ui/error-state';
+import { PageHeader } from '@/shared/ui/layout/page-header';
+import { TagBadge } from '@/modules/tags/ui/tag-badge';
+import { deleteTag } from '@/modules/tags/application/tags.use-cases';
+import type { Tag } from '@/modules/tags/domain/tag.types';
+import { AppRoute } from '@/shared/navigation/app-route.enum';
+import { tagQueries } from '@/modules/tags/application/tags.queries';
+import { QueryKey } from '@/shared/query/query-key.enum';
 
 function TagList({ tags, onDelete }: { tags: Tag[]; onDelete?: (tag: Tag) => void }) {
   return (
@@ -47,14 +50,13 @@ export default function TagsPage() {
   const [deleteTarget, setDeleteTarget] = useState<Tag | null>(null);
 
   const tagsQuery = useQuery({
-    queryKey: ['tags'],
-    queryFn: fetchTags,
+    ...tagQueries.list(),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (tagId: string) => deleteTag(tagId),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['tags'] });
+      await queryClient.invalidateQueries({ queryKey: [QueryKey.Tags] });
       toast.success('Etiqueta eliminada');
     },
     onError: (error: Error) => toast.error(error.message),
@@ -69,7 +71,7 @@ export default function TagsPage() {
         title="Etiquetas"
         subtitle="Añade contexto a tus gastos e ingresos"
         action={
-          <Button nativeButton={false} render={<Link href="/app/tag-form" />}>
+          <Button nativeButton={false} render={<Link href={AppRoute.TagForm} />}>
             <Plus className="h-4 w-4" />
             Nueva
           </Button>

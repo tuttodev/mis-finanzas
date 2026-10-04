@@ -1,6 +1,6 @@
-import { AppShell } from '@/components/layout/app-shell';
-import { AuthProvider } from '@/providers/auth-provider';
-import { PrivacyProvider } from '@/providers/privacy-provider';
+import { AppShell } from '@/shared/ui/layout/app-shell';
+import { AuthProvider } from '@/modules/auth/application/auth-provider';
+import { PrivacyProvider } from '@/shared/providers/privacy-provider';
 
 export default function ApplicationLayout({ children }: { children: React.ReactNode }) {
   return (

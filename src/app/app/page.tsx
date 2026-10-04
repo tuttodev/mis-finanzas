@@ -3,21 +3,25 @@
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowDownRight, ArrowUpRight, Eye, EyeOff } from 'lucide-react';
-import { usePrivacy } from '@/providers/privacy-provider';
-import { Skeleton } from '@/components/ui/skeleton';
-import { ErrorState } from '@/components/error-state';
-import { EmptyState } from '@/components/empty-state';
-import { CashflowBars } from '@/components/charts/cashflow-bars';
-import { SpendArea } from '@/components/charts/spend-area';
-import { DonutChart, type DonutSlice } from '@/components/charts/donut-chart';
-import { CategoryBadge } from '@/components/finance/category-badge';
-import { TransferBadge } from '@/components/finance/transfer-badge';
-import { RefundBadge } from '@/components/finance/refund-badge';
-import { PlanningBadge } from '@/components/finance/planning-badge';
-import { TagBadge } from '@/components/finance/tag-badge';
-import { formatCurrency, formatShortDate } from '@/lib/formatters';
-import { fetchBudgetProgressList, fetchDashboardData } from '@/services/finance';
-import { useDefaultCurrency } from '@/providers/profile-provider';
+import { usePrivacy } from '@/shared/providers/privacy-provider';
+import { Skeleton } from '@/shared/ui/skeleton';
+import { ErrorState } from '@/shared/ui/error-state';
+import { EmptyState } from '@/shared/ui/empty-state';
+import { CashflowBars } from '@/shared/ui/charts/cashflow-bars';
+import { SpendArea } from '@/shared/ui/charts/spend-area';
+import { DonutChart, type DonutSlice } from '@/shared/ui/charts/donut-chart';
+import { CategoryBadge } from '@/modules/categories/ui/category-badge';
+import { TransferBadge } from '@/modules/transactions/ui/transfer-badge';
+import { RefundBadge } from '@/modules/transactions/ui/refund-badge';
+import { PlanningBadge } from '@/modules/transactions/ui/planning-badge';
+import { TagBadge } from '@/modules/tags/ui/tag-badge';
+import { formatCurrency, formatShortDate } from '@/shared/lib/formatters';
+import { useDefaultCurrency } from '@/modules/profile/application/use-user-profile';
+import { AppRoute } from '@/shared/navigation/app-route.enum';
+import { appRoutes } from '@/shared/navigation/app-routes';
+import { dashboardQueries } from '@/modules/dashboard/application/dashboard.queries';
+import { budgetQueries } from '@/modules/budgets/application/budgets.queries';
+import { TransactionKind } from '@/modules/transactions/domain/transaction-kind.enum';
 
 const CHART_COLORS = [
   'var(--chart-1)',
@@ -36,14 +40,12 @@ const todayFormatter = new Intl.DateTimeFormat('es-CO', {
 export default function DashboardPage() {
   const { currency, isLoading: profileLoading, isError: profileError } = useDefaultCurrency();
   const dashboardQuery = useQuery({
-    queryKey: ['dashboard', currency],
-    queryFn: () => fetchDashboardData(currency),
+    ...dashboardQueries.summary(currency),
     enabled: !profileLoading && !profileError,
   });
 
   const budgetsQuery = useQuery({
-    queryKey: ['budgets', currency],
-    queryFn: () => fetchBudgetProgressList(currency),
+    ...budgetQueries.progress(currency),
     enabled: !profileLoading && !profileError,
   });
 
@@ -192,7 +194,7 @@ export default function DashboardPage() {
         ) : (
           <p className="py-6 text-center text-sm text-muted-foreground">
             Aún no hay gastos asignados a presupuestos.{' '}
-            <Link href="/app/budgets" className="text-primary underline-offset-2 hover:underline">
+            <Link href={AppRoute.Budgets} className="text-primary underline-offset-2 hover:underline">
               Ver presupuestos
             </Link>
           </p>
@@ -204,7 +206,7 @@ export default function DashboardPage() {
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-semibold">Movimientos recientes</h2>
           <Link
-            href="/app/accounts"
+            href={AppRoute.Accounts}
             className="text-xs font-medium text-primary underline-offset-2 hover:underline"
           >
             Ver cuentas
@@ -215,7 +217,7 @@ export default function DashboardPage() {
             {data.recentTransactions.map((tx) => (
               <Link
                 key={tx.id}
-                href={tx.transferId ? `/app/account/${tx.accountId}` : `/app/transaction/${tx.id}/edit`}
+                href={tx.transferId ? appRoutes.account(tx.accountId) : appRoutes.editTransaction(tx.id)}
                 aria-label={
                   tx.transferId ? `Ver cuenta de ${tx.description}` : `Editar ${tx.description}`
                 }
@@ -228,7 +230,7 @@ export default function DashboardPage() {
                     {tx.tags.map((tag) => <TagBadge key={tag.id} name={tag.name} />)}
                     {!tx.transferId && <PlanningBadge isPlanned={tx.isPlanned} />}
                     {tx.transferId && <TransferBadge />}
-                    {tx.kind === 'refund' && <RefundBadge />}
+                    {tx.kind === TransactionKind.Refund && <RefundBadge />}
                     <span>
                       {tx.accountName} · {formatShortDate(tx.date)}
                     </span>

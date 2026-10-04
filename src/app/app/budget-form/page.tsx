@@ -4,17 +4,20 @@ import { Suspense, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { CurrencyInput } from '@/components/ui/currency-input';
-import { DatePicker } from '@/components/ui/date-picker';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { PageHeader } from '@/components/layout/page-header';
-import { ErrorState } from '@/components/error-state';
-import { formatCurrencyInput, parseCurrencyInput, todayIsoDate } from '@/lib/formatters';
-import { useDefaultCurrency } from '@/providers/profile-provider';
-import { createBudget, fetchBudgetProgressList, updateBudget } from '@/services/finance';
-import { captureAnalytics } from '@/lib/analytics';
+import { Button } from '@/shared/ui/button';
+import { CurrencyInput } from '@/shared/ui/currency-input';
+import { DatePicker } from '@/shared/ui/date-picker';
+import { Input } from '@/shared/ui/input';
+import { Label } from '@/shared/ui/label';
+import { PageHeader } from '@/shared/ui/layout/page-header';
+import { ErrorState } from '@/shared/ui/error-state';
+import { formatCurrencyInput, parseCurrencyInput, todayIsoDate } from '@/shared/lib/formatters';
+import { useDefaultCurrency } from '@/modules/profile/application/use-user-profile';
+import { createBudget, updateBudget } from '@/modules/budgets/application/budgets.use-cases';
+import { captureAnalytics } from '@/shared/analytics/analytics';
+import { AnalyticsEvent } from '@/shared/analytics/analytics-event.enum';
+import { AppRoute } from '@/shared/navigation/app-route.enum';
+import { budgetQueries } from '@/modules/budgets/application/budgets.queries';
 
 function BudgetForm() {
   const router = useRouter();
@@ -24,8 +27,7 @@ function BudgetForm() {
   const { currency: defaultCurrency, isLoading: profileLoading, isError: profileError } = useDefaultCurrency();
 
   const budgetsQuery = useQuery({
-    queryKey: ['budgets', 'all'],
-    queryFn: () => fetchBudgetProgressList(),
+    ...budgetQueries.progress(),
   });
 
   const existingBudget = useMemo(
@@ -66,7 +68,7 @@ function BudgetForm() {
       }
     },
     onSuccess: async () => {
-      captureAnalytics(id ? 'budget_updated' : 'budget_created');
+      captureAnalytics(id ? AnalyticsEvent.BudgetUpdated : AnalyticsEvent.BudgetCreated);
       await queryClient.invalidateQueries();
       toast.success(id ? 'Presupuesto actualizado' : 'Presupuesto creado');
       router.back();
@@ -82,7 +84,7 @@ function BudgetForm() {
     <div className="mx-auto max-w-2xl p-4">
       <PageHeader
         title={id ? 'Editar presupuesto' : 'Nuevo presupuesto'}
-        backHref="/app/budgets"
+        backHref={AppRoute.Budgets}
       />
 
       <div className="rounded-2xl border border-border bg-card p-5">

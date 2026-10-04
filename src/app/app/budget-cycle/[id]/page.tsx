@@ -2,13 +2,15 @@
 
 import { use } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Skeleton } from '@/components/ui/skeleton';
-import { BudgetMovementRow } from '@/components/finance/budget-movement-row';
-import { EmptyState } from '@/components/empty-state';
-import { ErrorState } from '@/components/error-state';
-import { PageHeader } from '@/components/layout/page-header';
-import { formatCurrency, formatPercent, formatShortDate } from '@/lib/formatters';
-import { fetchBudgetSnapshotDetail } from '@/services/finance';
+import { Skeleton } from '@/shared/ui/skeleton';
+import { BudgetMovementRow } from '@/modules/budgets/ui/budget-movement-row';
+import { EmptyState } from '@/shared/ui/empty-state';
+import { ErrorState } from '@/shared/ui/error-state';
+import { PageHeader } from '@/shared/ui/layout/page-header';
+import { formatCurrency, formatPercent, formatShortDate } from '@/shared/lib/formatters';
+import { AppRoute } from '@/shared/navigation/app-route.enum';
+import { appRoutes } from '@/shared/navigation/app-routes';
+import { budgetQueries } from '@/modules/budgets/application/budgets.queries';
 
 export default function BudgetCycleDetailPage({
   params,
@@ -18,8 +20,7 @@ export default function BudgetCycleDetailPage({
   const { id } = use(params);
 
   const detailQuery = useQuery({
-    queryKey: ['budget-cycle', id],
-    queryFn: () => fetchBudgetSnapshotDetail(id),
+    ...budgetQueries.snapshot(id),
     enabled: Boolean(id),
   });
 
@@ -48,7 +49,7 @@ export default function BudgetCycleDetailPage({
       <PageHeader
         title="Ciclo cerrado"
         subtitle={`${formatShortDate(snapshot.startedAt)} – ${formatShortDate(snapshot.endedAt)}`}
-        backHref="/app/budgets"
+        backHref={AppRoute.Budgets}
       />
 
       <div className="space-y-4">
@@ -86,7 +87,7 @@ export default function BudgetCycleDetailPage({
                     currency={currency}
                     key={movement.id}
                     movement={movement}
-                    href={`/app/transaction/${movement.id}/edit`}
+                    href={appRoutes.editTransaction(movement.id)}
                   />
                 ))}
               </div>

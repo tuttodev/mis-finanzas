@@ -1,0 +1,27 @@
+import { AccountType } from './account-type.enum';
+
+type BalanceTransaction = {
+  amount: number;
+};
+
+function toCents(amount: number) {
+  return Math.round(Number(amount) * 100);
+}
+
+/**
+ * Calculates an account balance from signed transaction amounts.
+ * Income and refunds are positive; expenses are negative.
+ */
+export function calculateAccountBalance(transactions: BalanceTransaction[]) {
+  const totalCents = transactions.reduce(
+    (total, transaction) => total + toCents(transaction.amount),
+    0,
+  );
+
+  return totalCents / 100;
+}
+
+/** Outstanding debt of a credit account; other account types never carry debt. */
+export function calculateDebtAmount(type: AccountType, currentBalance: number, creditLimit = 0) {
+  return type === AccountType.Credit ? Math.max(0, creditLimit - currentBalance) : 0;
+}

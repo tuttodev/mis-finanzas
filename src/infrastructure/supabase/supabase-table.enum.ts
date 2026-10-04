@@ -1,0 +1,17 @@
+export enum SupabaseTable {
+  Accounts = 'accounts',
+  AccountBalances = 'account_balances',
+  BudgetCycles = 'budget_cycles',
+  Budgets = 'budgets',
+  Categories = 'categories',
+  Feedback = 'feedback',
+  MonthlyPlans = 'monthly_plans',
+  PayrollDocuments = 'payroll_documents',
+  PlanItemTags = 'plan_item_tags',
+  PlanItems = 'plan_items',
+  PlanSections = 'plan_sections',
+  Tags = 'tags',
+  TransactionTags = 'transaction_tags',
+  Transactions = 'transactions',
+  UserProfiles = 'user_profiles',
+}

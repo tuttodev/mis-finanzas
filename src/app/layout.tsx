@@ -2,11 +2,13 @@ import type { Metadata, Viewport } from "next";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { Geist, Geist_Mono, Sora } from "next/font/google";
 import { Toaster } from "sonner";
-import { QueryProvider } from "@/providers/query-provider";
-import { ServiceWorkerRegister } from "@/components/pwa/sw-register";
-import { PageViewTracker } from "@/components/analytics/page-view-tracker";
-import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
+import { QueryProvider } from "@/shared/providers/query-provider";
+import { ServiceWorkerRegister } from "@/shared/pwa/sw-register";
+import { PageViewTracker } from "@/shared/analytics/page-view-tracker";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/shared/config/site";
 import "./globals.css";
+import { Currency } from '@/shared/domain/currency.enum';
+import { AppRoute } from '@/shared/navigation/app-route.enum';
 
 const geistSans = Geist({
   variable: "--font-sans",
@@ -41,7 +43,7 @@ export const metadata: Metadata = {
     'presupuesto familiar',
   ],
   alternates: {
-    canonical: '/',
+    canonical: AppRoute.Home,
   },
   category: 'finance',
   openGraph: {
@@ -50,7 +52,7 @@ export const metadata: Metadata = {
     siteName: SITE_NAME,
     title: `${SITE_NAME} | Finanzas claras para tu familia`,
     description: SITE_DESCRIPTION,
-    url: '/',
+    url: AppRoute.Home,
   },
   twitter: {
     card: 'summary_large_image',
@@ -90,7 +92,7 @@ export default function RootLayout({
     offers: {
       '@type': 'Offer',
       price: '0',
-      priceCurrency: 'COP',
+      priceCurrency: Currency.COP,
     },
   };
 
