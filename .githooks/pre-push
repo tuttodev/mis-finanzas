@@ -1,0 +1,5 @@
+#!/bin/sh
+# Harness: no push may break the production build.
+set -e
+echo "[harness] npm run build"
+npm run build
