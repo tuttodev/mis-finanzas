@@ -7,6 +7,7 @@ import {
   dashboardRangeStart,
 } from '../domain/dashboard-summary';
 import type { DashboardData } from '../domain/dashboard.types';
+import { compareCategorySpending } from '../domain/category-spending-comparison';
 
 export async function getDashboard(currency: Currency = DEFAULT_CURRENCY): Promise<DashboardData> {
   const now = new Date();
@@ -19,11 +20,15 @@ export async function getDashboard(currency: Currency = DEFAULT_CURRENCY): Promi
   const recent = transactions.slice(0, DASHBOARD_RECENT_TRANSACTIONS);
   const tags = await repositories.transactions.getTagsByTransaction(recent.map((transaction) => transaction.id));
 
-  return buildDashboardSummary({
-    accounts,
-    transactions,
-    recentTransactions: recent.map((transaction) => ({ ...transaction, tags: tags.get(transaction.id) ?? [] })),
-    currency,
-    now,
-  });
+  return {
+    ...buildDashboardSummary({
+      accounts,
+      transactions,
+      recentTransactions: recent.map((transaction) => ({ ...transaction, tags: tags.get(transaction.id) ?? [] })),
+      currency,
+      now,
+    }),
+    // The dashboard query already covers the previous calendar month, so no extra request is needed.
+    categoryComparison: compareCategorySpending({ transactions, accounts, currency, now }),
+  };
 }

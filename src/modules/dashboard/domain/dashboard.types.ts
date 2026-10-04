@@ -1,5 +1,6 @@
 import type { TransactionWithAccount } from '@/modules/transactions/domain/transaction.types';
 import type { Currency } from '@/shared/domain/currency.enum';
+import type { CategorySpendingComparison } from './category-spending-comparison';
 
 export type MonthlyCashflow = {
   label: string;
@@ -25,4 +26,6 @@ export type DashboardData = {
   dailySpend: DailySpend[];
   categorySpending: CategorySpending[];
   recentTransactions: TransactionWithAccount[];
+  /** Net spending per category, current month vs. previous month. */
+  categoryComparison: CategorySpendingComparison;
 };

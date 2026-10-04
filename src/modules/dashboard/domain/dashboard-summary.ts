@@ -32,7 +32,7 @@ export function buildDashboardSummary(params: {
   recentTransactions: Transaction[];
   currency: Currency;
   now: Date;
-}): DashboardData {
+}): Omit<DashboardData, 'categoryComparison'> {
   const { accounts, transactions, recentTransactions, currency, now } = params;
   const accountsById = new Map(accounts.map((account) => [account.id, account]));
 

@@ -1,6 +1,6 @@
 # 001 · Comparación mensual de gastos por categoría
 
-Estado: en desarrollo · Pruebas: `src/modules/dashboard/domain/__tests__/category-spending-comparison.test.ts`
+Estado: implementada · Pruebas: `src/modules/dashboard/domain/__tests__/category-spending-comparison.test.ts`
 
 ## Objetivo
 
@@ -16,7 +16,7 @@ En el dashboard, la persona ve cuánto gastó en cada categoría en el mes actua
 ## Comportamiento visible
 
 - Una sección "Gastos por categoría: este mes vs. el anterior" en el dashboard, debajo de la dona de gasto por categoría.
-- El subtítulo muestra los dos meses (por ejemplo, "oct 2026 vs. sept 2026") y la moneda seleccionada.
+- El subtítulo muestra los dos meses (por ejemplo, "oct de 2026 vs. sept de 2026") y la moneda seleccionada.
 - El mes actual va del día 1 a hoy; el mes anterior es el mes calendario completo.
 - Cada fila muestra la categoría, el gasto neto del mes actual, el del mes anterior y la diferencia (actual − anterior). Una diferencia positiva es más gasto y se muestra en el color de gastos; una negativa es ahorro y se muestra en el color de ingresos.
 - Debajo de la diferencia se muestra el cambio porcentual frente al mes anterior solo si el gasto del mes anterior fue positivo; si no, el texto "Sin porcentaje: el mes anterior no tuvo gasto positivo".

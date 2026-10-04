@@ -22,6 +22,7 @@ import { appRoutes } from '@/shared/navigation/app-routes';
 import { dashboardQueries } from '@/modules/dashboard/application/dashboard.queries';
 import { budgetQueries } from '@/modules/budgets/application/budgets.queries';
 import { TransactionKind } from '@/modules/transactions/domain/transaction-kind.enum';
+import { CategorySpendingComparison } from '@/modules/dashboard/ui/category-spending-comparison';
 
 const CHART_COLORS = [
   'var(--chart-1)',
@@ -184,6 +185,13 @@ export default function DashboardPage() {
           </p>
         )}
       </section>
+
+      {/* Spending by category, current month vs. previous month */}
+      <CategorySpendingComparison
+        comparison={data.categoryComparison}
+        currency={currency}
+        hidden={hidden}
+      />
 
       {/* Spending by budget */}
       <section className="rounded-2xl border border-border bg-card p-5">
