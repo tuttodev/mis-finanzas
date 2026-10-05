@@ -187,11 +187,9 @@ export default function DashboardPage() {
       </section>
 
       {/* Spending by category, current month vs. previous month */}
-      <CategorySpendingComparison
-        comparison={data.categoryComparison}
-        currency={currency}
-        hidden={hidden}
-      />
+      {data.categoryComparisons.map((comparison) => (
+        <CategorySpendingComparison key={comparison.currency} comparison={comparison} hidden={hidden} />
+      ))}
 
       {/* Spending by budget */}
       <section className="rounded-2xl border border-border bg-card p-5">

@@ -7,7 +7,7 @@ import {
   dashboardRangeStart,
 } from '../domain/dashboard-summary';
 import type { DashboardData } from '../domain/dashboard.types';
-import { compareCategorySpending } from '../domain/category-spending-comparison';
+import { compareCategorySpendingByCurrency } from '../domain/category-spending-comparison';
 
 export async function getDashboard(currency: Currency = DEFAULT_CURRENCY): Promise<DashboardData> {
   const now = new Date();
@@ -29,6 +29,6 @@ export async function getDashboard(currency: Currency = DEFAULT_CURRENCY): Promi
       now,
     }),
     // The dashboard query already covers the previous calendar month, so no extra request is needed.
-    categoryComparison: compareCategorySpending({ transactions, accounts, currency, now }),
+    categoryComparisons: compareCategorySpendingByCurrency({ transactions, accounts, primaryCurrency: currency, now }),
   };
 }

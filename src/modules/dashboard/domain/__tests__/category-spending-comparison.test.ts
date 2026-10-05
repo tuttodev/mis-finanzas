@@ -5,7 +5,7 @@ import type { Account } from '@/modules/accounts/domain/account.types';
 import { TransactionKind } from '@/modules/transactions/domain/transaction-kind.enum';
 import type { Transaction } from '@/modules/transactions/domain/transaction.types';
 import { Currency } from '@/shared/domain/currency.enum';
-import { compareCategorySpending } from '../category-spending-comparison';
+import { compareCategorySpending, compareCategorySpendingByCurrency } from '../category-spending-comparison';
 
 const accounts: Account[] = [
   { id: 'cop', name: 'Ahorros', type: AccountType.Savings, currency: Currency.COP, currentBalance: 0, debtAmount: 0 },
@@ -150,4 +150,38 @@ test('rows are ordered by current spending, then previous spending, then name', 
 test('amounts with cents are added without floating point drift', () => {
   const result = compare([tx('2026-10-01', -0.1), tx('2026-10-02', -0.2)]);
   assert.equal(result.rows[0].currentAmount, 0.3);
+});
+
+test('AC-8: builds one comparison per currency, default currency first, without mixing amounts', () => {
+  const housing = { categoryId: 'housing', categoryName: 'Vivienda', categorySlug: 'housing' };
+  const comparisons = compareCategorySpendingByCurrency({
+    transactions: [
+      tx('2026-10-01', -1_500_000, housing),
+      tx('2026-10-02', -300, { ...housing, accountId: 'usd' }),
+    ],
+    accounts,
+    primaryCurrency: Currency.COP,
+    now: OCTOBER_15,
+  });
+
+  assert.deepEqual(comparisons.map((comparison) => comparison.currency), [Currency.COP, Currency.USD]);
+  assert.deepEqual(comparisons.map((comparison) => comparison.rows[0].currentAmount), [1_500_000, 300]);
+});
+
+test('AC-8: the default currency is always shown and currencies without spending are omitted', () => {
+  const comparisons = compareCategorySpendingByCurrency({
+    transactions: [tx('2026-10-02', -300, { accountId: 'usd' })],
+    accounts,
+    primaryCurrency: Currency.USD,
+    now: OCTOBER_15,
+  });
+  assert.deepEqual(comparisons.map((comparison) => comparison.currency), [Currency.USD]);
+
+  const empty = compareCategorySpendingByCurrency({
+    transactions: [],
+    accounts,
+    primaryCurrency: Currency.COP,
+    now: OCTOBER_15,
+  });
+  assert.deepEqual(empty.map((comparison) => [comparison.currency, comparison.rows.length]), [[Currency.COP, 0]]);
 });

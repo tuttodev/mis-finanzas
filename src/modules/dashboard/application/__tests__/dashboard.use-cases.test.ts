@@ -21,9 +21,9 @@ test('the dashboard includes the category comparison for the selected currency',
 
   const dashboard = await getDashboard(Currency.COP);
 
-  assert.equal(dashboard.categoryComparison.rows.length, 1);
+  assert.equal(dashboard.categoryComparisons[0].rows.length, 1);
   assert.deepEqual(
-    [dashboard.categoryComparison.rows[0].currentAmount, dashboard.categoryComparison.rows[0].previousAmount],
+    [dashboard.categoryComparisons[0].rows[0].currentAmount, dashboard.categoryComparisons[0].rows[0].previousAmount],
     [200_000, 100_000],
   );
 });

@@ -1,7 +1,7 @@
 import type { Account } from '@/modules/accounts/domain/account.types';
 import { TransactionKind } from '@/modules/transactions/domain/transaction-kind.enum';
 import type { Transaction } from '@/modules/transactions/domain/transaction.types';
-import type { Currency } from '@/shared/domain/currency.enum';
+import { Currency } from '@/shared/domain/currency.enum';
 import { toIsoDate } from '@/shared/lib/formatters';
 
 const UNCATEGORIZED_LABEL = 'Sin categoría';
@@ -20,6 +20,7 @@ export type CategorySpendingComparisonRow = {
 };
 
 export type CategorySpendingComparison = {
+  currency: Currency;
   /** YYYY-MM of the current month (month to date). */
   currentMonth: string;
   /** YYYY-MM of the whole previous calendar month. */
@@ -106,5 +107,27 @@ export function compareCategorySpending(params: {
       a.categoryName.localeCompare(b.categoryName),
     );
 
-  return { currentMonth, previousMonth, rows };
+  return { currency, currentMonth, previousMonth, rows };
+}
+
+/**
+ * One comparison per currency, never mixing amounts: the primary currency first
+ * (always, even when empty), then every other currency with category spending in
+ * either month, in `Currency` order.
+ */
+export function compareCategorySpendingByCurrency(params: {
+  transactions: Transaction[];
+  accounts: Account[];
+  primaryCurrency: Currency;
+  now: Date;
+}): CategorySpendingComparison[] {
+  const { primaryCurrency, ...rest } = params;
+  const others = Object.values(Currency).filter((currency) => currency !== primaryCurrency);
+
+  return [
+    compareCategorySpending({ ...rest, currency: primaryCurrency }),
+    ...others
+      .map((currency) => compareCategorySpending({ ...rest, currency }))
+      .filter((comparison) => comparison.rows.length > 0),
+  ];
 }

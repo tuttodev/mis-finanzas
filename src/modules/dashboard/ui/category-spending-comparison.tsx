@@ -1,4 +1,3 @@
-import type { Currency } from '@/shared/domain/currency.enum';
 import { formatCurrency } from '@/shared/lib/formatters';
 import type { CategorySpendingComparison as Comparison } from '../domain/category-spending-comparison';
 
@@ -23,11 +22,11 @@ function differenceClass(difference: number) {
 
 type Props = {
   comparison: Comparison;
-  currency: Currency;
   hidden: boolean;
 };
 
-export function CategorySpendingComparison({ comparison, currency, hidden }: Props) {
+export function CategorySpendingComparison({ comparison, hidden }: Props) {
+  const { currency } = comparison;
   const money = (value: number) => (hidden ? HIDDEN_VALUE : formatCurrency(value, currency));
 
   return (
