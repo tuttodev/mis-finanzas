@@ -1,5 +1,8 @@
 import { formatCurrency } from '@/shared/lib/formatters';
-import type { CategorySpendingComparison as Comparison } from '../domain/category-spending-comparison';
+import type {
+  CategoryCurrencySpending,
+  CategorySpendingComparison as Comparison,
+} from '../domain/category-spending-comparison';
 
 const HIDDEN_VALUE = '••••••';
 
@@ -25,15 +28,59 @@ type Props = {
   hidden: boolean;
 };
 
-export function CategorySpendingComparison({ comparison, hidden }: Props) {
-  const { currency } = comparison;
+function CurrencyLine({
+  spending,
+  hidden,
+  showCurrency,
+}: {
+  spending: CategoryCurrencySpending;
+  hidden: boolean;
+  showCurrency: boolean;
+}) {
+  const { currency } = spending;
   const money = (value: number) => (hidden ? HIDDEN_VALUE : formatCurrency(value, currency));
+
+  return (
+    <div className="border-t border-border/60 pt-2 first:border-t-0 first:pt-0">
+      {showCurrency && (
+        <p className="mb-1 text-[11px] font-semibold tracking-wide text-muted-foreground">{currency}</p>
+      )}
+      <dl className="grid grid-cols-3 gap-2 text-xs">
+        <div className="min-w-0">
+          <dt className="text-muted-foreground">Este mes</dt>
+          <dd className="tabular break-words font-semibold">{money(spending.currentAmount)}</dd>
+        </div>
+        <div className="min-w-0">
+          <dt className="text-muted-foreground">Mes anterior</dt>
+          <dd className="tabular break-words font-semibold">{money(spending.previousAmount)}</dd>
+        </div>
+        <div className="min-w-0">
+          <dt className="text-muted-foreground">Diferencia</dt>
+          <dd className={`tabular break-words font-semibold ${hidden ? '' : differenceClass(spending.difference)}`}>
+            {hidden ? HIDDEN_VALUE : `${spending.difference > 0 ? '+' : ''}${formatCurrency(spending.difference, currency)}`}
+          </dd>
+        </div>
+      </dl>
+      {!hidden && (
+        <p className="mt-1 text-xs text-muted-foreground">
+          {spending.percentChange === null
+            ? 'Sin porcentaje: el mes anterior no tuvo gasto positivo'
+            : `${percentFormatter.format(spending.percentChange)} % vs. el mes anterior`}
+        </p>
+      )}
+    </div>
+  );
+}
+
+export function CategorySpendingComparison({ comparison, hidden }: Props) {
+  const showCurrency = comparison.currencies.length > 1;
 
   return (
     <section className="rounded-2xl border border-border bg-card p-5">
       <h2 className="text-base font-semibold">Gastos por categoría: este mes vs. el anterior</h2>
       <p className="mb-3 text-xs text-muted-foreground">
-        {formatMonth(comparison.currentMonth)} vs. {formatMonth(comparison.previousMonth)} · {currency}
+        {formatMonth(comparison.currentMonth)} vs. {formatMonth(comparison.previousMonth)} ·{' '}
+        {comparison.currencies.join(' · ')}
       </p>
 
       {comparison.rows.length === 0 ? (
@@ -45,29 +92,16 @@ export function CategorySpendingComparison({ comparison, hidden }: Props) {
           {comparison.rows.map((row) => (
             <li key={row.categoryId ?? row.categoryName} className="rounded-xl bg-secondary/60 p-3">
               <h3 className="mb-2 text-sm font-medium">{row.categoryName}</h3>
-              <dl className="grid grid-cols-3 gap-2 text-xs">
-                <div className="min-w-0">
-                  <dt className="text-muted-foreground">Este mes</dt>
-                  <dd className="tabular break-words font-semibold">{money(row.currentAmount)}</dd>
-                </div>
-                <div className="min-w-0">
-                  <dt className="text-muted-foreground">Mes anterior</dt>
-                  <dd className="tabular break-words font-semibold">{money(row.previousAmount)}</dd>
-                </div>
-                <div className="min-w-0">
-                  <dt className="text-muted-foreground">Diferencia</dt>
-                  <dd className={`tabular break-words font-semibold ${hidden ? '' : differenceClass(row.difference)}`}>
-                    {hidden ? HIDDEN_VALUE : `${row.difference > 0 ? '+' : ''}${formatCurrency(row.difference, currency)}`}
-                  </dd>
-                </div>
-              </dl>
-              {!hidden && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {row.percentChange === null
-                    ? 'Sin porcentaje: el mes anterior no tuvo gasto positivo'
-                    : `${percentFormatter.format(row.percentChange)} % vs. el mes anterior`}
-                </p>
-              )}
+              <div className="space-y-2">
+                {row.amounts.map((spending) => (
+                  <CurrencyLine
+                    key={spending.currency}
+                    spending={spending}
+                    hidden={hidden}
+                    showCurrency={showCurrency}
+                  />
+                ))}
+              </div>
             </li>
           ))}
         </ul>

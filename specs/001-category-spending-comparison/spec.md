@@ -1,6 +1,6 @@
 # 001 · Comparación mensual de gastos por categoría
 
-Estado: en desarrollo · Pruebas: `src/modules/dashboard/domain/__tests__/category-spending-comparison.test.ts`
+Estado: implementada · Pruebas: `src/modules/dashboard/domain/__tests__/category-spending-comparison.test.ts`
 
 ## Objetivo
 

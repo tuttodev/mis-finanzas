@@ -5,7 +5,7 @@ import type { Account } from '@/modules/accounts/domain/account.types';
 import { TransactionKind } from '@/modules/transactions/domain/transaction-kind.enum';
 import type { Transaction } from '@/modules/transactions/domain/transaction.types';
 import { Currency } from '@/shared/domain/currency.enum';
-import { compareCategorySpending, compareCategorySpendingByCurrency } from '../category-spending-comparison';
+import { compareCategorySpending } from '../category-spending-comparison';
 
 const accounts: Account[] = [
   { id: 'cop', name: 'Ahorros', type: AccountType.Savings, currency: Currency.COP, currentBalance: 0, debtAmount: 0 },
@@ -34,8 +34,23 @@ function tx(date: string, amount: number, overrides: Partial<Transaction> = {}):
   };
 }
 
+/** Flattens each row to its COP line so the single-currency rules read simply. */
 function compare(transactions: Transaction[], now = OCTOBER_15) {
-  return compareCategorySpending({ transactions, accounts, currency: Currency.COP, now });
+  const result = compareCategorySpending({ transactions, accounts, primaryCurrency: Currency.COP, now });
+  return {
+    ...result,
+    rows: result.rows.flatMap(({ categoryId, categoryName, amounts }) =>
+      amounts
+        .filter((amount) => amount.currency === Currency.COP)
+        .map((amount) => ({
+          categoryId,
+          categoryName,
+          currentAmount: amount.currentAmount,
+          previousAmount: amount.previousAmount,
+          difference: amount.difference,
+          percentChange: amount.percentChange,
+        }))),
+  };
 }
 
 const refund = { kind: TransactionKind.Refund };
@@ -152,36 +167,49 @@ test('amounts with cents are added without floating point drift', () => {
   assert.equal(result.rows[0].currentAmount, 0.3);
 });
 
-test('AC-8: builds one comparison per currency, default currency first, without mixing amounts', () => {
-  const housing = { categoryId: 'housing', categoryName: 'Vivienda', categorySlug: 'housing' };
-  const comparisons = compareCategorySpendingByCurrency({
+const housing = { categoryId: 'housing', categoryName: 'Vivienda', categorySlug: 'housing' };
+
+test('AC-8: one row per category with a line per currency, default currency first, never mixed', () => {
+  const result = compareCategorySpending({
     transactions: [
       tx('2026-10-01', -1_500_000, housing),
       tx('2026-10-02', -300, { ...housing, accountId: 'usd' }),
+      tx('2026-10-03', -50_000),
     ],
     accounts,
     primaryCurrency: Currency.COP,
     now: OCTOBER_15,
   });
 
-  assert.deepEqual(comparisons.map((comparison) => comparison.currency), [Currency.COP, Currency.USD]);
-  assert.deepEqual(comparisons.map((comparison) => comparison.rows[0].currentAmount), [1_500_000, 300]);
+  assert.deepEqual(result.currencies, [Currency.COP, Currency.USD]);
+  assert.deepEqual(
+    result.rows.map((row) => [row.categoryName, row.amounts.map((amount) => [amount.currency, amount.currentAmount])]),
+    [
+      ['Vivienda', [[Currency.COP, 1_500_000], [Currency.USD, 300]]],
+      ['Comida', [[Currency.COP, 50_000]]],
+    ],
+  );
 });
 
-test('AC-8: the default currency is always shown and currencies without spending are omitted', () => {
-  const comparisons = compareCategorySpendingByCurrency({
-    transactions: [tx('2026-10-02', -300, { accountId: 'usd' })],
-    accounts,
-    primaryCurrency: Currency.USD,
-    now: OCTOBER_15,
-  });
-  assert.deepEqual(comparisons.map((comparison) => comparison.currency), [Currency.USD]);
-
-  const empty = compareCategorySpendingByCurrency({
-    transactions: [],
+test('AC-8: a category with spending only in another currency still appears, with just that line', () => {
+  const result = compareCategorySpending({
+    transactions: [tx('2026-09-20', -40, { ...housing, accountId: 'usd' })],
     accounts,
     primaryCurrency: Currency.COP,
     now: OCTOBER_15,
   });
-  assert.deepEqual(empty.map((comparison) => [comparison.currency, comparison.rows.length]), [[Currency.COP, 0]]);
+
+  assert.deepEqual(result.currencies, [Currency.COP, Currency.USD]);
+  assert.deepEqual(result.rows[0].amounts, [{
+    currency: Currency.USD,
+    currentAmount: 0,
+    previousAmount: 40,
+    difference: -40,
+    percentChange: -100,
+  }]);
+});
+
+test('AC-8: with a single currency only the default currency is listed', () => {
+  const result = compareCategorySpending({ transactions: [], accounts, primaryCurrency: Currency.COP, now: OCTOBER_15 });
+  assert.deepEqual([result.currencies, result.rows], [[Currency.COP], []]);
 });

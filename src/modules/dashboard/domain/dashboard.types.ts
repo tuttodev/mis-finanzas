@@ -27,5 +27,5 @@ export type DashboardData = {
   categorySpending: CategorySpending[];
   recentTransactions: TransactionWithAccount[];
   /** Net spending per category, current month vs. previous month, one entry per currency. */
-  categoryComparisons: CategorySpendingComparison[];
+  categoryComparison: CategorySpendingComparison;
 };
